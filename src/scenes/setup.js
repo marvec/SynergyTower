@@ -47,7 +47,7 @@ export class SetupScene {
     SKIN_TONES.forEach((s, i) => b.add({ x: 20 + i * 22, y: 176, w: 18, h: 14, label: '', color: s, onClick: () => (this.skin = i) }));
     HAIR_COLORS.forEach((h, i) => b.add({ x: 120 + i * 18, y: 176, w: 14, h: 14, label: '', color: h, onClick: () => (this.hair = i) }));
     ['A', 'B', 'C', 'D'].forEach((l, i) => b.add({ x: 20 + i * 24, y: 206, w: 20, h: 14, label: l, color: C.panelLight, onClick: () => (this.hairStyle = i) }));
-    b.add({ x: 270, y: 224, w: 180, h: 22, label: 'Start my career  →', color: C.good, textColor: '#10240f', onClick: () => this.start() });
+    b.add({ x: 270, y: 224, w: 180, h: 22, label: 'Start my career  →', color: C.goodBtn, onClick: () => this.start() });
     b.focus = Math.min(f, b.items.length - 1);
   }
   look() {

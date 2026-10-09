@@ -46,7 +46,7 @@ export class ElevatorRide {
         this.phase = 'card';
         this.t = 0;
         this.game.audio.play('fanfare', departmentForFloor(this.to).music);
-        this.buttons.add({ x: W / 2 - 60, y: H / 2 + 72, w: 120, h: 20, label: 'To my new desk!', color: C.good, textColor: '#10240f', onClick: () => this.arrive() });
+        this.buttons.add({ x: W / 2 - 60, y: H / 2 + 72, w: 120, h: 20, label: 'To my new desk!', color: C.goodBtn, onClick: () => this.arrive() });
       } else this.arrive();
     }
     if (this.phase === 'card') this.buttons.update(input, (n) => this.game.sfx(n));

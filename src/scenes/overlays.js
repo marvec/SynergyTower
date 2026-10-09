@@ -77,7 +77,7 @@ export class TaskCard extends Modal {
       b.add({ x: this.x + 10, y: by, w: 110, h: 18, label: `Need ${check.cost} coffee`, disabled: true });
       b.add({ x: this.x + 126, y: by, w: 84, h: 18, label: `Refill ${E.REFILL_COFFEE_SO}`, icon: 'so', color: '#2f7f6f', disabled: s.so < E.REFILL_COFFEE_SO, onClick: () => this.refill() });
     } else {
-      b.add({ x: this.x + 10, y: by, w: 200, h: 18, label: `Start  (-${check.cost} coffee)`, color: C.good, textColor: '#10240f', onClick: () => this.start() });
+      b.add({ x: this.x + 10, y: by, w: 200, h: 18, label: `Start  (-${check.cost} coffee)`, color: C.goodBtn, onClick: () => this.start() });
     }
     b.add({ x: this.x + this.w - 64, y: by, w: 54, h: 18, label: 'Back', color: C.panelLight, onClick: () => this.close() });
     b.focus = Math.min(keepFocus, b.items.length - 1);
@@ -147,7 +147,7 @@ export class ElevatorPanel extends Modal {
       b.add({
         x: this.x + 10, y: this.y + 82, w: this.w - 20, h: 20,
         label: st.can ? `Get promoted to floor ${st.floor + 1}!` : `Promotion to floor ${st.floor + 1} locked`,
-        icon: st.can ? 'up' : 'lock', disabled: !st.can, color: C.good, textColor: '#10240f',
+        icon: st.can ? 'up' : 'lock', disabled: !st.can, color: C.goodBtn,
         onClick: () => {
           this.game.pop();
           this.onPromote();
@@ -161,13 +161,15 @@ export class ElevatorPanel extends Modal {
     for (let fl = 1; fl <= E.FLOORS; fl++) {
       const i = fl - 1;
       const unlocked = fl <= s.maxFloor;
+      const here = fl === s.floor;
       b.add({
         x: gx + (i % cols) * (bw + 2), y: this.y + 124 + Math.floor(i / cols) * (bh + 2), w: bw, h: bh,
-        label: String(fl), disabled: !unlocked || fl === s.floor,
-        color: fl === s.floor ? C.gold : departmentColor(fl),
+        label: String(fl), disabled: !unlocked,
+        color: here ? C.gold : departmentColor(fl), textColor: here ? C.ink : null,
         onClick: () => {
           this.game.pop();
-          this.onTravel(fl);
+          if (here) this.game.toast(`You are already on floor ${fl}.`, C.dim);
+          else this.onTravel(fl);
         },
       });
     }
@@ -195,7 +197,7 @@ export class ElevatorPanel extends Modal {
       row(2, st.checks.sp, 'Keycard fee (Synergy Points)', `${formatNum(st.sp)}/${formatNum(st.fee)}`);
       if (s.floor !== s.maxFloor) drawText(g, `(Promotions happen from your highest floor, F${s.maxFloor}.)`, x + 10, y + 56, { color: C.dim });
     }
-    drawText(g, 'Ride to an unlocked floor:', x + 10, y + 96, { color: C.dim });
+    drawText(g, 'Ride to an unlocked floor (gold = you are here):', x + 10, y + 96, { color: C.dim });
   }
 }
 
@@ -261,14 +263,14 @@ export class FakeCheckout extends Modal {
     const b = this.buttons;
     b.clear();
     if (this.phase === 'form') {
-      b.add({ x: this.x + 10, y: this.y + this.h - 28, w: 140, h: 20, label: `Pay ${this.pack.price}`, color: C.good, textColor: '#10240f', onClick: () => {
+      b.add({ x: this.x + 10, y: this.y + this.h - 28, w: 140, h: 20, label: `Pay ${this.pack.price}`, color: C.goodBtn, onClick: () => {
         this.phase = 'processing';
         this.timer = 0;
         this.game.sfx('click');
       } });
       b.add({ x: this.x + 156, y: this.y + this.h - 28, w: 64, h: 20, label: 'Cancel', color: C.panelLight, onClick: () => this.close() });
     } else if (this.phase === 'done') {
-      b.add({ x: this.x + 10, y: this.y + this.h - 28, w: this.w - 20, h: 20, label: 'Great!', color: C.good, textColor: '#10240f', onClick: () => this.close() });
+      b.add({ x: this.x + 10, y: this.y + this.h - 28, w: this.w - 20, h: 20, label: 'Great!', color: C.goodBtn, onClick: () => this.close() });
     }
   }
   update(dt) {

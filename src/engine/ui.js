@@ -10,6 +10,7 @@ export const C = {
   text: '#f4f1e8',
   dim: '#9aa0b8',
   good: '#5fd068',
+  goodBtn: '#2e8540',
   bad: '#e2504a',
   warn: '#f29c38',
   gold: '#f2c14e',
@@ -226,6 +227,7 @@ export function drawButton(g, b, focused, hovered) {
     icon(g, b.icon, tx - lw / 2, ty);
     tx += 5;
   }
-  if (b.label) drawText(g, b.label, tx, ty, { align: 'center', color: tc, shadow: C.border });
+  const shadow = b.textColor ? null : C.border; // dark text on a light button: a shadow only smears it
+  if (b.label) drawText(g, b.label, tx, ty, { align: 'center', color: tc, shadow });
   if (hasSub) drawText(g, b.sub, b.x + b.w / 2, ty + 10, { align: 'center', color: b.disabled ? '#7a7d8d' : C.gold, shadow: C.border });
 }

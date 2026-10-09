@@ -22,7 +22,7 @@ export class TitleScene {
     let y = 150;
     if (this.saved) {
       const s = this.game.state;
-      b.add({ x, y, w: 150, h: 20, label: 'Continue career', color: C.good, textColor: '#10240f', onClick: () => this.continue() });
+      b.add({ x, y, w: 150, h: 20, label: 'Continue career', color: C.goodBtn, onClick: () => this.continue() });
       y += 26;
       this.savedInfo = `${s.player.name} · ${titleForFloor(s.maxFloor)} · F${s.maxFloor}`;
     }
