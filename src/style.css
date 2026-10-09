@@ -1,0 +1,34 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #0d0f18;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#game {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+  cursor: pointer;
+  outline: none;
+}
+#text-input {
+  position: fixed;
+  display: none;
+  box-sizing: border-box;
+  border: 0;
+  outline: none;
+  background: #f4f1e8;
+  color: #1b1e2b;
+  font: bold 16px ui-monospace, Menlo, Consolas, monospace;
+  padding: 0 6px;
+  border-radius: 0;
+}

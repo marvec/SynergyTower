@@ -1,0 +1,223 @@
+// WebAudio chiptune tracker + synthesized SFX. No audio files, so it works offline.
+import { SONGS, CHORD_QUALITIES } from '../data/music.js';
+
+const NOTE_INDEX = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
+
+export function noteToMidi(n) {
+  const m = /^([A-G][#b]?)(-?\d)$/.exec(n);
+  if (!m) return null;
+  return NOTE_INDEX[m[1]] + (Number(m[2]) + 1) * 12;
+}
+const midiToFreq = (m) => 440 * 2 ** ((m - 69) / 12);
+
+function parseChord(name) {
+  const m = /^([A-G][#b]?)(.*)$/.exec(name);
+  return { root: NOTE_INDEX[m[1]], intervals: CHORD_QUALITIES[m[2]] || CHORD_QUALITIES[''] };
+}
+const chordTone = (ch, i, baseOct) => {
+  const n = ch.intervals.length;
+  return 12 * (baseOct + 1) + ch.root + ch.intervals[i % n] + 12 * Math.floor(i / n);
+};
+
+/** Compiles a song definition into step events. Pure; exported for tests. */
+export function compileSong(song) {
+  const events = [];
+  const bars = song.chords.length;
+  song.chords.forEach((name, bar) => {
+    const ch = parseChord(name);
+    const o = bar * 16;
+    if (song.bass) song.bass.steps.forEach((s, i) => events.push({ step: o + s, ch: 'bass', midi: chordTone(ch, song.bass.tones[i], 2), len: song.bass.len, vol: 0.16 }));
+    if (song.arp) song.arp.steps.forEach((s, i) => events.push({ step: o + s, ch: 'arp', midi: chordTone(ch, song.arp.tones[i], 4), len: 1, vol: song.arp.vol }));
+    if (song.comp)
+      song.comp.steps.forEach((s) =>
+        ch.intervals.forEach((_, i) => events.push({ step: o + s, ch: 'comp', midi: chordTone(ch, i, 4), len: song.comp.len, vol: song.comp.vol })),
+      );
+    if (song.drums)
+      [...song.drums].forEach((d, s) => {
+        if (d !== '.') events.push({ step: o + s, ch: 'drum', drum: d });
+      });
+    const mel = (song.melody[bar] || '').split(/\s+/).filter(Boolean);
+    mel.forEach((tok, s) => {
+      const midi = noteToMidi(tok);
+      if (midi == null) return;
+      let len = 1;
+      while (mel[s + len] === '-') len++;
+      events.push({ step: o + s, ch: 'lead', midi, len, vol: song.leadVol });
+    });
+  });
+  events.sort((a, b) => a.step - b.step);
+  return { events, steps: bars * 16 };
+}
+
+export function createAudio() {
+  let ctx = null;
+  let master, musicGain, sfxGain, noiseBuf;
+  const waves = {};
+  let musicOn = true;
+  let sfxOn = true;
+  let current = null; // { name, song, compiled, step, nextTime, idx }
+  let timer = null;
+  let wanted = null;
+
+  function ensure() {
+    if (ctx) return true;
+    const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
+    if (!AC) return false;
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = 0.8;
+    master.connect(ctx.destination);
+    musicGain = ctx.createGain();
+    musicGain.gain.value = musicOn ? 0.7 : 0;
+    musicGain.connect(master);
+    sfxGain = ctx.createGain();
+    sfxGain.gain.value = sfxOn ? 0.8 : 0;
+    sfxGain.connect(master);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    for (const [name, duty] of [['pulse12', 0.125], ['pulse25', 0.25]]) {
+      const n = 32;
+      const real = new Float32Array(n);
+      const imag = new Float32Array(n);
+      for (let k = 1; k < n; k++) real[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * duty);
+      waves[name] = ctx.createPeriodicWave(real, imag);
+    }
+    return true;
+  }
+
+  function osc(type, freq, t, dur, vol, dest, { attack = 0.005, release = 0.05, slideTo = null } = {}) {
+    const o = ctx.createOscillator();
+    if (waves[type]) o.setPeriodicWave(waves[type]);
+    else o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(0, t);
+    gn.gain.linearRampToValueAtTime(vol, t + attack);
+    gn.gain.setValueAtTime(vol, Math.max(t + attack, t + dur - release));
+    gn.gain.linearRampToValueAtTime(0, t + dur);
+    o.connect(gn).connect(dest);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  }
+
+  function noise(t, dur, vol, dest, filterType, freq) {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuf;
+    const f = ctx.createBiquadFilter();
+    f.type = filterType;
+    f.frequency.value = freq;
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(vol, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(f).connect(gn).connect(dest);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + dur + 0.02);
+  }
+
+  function drum(d, t) {
+    if (d === 'k') osc('sine', 150, t, 0.16, 0.5, musicGain, { attack: 0.002, release: 0.1, slideTo: 40 });
+    else if (d === 's') noise(t, 0.12, 0.22, musicGain, 'bandpass', 1800);
+    else if (d === 'h') noise(t, 0.035, 0.07, musicGain, 'highpass', 7500);
+    else if (d === 'o') noise(t, 0.16, 0.06, musicGain, 'highpass', 6500);
+    else if (d === 'r') osc('square', 1700, t, 0.025, 0.05, musicGain, { attack: 0.001, release: 0.02 });
+  }
+
+  function scheduleEvent(ev, t, stepDur, song) {
+    if (ev.ch === 'drum') return drum(ev.drum, t);
+    const f = midiToFreq(ev.midi);
+    const dur = ev.len * stepDur * 0.95;
+    if (ev.ch === 'bass') osc('triangle', f, t, dur, ev.vol, musicGain, { release: 0.04 });
+    else if (ev.ch === 'lead') osc(song.lead, f, t, dur, ev.vol, musicGain, { attack: 0.01, release: Math.min(0.12, dur / 2) });
+    else if (ev.ch === 'arp') osc('pulse25', f, t, dur, ev.vol, musicGain, { release: 0.03 });
+    else if (ev.ch === 'comp') osc('triangle', f, t, dur, ev.vol * 1.4, musicGain, { attack: 0.01, release: 0.08 });
+  }
+
+  function pump() {
+    if (!current || !ctx) return;
+    const { song, compiled } = current;
+    const stepDur = 60 / song.bpm / 4;
+    while (current.nextTime < ctx.currentTime + 0.15) {
+      const swingOff = current.step % 2 === 1 ? song.swing * stepDur : 0;
+      while (current.idx < compiled.events.length && compiled.events[current.idx].step === current.step) {
+        scheduleEvent(compiled.events[current.idx], current.nextTime + swingOff, stepDur, song);
+        current.idx++;
+      }
+      current.step++;
+      current.nextTime += stepDur;
+      if (current.step >= compiled.steps) {
+        if (song.once) {
+          const after = current.after;
+          current = null;
+          if (after) setTimeout(() => api.play(after), 300);
+          return;
+        }
+        current.step = 0;
+        current.idx = 0;
+      }
+    }
+  }
+
+  const compiledCache = {};
+  const api = {
+    unlock() {
+      if (!ensure()) return;
+      if (ctx.state === 'suspended') ctx.resume();
+      if (!timer) timer = setInterval(pump, 25);
+      if (wanted && !current) api.play(wanted.name, wanted.after);
+    },
+    /** Play a song (loops unless it's a one-shot). `after` = song to continue with after a one-shot. */
+    play(name, after = null) {
+      const song = SONGS[name];
+      if (!song) return;
+      if (!song.once) wanted = { name };
+      else wanted = after ? { name: after } : wanted;
+      if (!ctx) {
+        if (song.once && after) wanted = { name: after };
+        return;
+      }
+      if (current && current.name === name && !song.once) return;
+      compiledCache[name] ||= compileSong(song);
+      current = { name, song, compiled: compiledCache[name], step: 0, idx: 0, nextTime: ctx.currentTime + 0.05, after };
+    },
+    stop() {
+      current = null;
+      wanted = null;
+    },
+    get current() {
+      return current?.name || null;
+    },
+    setMusic(on) {
+      musicOn = on;
+      if (musicGain) musicGain.gain.setTargetAtTime(on ? 0.7 : 0, ctx.currentTime, 0.05);
+    },
+    setSfx(on) {
+      sfxOn = on;
+      if (sfxGain) sfxGain.gain.setTargetAtTime(on ? 0.8 : 0, ctx.currentTime, 0.02);
+    },
+    sfx(name) {
+      if (!ctx || !sfxOn) return;
+      const t = ctx.currentTime + 0.005;
+      const S = sfxGain;
+      switch (name) {
+        case 'blip': osc('pulse25', 880, t, 0.05, 0.12, S); break;
+        case 'click': osc('square', 1300, t, 0.03, 0.08, S, { release: 0.02 }); break;
+        case 'type': osc('square', 1800 + Math.random() * 400, t, 0.015, 0.04, S, { attack: 0.001, release: 0.01 }); break;
+        case 'step': noise(t, 0.03, 0.05, S, 'lowpass', 900); break;
+        case 'good': osc('pulse25', 660, t, 0.07, 0.14, S); osc('pulse25', 990, t + 0.07, 0.1, 0.14, S); break;
+        case 'bad': osc('square', 180, t, 0.18, 0.12, S, { slideTo: 90 }); break;
+        case 'coin': osc('square', 988, t, 0.06, 0.1, S); osc('square', 1319, t + 0.06, 0.16, 0.1, S); break;
+        case 'door': noise(t, 0.25, 0.15, S, 'lowpass', 600); osc('triangle', 220, t, 0.2, 0.1, S, { slideTo: 110 }); break;
+        case 'ding': osc('sine', 1318, t, 0.6, 0.22, S, { release: 0.5 }); osc('sine', 1046, t + 0.25, 0.9, 0.22, S, { release: 0.8 }); break;
+        case 'levelup': [523, 659, 784, 1046].forEach((f, i) => osc('pulse25', f, t + i * 0.07, 0.12, 0.13, S)); break;
+        case 'star': osc('pulse12', 1568, t, 0.08, 0.1, S); osc('pulse12', 2093, t + 0.06, 0.14, 0.1, S); break;
+        case 'cash': [1319, 1568, 2093].forEach((f, i) => osc('square', f, t + i * 0.05, 0.08, 0.09, S)); noise(t + 0.15, 0.2, 0.08, S, 'highpass', 5000); break;
+        case 'start': [392, 523, 659].forEach((f, i) => osc('square', f, t + i * 0.08, 0.1, 0.1, S)); break;
+        case 'fail': [392, 330, 262].forEach((f, i) => osc('square', f, t + i * 0.12, 0.14, 0.1, S)); break;
+        default: break;
+      }
+    },
+  };
+  return api;
+}

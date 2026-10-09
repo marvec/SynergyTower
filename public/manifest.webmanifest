@@ -1,0 +1,11 @@
+{
+  "name": "SynergyTower",
+  "short_name": "SynergyTower",
+  "description": "Climb a 40-floor corporate tower one silly office mini-game at a time.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0d0f18",
+  "theme_color": "#1b1e2b",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
