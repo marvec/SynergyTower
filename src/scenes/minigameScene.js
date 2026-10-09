@@ -16,6 +16,7 @@ export class MinigameScene {
     this.task = task;
     this.onDone = onDone;
     this.mode = opts.mode || 'task';
+    this.capturesKeys = true; // disables global hotkeys such as M (music) while playing
     this.floor = game.state.floor;
     const s = game.state;
     const stats = { floor: this.floor, stars: s.starsByFloor[this.floor] || 0, title: titleForFloor(s.maxFloor) };

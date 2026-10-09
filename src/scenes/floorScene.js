@@ -10,6 +10,7 @@ import { createRng } from '../core/rng.js';
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import { departmentForFloor, floorName, titleForFloor } from '../data/departments.js';
+import { COMMON_NPC_LINES } from '../data/npcLines.js';
 import { FloorView, Actor, NpcBrain, npcLook } from './floorWorld.js';
 import { Hud, HUD_H } from './hud.js';
 import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, HOW_TO, ReviewCard, hrNotice } from './overlays.js';
@@ -175,7 +176,7 @@ export class FloorScene {
       p.faceTowards(a.x - p.x, a.y - p.y);
       t.n.brain.talkPause = 3.5;
       a.path = null;
-      a.say(this.rng.pick(this.dept.npcLines));
+      a.say(this.nextLine());
       game.sfx('blip');
       return;
     }
@@ -208,6 +209,17 @@ export class FloorScene {
         game.toast(`The machine is brewing... ready in ${formatTime(r.left)}`, C.dim);
       }
     }
+  }
+
+  /** A colleague one-liner: 40% department flavour, 60% common office life; avoids recent repeats. */
+  nextLine() {
+    this.recentLines ||= [];
+    const pool = this.rng.chance(0.4) ? this.dept.npcLines : COMMON_NPC_LINES;
+    let line = this.rng.pick(pool);
+    for (let i = 0; i < 8 && this.recentLines.includes(line); i++) line = this.rng.pick(pool);
+    this.recentLines.push(line);
+    if (this.recentLines.length > 30) this.recentLines.shift();
+    return line;
   }
 
   startTask(task) {

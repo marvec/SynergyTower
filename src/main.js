@@ -29,7 +29,8 @@ window.addEventListener('keydown', unlock);
 
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement) return;
-  if ((e.key === 'm' || e.key === 'M') && game.state) {
+  // Global hotkeys are off while a scene needs raw keys (mini-games: typing uses every letter).
+  if ((e.key === 'm' || e.key === 'M') && game.state && !game.top?.capturesKeys) {
     const s = game.state.settings;
     s.music = !s.music;
     audio.setMusic(s.music);

@@ -39,3 +39,11 @@ test('review questions fit the bubble and options fit their rows', async () => {
     for (const o of [r.a, ...r.w]) expect(measureText(o)).toBeLessThanOrEqual(276);
   }
 });
+
+test('colleague lines: 100 common ones, unique, short enough for a speech bubble', async () => {
+  const { COMMON_NPC_LINES } = await import('../src/data/npcLines.js');
+  const { DEPARTMENTS } = await import('../src/data/departments.js');
+  expect(COMMON_NPC_LINES.length).toBeGreaterThanOrEqual(100);
+  expect(new Set(COMMON_NPC_LINES).size).toBe(COMMON_NPC_LINES.length);
+  for (const l of [...COMMON_NPC_LINES, ...DEPARTMENTS.flatMap((d) => d.npcLines)]) expect(wrapText(l, 120).length).toBeLessThanOrEqual(6);
+});
