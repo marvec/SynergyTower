@@ -7,6 +7,8 @@ import { taskTitle } from '../data/taskTitles.js';
 export const ALL_GAMES = [
   'inbox', 'compose', 'typing', 'spreadsheet', 'bingo', 'calendar', 'timing', 'memory',
   'simon', 'math', 'quiz', 'order', 'whack', 'stealth', 'stocks', 'coffee', 'jargon',
+  'replyall', 'password', 'cables', 'orgchart', 'meeting', 'pitch', 'fridge', 'expense', 'frogger',
+  'karaoke', 'tailgate', 'defender', 'plant',
 ];
 
 const cache = new Map();
@@ -26,22 +28,35 @@ export function buildFloor(floor) {
   const used = new Map();
   const usedTitles = new Map();
   const chosen = [];
-  // Greedy variety: each pick prefers the station whose best game is least used so far.
+  // Greedy variety: pick the least-used game first (each game weighs the same, however many stations offer it),
+  // then a station for it, preferring rooms that have no task yet.
+  const roomPenalty = (it) => (chosen.some((c) => c.room === it.room) ? 0.5 : 0);
   while (chosen.length < wanted && candidates.length) {
-    let best = -1;
-    let bestGame = null;
-    let bestScore = Infinity;
+    const offers = new Map();
     candidates.forEach((it, i) => {
       for (const g of STATION_GAMES[it.station]) {
-        const sameRoomPenalty = chosen.some((c) => c.room === it.room) ? 0.5 : 0;
-        const score = (used.get(g) || 0) + sameRoomPenalty + rng.next() * 0.3;
-        if (score < bestScore) {
-          bestScore = score;
-          best = i;
-          bestGame = g;
-        }
+        if (!offers.has(g)) offers.set(g, []);
+        offers.get(g).push(i);
       }
     });
+    let bestGame = null;
+    let bestScore = Infinity;
+    for (const [g, list] of offers) {
+      const score = (used.get(g) || 0) + Math.min(...list.map((i) => roomPenalty(candidates[i]))) + rng.next() * 0.3;
+      if (score < bestScore) {
+        bestScore = score;
+        bestGame = g;
+      }
+    }
+    let best = -1;
+    let bestStation = Infinity;
+    for (const i of offers.get(bestGame)) {
+      const score = roomPenalty(candidates[i]) + rng.next() * 0.3;
+      if (score < bestStation) {
+        bestStation = score;
+        best = i;
+      }
+    }
     const it = candidates.splice(best, 1)[0];
     used.set(bestGame, (used.get(bestGame) || 0) + 1);
     const variant = usedTitles.get(bestGame) || 0;

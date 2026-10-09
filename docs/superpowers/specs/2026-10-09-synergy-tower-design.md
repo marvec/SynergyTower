@@ -73,7 +73,7 @@ The host owns intro/result cards, the timer frame, coffee charge and rewards. Mi
 - **Rendering:** a tile pass (floor, then wall tops/front faces), then y-sorted sprites (furniture, NPCs, player), then
   station markers ("!" when ready, a clock when cooling down), then the HUD.
 
-## 4. Mini-games (17 mechanics, themed per department → hundreds of task variants)
+## 4. Mini-games (30 mechanics, themed per department → hundreds of task variants)
 
 | id | Name (default theme) | Mechanic |
 |---|---|---|
@@ -94,6 +94,19 @@ The host owns intro/result cards, the timer frame, coffee charge and rewards. Mi
 | stocks | Quarterly Ticker | Buy low, sell high on a moving chart to hit a profit target. |
 | coffee | Coffee Run | Memorise colleagues' orders, then rebuild each one. |
 | jargon | Jargon Decoder | The boss says a buzzword ("Let's pin that down"); pick what it really means. Ported from ../corporate. |
+| replyall | Reply-All Apocalypse | A reply-all storm multiplies in the inbox; delete the replies before it overflows, keep the real mail. |
+| password | Password Policy | Satisfy an ever-growing list of absurd IT password rules at once (typing, or click chunk tiles). |
+| cables | Cable Spaghetti | Re-patch tangled colour-coded cables to the matching sockets; never touch PROD. |
+| orgchart | Org Chart Shuffle | Place colleagues into the new org chart from logic clues ("Dana reports to the stapler owner"). |
+| meeting | Meeting Survival | Keep your eyelids open with coffee, and nod only at the buzzword sentences. |
+| pitch | Elevator Pitch | Stop slot-machine reels to build a pitch that matches the CEO's mood of the day. |
+| fridge | Fridge Tetris | Pack falling lunch containers into the office fridge; clear shelves, beware the 2019 mystery box. |
+| expense | Expense Fraud Detective | Approve or reject receipts; spot the jet ski "team-building". |
+| frogger | Coffee Crossing | Frogger across office lanes with a full coffee; collisions spill it. |
+| karaoke | PowerPoint Karaoke | An absurd chart appears; pick the narration that matches it before the slide advances. |
+| tailgate | Badge Tailgate | Stop badge-less strangers sneaking through the turnstile, let employees pass. |
+| defender | Calendar Defender | Lane tower defence: place Declines and Out-of-Office walls to stop meeting invites reaching Focus Time. |
+| plant | Desk Plant Survival | Keep the desk plant alive through a compressed quarter: water, blinds, pests. |
 
 Each task has a difficulty of 0..1 (rising with the floor, plus some per-task variance) that controls speed, count, time limit and
 distractors. The department theme changes titles and word lists (e.g. `timing` = "Unjam the Printer" in the Lobby,
@@ -101,7 +114,8 @@ distractors. The department theme changes titles and word lists (e.g. `timing` =
 
 **Stations per floor:** 6 on floor 1, rising to 12 on floor 40 (`6 + floor((f-1)/6)` capped at 12). The mini-game is chosen by room
 fit (meeting room → bingo/calendar/order, desks → inbox/compose/typing/spreadsheet, copy room → timing, department room →
-department specials, …) while keeping variety, so every mechanic appears repeatedly across the tower.
+department specials, kitchen fridge/table → fridge/frogger, elevator directory → pitch/tailgate, plants →
+plant, …) while keeping variety, so every mechanic appears repeatedly across the tower.
 
 ## 5. Economy & progression
 

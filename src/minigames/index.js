@@ -16,8 +16,25 @@ import stealth from './stealth.js';
 import stocks from './stocks.js';
 import coffee from './coffee.js';
 import jargon from './jargon.js';
+import frogger from './frogger.js';
+import meeting from './meeting.js';
+import plant from './plant.js';
+import password from './password.js';
+import orgchart from './orgchart.js';
+import replyall from './replyall.js';
+import expense from './expense.js';
+import tailgate from './tailgate.js';
+import cables from './cables.js';
+import fridge from './fridge.js';
+import defender from './defender.js';
+import pitch from './pitch.js';
+import karaoke from './karaoke.js';
 import review from './review.js'; // HR performance review: opened from the HR desk, never assigned to stations
 
 export const MINIGAMES = Object.fromEntries(
-  [inbox, compose, typing, spreadsheet, bingo, calendar, timing, memory, simon, math, quiz, order, whack, stealth, stocks, coffee, jargon, review].map((m) => [m.id, m]),
+  [
+    inbox, compose, typing, spreadsheet, bingo, calendar, timing, memory, simon, math, quiz, order, whack, stealth, stocks, coffee, jargon,
+    replyall, password, cables, orgchart, meeting, pitch, fridge, expense, frogger, karaoke, tailgate, defender, plant,
+    review,
+  ].map((m) => [m.id, m]),
 );

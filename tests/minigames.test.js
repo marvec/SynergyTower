@@ -50,3 +50,12 @@ for (const id of ids) {
     }
   });
 }
+
+test('every game assignable to a station is registered', async () => {
+  const { ALL_GAMES } = await import('../src/core/tasks.js');
+  const { TASK_TITLES } = await import('../src/data/taskTitles.js');
+  for (const id of ALL_GAMES) {
+    expect(MINIGAMES[id]?.id).toBe(id);
+    expect(TASK_TITLES[id]).toBeTruthy();
+  }
+});

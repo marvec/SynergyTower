@@ -28,7 +28,7 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 | Content | `src/data/` | Pure data: departments/titles/NPC lines, corp colours, task titles, music, `mg-*.js` mini-game content. |
 | Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit. |
 | Scenes | `src/scenes/` | title → setup → exterior → floor ⇄ (overlays, mini-game host, elevator ride) → ending. |
-| Mini-games | `src/minigames/` | One file per mechanic (17 station games + `review`, the HR performance review), registered in `src/minigames/index.js`. |
+| Mini-games | `src/minigames/` | One file per mechanic (30 station games + `review`, the HR performance review), registered in `src/minigames/index.js`. |
 
 - `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`),
   throttled autosave to `localStorage['synergytower.save.v1']`, toasts.

@@ -17,23 +17,30 @@ export const ELEVATOR_ROOM = { x0: 17, x1: 22 };
 
 // Which mini-games a station kind can host. The task assigner picks among these.
 export const STATION_GAMES = {
-  desk: ['inbox', 'compose', 'typing', 'spreadsheet'],
-  whiteboard: ['order', 'calendar', 'jargon'],
-  meetingtable: ['bingo', 'calendar', 'order', 'jargon'],
+  desk: ['inbox', 'compose', 'typing', 'spreadsheet', 'replyall', 'password', 'whack', 'stealth', 'math', 'cables'],
+  whiteboard: ['order', 'calendar', 'jargon', 'defender', 'karaoke'],
+  meetingtable: ['bingo', 'calendar', 'order', 'jargon', 'meeting'],
   printer: ['timing'],
-  shredder: ['inbox'],
+  shredder: ['inbox', 'expense'],
   watercooler: ['quiz', 'jargon'],
   espressobar: ['coffee'],
-  bossdesk: ['stealth', 'quiz', 'jargon'],
-  filing: ['memory', 'spreadsheet'],
-  serverrack: ['simon', 'whack'],
-  tradingdesk: ['stocks', 'math'],
-  reception: ['memory', 'quiz', 'compose'],
-  mailshelf: ['inbox', 'memory'],
-  headsetdesk: ['quiz', 'typing', 'inbox'],
+  bossdesk: ['stealth', 'quiz', 'jargon', 'orgchart', 'defender', 'stocks'],
+  filing: ['memory', 'spreadsheet', 'orgchart', 'expense'],
+  serverrack: ['simon', 'whack', 'cables'],
+  tradingdesk: ['stocks', 'math', 'expense'],
+  reception: ['memory', 'quiz', 'compose', 'tailgate', 'password'],
+  mailshelf: ['inbox', 'memory', 'replyall'],
+  headsetdesk: ['quiz', 'typing', 'inbox', 'replyall', 'whack'],
   gong: ['timing', 'math'],
-  easel: ['order', 'memory', 'whack'],
-  boardtable: ['bingo', 'stocks', 'order', 'jargon'],
+  easel: ['order', 'memory', 'whack', 'karaoke'],
+  boardtable: ['bingo', 'stocks', 'order', 'jargon', 'meeting', 'karaoke'],
+  fridge: ['fridge'],
+  kitchentable: ['frogger'],
+  directory: ['pitch', 'tailgate'],
+  copier: ['cables', 'timing', 'simon'],
+  tvscreen: ['karaoke', 'cables', 'stocks'],
+  bookshelf: ['orgchart'],
+  plant: ['plant'],
 };
 
 export function generateFloor(floor) {
@@ -188,7 +195,7 @@ export function generateFloor(floor) {
       place(r, 'elevator', 19, r.y0, 2, 1, { interact: 'elevator' });
       place(r, 'plant', r.x0, r.y0);
       place(r, 'plant', r.x1, r.y0);
-      place(r, 'directory', 21, r.y0);
+      station(r, 'directory', 'directory', 21, r.y0);
       place(r, 'sofa', r.x0, r.y0 + 4, 1, 2);
       place(r, 'sofa', r.x1, r.y0 + 4, 1, 2);
     },
@@ -198,7 +205,7 @@ export function generateFloor(floor) {
           const kind = dept.special === 'callcenter' && rng.chance(0.5) ? 'headsetdesk' : 'desk';
           if (station(r, kind === 'headsetdesk' ? 'headsetdesk' : 'desk', kind, x, y, 2, 1)) decor(r, 'chair', x, y + 1);
         }
-      place(r, 'plant', r.x0, r.y0);
+      station(r, 'plant', 'plant', r.x0, r.y0);
       place(r, 'plant', r.x1, r.y0);
       place(r, 'plant', r.x1, r.y1);
     },
@@ -207,15 +214,15 @@ export function generateFloor(floor) {
       place(r, 'coffeemachine', r.x0 + 1, r.y0, 1, 1, { interact: 'coffee' });
       station(r, 'espressobar', 'espressobar', r.x0 + 2, r.y0, 1, 1);
       place(r, 'microwave', r.x0 + 3, r.y0);
-      place(r, 'fridge', r.x0 + 4, r.y0);
+      station(r, 'fridge', 'fridge', r.x0 + 4, r.y0);
       station(r, 'watercooler', 'watercooler', r.x1, r.y0);
       const tx = Math.floor((r.x0 + r.x1) / 2) - 1;
       const ty = Math.floor((r.y0 + r.y1) / 2);
-      if (place(r, 'kitchentable', tx, ty, 2, 1)) {
+      if (station(r, 'kitchentable', 'kitchentable', tx, ty, 2, 1)) {
         decor(r, 'stool', tx - 1, ty);
         decor(r, 'stool', tx + 2, ty);
       }
-      place(r, 'plant', r.x0, r.y1);
+      station(r, 'plant', 'plant', r.x0, r.y1);
       place(r, 'vending', r.x1, r.y1 - 1, 1, 1);
     },
     meeting(r) {
@@ -248,7 +255,7 @@ export function generateFloor(floor) {
       const x = Math.floor((r.x0 + r.x1) / 2) - 1;
       const y = r.y0 + 3;
       if (station(r, 'bossdesk', 'bossdesk', x, y, 3, 1)) decor(r, 'bigchair', x + 1, y - 1);
-      place(r, 'bookshelf', r.x0, r.y0, 2, 1);
+      station(r, 'bookshelf', 'bookshelf', r.x0, r.y0, 2, 1);
       place(r, 'bookshelf', r.x1 - 1, r.y0, 2, 1);
       place(r, 'sofa', r.x0, r.y1 - 2, 1, 2);
       place(r, 'plant', r.x1, r.y1);
@@ -256,7 +263,7 @@ export function generateFloor(floor) {
     },
     copy(r) {
       station(r, 'printer', 'printer', r.x0 + 1, r.y0, 1, 1);
-      place(r, 'copier', r.x0 + 3, r.y0, 2, 1);
+      station(r, 'copier', 'copier', r.x0 + 3, r.y0, 2, 1);
       station(r, 'shredder', 'shredder', r.x1, r.y0);
       place(r, 'boxes', r.x0, r.y1);
       place(r, 'boxes', r.x0 + 1, r.y1);
@@ -315,7 +322,7 @@ export function generateFloor(floor) {
             decor(r, 'bigchair', x + i, y - 1);
             decor(r, 'chairup', x + i, y + 2);
           }
-        place(r, 'tvscreen', Math.floor((r.x0 + r.x1) / 2), r.y0, 2, 1);
+        station(r, 'tvscreen', 'tvscreen', Math.floor((r.x0 + r.x1) / 2), r.y0, 2, 1);
         place(r, 'plant', r.x0, r.y0);
         place(r, 'plant', r.x1, r.y0);
       }
