@@ -12,7 +12,7 @@ import * as E from '../core/economy.js';
 import { departmentForFloor, floorName, titleForFloor } from '../data/departments.js';
 import { FloorView, Actor, NpcBrain, npcLook } from './floorWorld.js';
 import { Hud, HUD_H } from './hud.js';
-import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, HOW_TO } from './overlays.js';
+import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, HOW_TO, ReviewCard, hrNotice } from './overlays.js';
 import { MinigameScene } from './minigameScene.js';
 
 const SPEED = 4.4;
@@ -34,6 +34,9 @@ export class FloorScene {
       const a = new Actor(npcLook(n.seed, this.fl.dept), n.x, n.y);
       return { a, brain: new NpcBrain(a, this.fl, n.seed) };
     });
+    // The HR rep stands behind the review desk all day.
+    const rep = this.fl.hrRep;
+    this.hrRep = rep ? new Actor({ ...npcLook(floor * 91 + 7, this.fl.dept), jacket: '#4a3a6a', tie: null, glasses: true }, rep.x + 0.5, rep.y + 0.75) : null;
     this.rng = createRng(floor * 17 + Date.now());
     this.cam = { x: 0, y: 0 };
     this.snapCamera();
@@ -69,7 +72,7 @@ export class FloorScene {
           w: 320,
           text:
             `Congratulations, ${s.player.name}! You are our newest ${titleForFloor(1)}.\n` +
-            'Complete tasks marked with ! to earn Synergy Points, XP and KPI stars. Hit the star quota, level up and pay the keycard fee at the elevator to climb the tower.\n' +
+            'Complete tasks marked with ! to earn Synergy Points, XP and KPI stars. Hit the star quota, level up, save up for the keycard fee and pass your HR performance review - then the elevator takes you up.\n' +
             '40 floors. One corner office. Good luck!',
           button: "Let's synergize",
         }),
@@ -131,6 +134,7 @@ export class FloorScene {
       if (it.task) list.push({ kind: 'task', it });
       else if (it.interact === 'elevator') list.push({ kind: 'elevator', it });
       else if (it.interact === 'coffee') list.push({ kind: 'coffee', it });
+      else if (it.interact === 'hr') list.push({ kind: 'hr', it });
     }
     for (const n of this.npcs) list.push({ kind: 'npc', n });
     return list;
@@ -183,6 +187,16 @@ export class FloorScene {
     } else if (t.kind === 'elevator') {
       game.sfx('ding');
       game.push(new ElevatorPanel(game, { onPromote: () => this.promote(), onTravel: (f) => this.travel(f) }));
+    } else if (t.kind === 'hr') {
+      const r = S.reviewStatus(s, game.now());
+      game.sfx('click');
+      if (['available', 'cooldown', 'coffee'].includes(r.state)) {
+        this.hrRep?.say('Have a seat. Let us talk about your growth.', 2.5);
+        game.push(new ReviewCard(game, () => this.startReview()));
+      } else {
+        this.hrRep?.say(r.state === 'passed' ? 'Congratulations again!' : 'Do you have an appointment?', 2.5);
+        hrNotice(game, r.state);
+      }
     } else if (t.kind === 'coffee') {
       const r = S.useCoffeeMachine(s, this.floorNo, game.now());
       if (r.ok) {
@@ -205,6 +219,20 @@ export class FloorScene {
           game.push(new EndingScene(game));
         }
       }),
+    );
+  }
+
+  startReview() {
+    const game = this.game;
+    const f = game.state.maxFloor;
+    const task = { id: `review-${f}`, game: 'review', title: `Performance Review · F${f}`, difficulty: Math.min(1, ((f - 1) / 39) * 0.9 + 0.05), seed: f * 7 };
+    game.push(
+      new MinigameScene(game, task, (result) => {
+        if (result.passed) {
+          this.hrRep?.say('Approved! The elevator is all yours.', 3);
+          game.toast('Review passed! Take the elevator up.', C.good);
+        } else this.hrRep?.say('We will revisit this. Reflect on it.', 3);
+      }, { mode: 'review' }),
     );
   }
 
@@ -357,6 +385,7 @@ export class FloorScene {
       n.a.update(dt);
     }
     p.update(dt);
+    this.hrRep?.update(dt);
 
     const t = this.camTarget();
     const k = Math.min(1, dt * 8);
@@ -369,7 +398,7 @@ export class FloorScene {
     const now = this.game.now();
     g.fillStyle = '#0d0f18';
     g.fillRect(0, 0, W, H);
-    const actors = [this.player, ...this.npcs.map((n) => n.a)];
+    const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : [])];
     this.view.render(g, this.cam, actors);
 
     g.save();
@@ -426,6 +455,21 @@ export class FloorScene {
           rect(g, cx - 5, y + 1, 10, 10, C.good);
           icon(g, 'up', cx - 3, y + 3);
         }
+      } else if (it.interact === 'hr') {
+        const r = S.reviewStatus(s, now);
+        const y = top - 24 + bob;
+        if (r.state === 'available' || r.state === 'coffee') {
+          rect(g, cx - 10, y, 20, 12, C.border);
+          rect(g, cx - 9, y + 1, 18, 10, C.so);
+          drawText(g, 'HR', cx, y + 3, { align: 'center', color: C.ink });
+          rect(g, cx - 1, y + 12, 2, 2, C.border);
+        } else if (r.state === 'cooldown') {
+          const t = formatTime(r.left);
+          const w = measureText(t) + 12;
+          rect(g, cx - w / 2, y + 2, w, 10, 'rgba(13,15,24,0.75)');
+          icon(g, 'clock', cx - w / 2 + 1, y + 3);
+          drawText(g, t, cx - w / 2 + 10, y + 3, { color: C.dim });
+        } else if (r.state === 'passed') icon(g, 'check', cx - 3, y + 4);
       } else if (it.interact === 'coffee') {
         if (S.cooldownLeft(s, `coffee-machine-${this.floorNo}`, now) <= 0) icon(g, 'coffee', cx - 3, top - 10 + bob);
       }
@@ -440,6 +484,11 @@ export class FloorScene {
     if (t.kind === 'npc') text = 'Talk';
     else if (t.kind === 'elevator') text = 'Elevator';
     else if (t.kind === 'coffee') text = 'Coffee machine';
+    else if (t.kind === 'hr') {
+      text = 'HR office';
+      const r = S.reviewStatus(s, now);
+      sub = { available: 'performance review', coffee: 'performance review', cooldown: `retry ${formatTime(r.left)}`, passed: 'review passed', notReady: 'not promotion-ready yet' }[r.state] || '';
+    }
     else {
       text = t.it.task.title;
       const left = S.cooldownLeft(s, t.it.task.id, now);

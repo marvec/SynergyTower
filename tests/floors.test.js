@@ -15,9 +15,18 @@ test('every floor has identical dimensions', () => {
 test('every floor has the core rooms and a reachable elevator', () => {
   for (const fl of floors) {
     const types = new Set(fl.rooms.map((r) => r.type));
-    for (const t of ['elevator', 'kitchen', 'meeting', 'special']) expect(types.has(t)).toBe(true);
+    for (const t of ['elevator', 'kitchen', 'meeting', 'special', 'hr']) expect(types.has(t)).toBe(true);
     expect(fl.elevator).toBeTruthy();
     expect(isItemReachable(fl, fl.walk, fl.dist, fl.elevator)).toBe(true);
+  }
+});
+
+test('every floor has a reachable HR review desk with the HR rep behind it', () => {
+  for (const fl of floors) {
+    expect(fl.hrDesk).toBeTruthy();
+    expect(fl.hrRep).toBeTruthy();
+    expect(fl.hrRep.y).toBe(fl.hrDesk.y - 1);
+    expect(isItemReachable(fl, fl.walk, fl.dist, fl.hrDesk)).toBe(true);
   }
 });
 

@@ -7,6 +7,8 @@ export const REFILL_COFFEE_SO = 3;
 export const COFFEE_MACHINE_COOLDOWN_S = 15 * 60;
 export const COFFEE_MACHINE_AMOUNT = 3;
 export const STARTING = { sp: 50, xp: 0, level: 1, so: 5 };
+/** HR performance review: score needed to pass. Failing locks the review for reviewCooldownMs. */
+export const REVIEW_PASS_SCORE = 0.6;
 
 export function starsFromScore(score) {
   if (score < 0.35) return 0;
@@ -35,6 +37,10 @@ export const stationCount = (floor) => Math.min(12, 6 + Math.floor((floor - 1) /
 export function stationCooldownMs(floor, perks = {}) {
   const base = 60 * 1.08 ** (floor - 1);
   return Math.round(base * (perks.plant ? 0.85 : 1)) * 1000;
+}
+
+export function reviewCooldownMs(floor, perks = {}) {
+  return stationCooldownMs(floor, perks) * 2;
 }
 
 export function maxCoffee(floor, perks = {}) {

@@ -28,11 +28,13 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 | Content | `src/data/` | Pure data: departments/titles/NPC lines, corp colours, task titles, music, `mg-*.js` mini-game content. |
 | Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit. |
 | Scenes | `src/scenes/` | title → setup → exterior → floor ⇄ (overlays, mini-game host, elevator ride) → ending. |
-| Mini-games | `src/minigames/` | One file per mechanic (17), registered in `src/minigames/index.js`. |
+| Mini-games | `src/minigames/` | One file per mechanic (17 station games + `review`, the HR performance review), registered in `src/minigames/index.js`. |
 
 - `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`),
   throttled autosave to `localStorage['synergytower.save.v1']`, toasts.
 - Scenes import each other with dynamic `import()` where a cycle would otherwise form (floor ⇄ elevator ride ⇄ title).
+- Promotion gate: stars + level + keycard SP make you `ready`; then the HR desk (an `hr` room on every floor) runs the
+  `review` mini-game in `mode: 'review'`; `state.reviews[floor]` must be true before the elevator promotes.
 - Floors are generated deterministically from the floor number (`buildFloor(n)` is cached). All floors are 40×28 tiles.
   The elevator lobby sits at a fixed top-centre position. Tests assert that every station is reachable.
 - Rendering: the floor tiles are baked once, then walls (per row), furniture and actors are depth-sorted by their base y.

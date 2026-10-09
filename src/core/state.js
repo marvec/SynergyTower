@@ -17,6 +17,7 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     so: E.STARTING.so,
     coffee: { value: E.maxCoffee(1), updatedAt: now },
     starsByFloor: {},
+    reviews: {}, // floor → true once the HR performance review there is passed
     bestByTask: {},
     cooldowns: {},
     perks: {},
@@ -92,8 +93,53 @@ export function promotionStatus(s) {
     stars: stars >= quota,
     level: s.level >= levelReq,
     sp: s.sp >= fee,
+    review: !!s.reviews?.[f],
   };
-  return { floor: f, stars, quota, levelReq, level: s.level, fee, sp: s.sp, checks, top, can: !top && checks.stars && checks.level && checks.sp };
+  // `ready` = everything except the HR review: that is when HR will see you.
+  const ready = !top && checks.stars && checks.level && checks.sp;
+  return { floor: f, stars, quota, levelReq, level: s.level, fee, sp: s.sp, checks, top, ready, can: ready && checks.review };
+}
+
+export const reviewKey = (floor) => `review-${floor}`;
+
+/**
+ * Can the player take the HR performance review now?
+ * state: 'top' | 'wrongFloor' | 'notReady' | 'passed' | 'cooldown' | 'coffee' | 'available'
+ */
+export function reviewStatus(s, now) {
+  const st = promotionStatus(s);
+  const cost = E.coffeeCost(s.maxFloor);
+  const base = { cost, st, left: 0 };
+  if (st.top) return { ...base, state: 'top' };
+  if (s.floor !== s.maxFloor) return { ...base, state: 'wrongFloor' };
+  if (st.checks.review) return { ...base, state: 'passed' };
+  if (!st.ready) return { ...base, state: 'notReady' };
+  const left = cooldownLeft(s, reviewKey(s.maxFloor), now);
+  if (left > 0) return { ...base, state: 'cooldown', left };
+  if (s.coffee.value < cost) return { ...base, state: 'coffee' };
+  return { ...base, state: 'available' };
+}
+
+/** Charges coffee for a review attempt. */
+export function startReview(s, now) {
+  tick(s, now);
+  const r = reviewStatus(s, now);
+  if (r.state !== 'available') return { ok: false, reason: r.state };
+  const wasFull = s.coffee.value >= coffeeMax(s);
+  s.coffee.value -= r.cost;
+  if (wasFull) s.coffee.updatedAt = now;
+  return { ok: true, cost: r.cost };
+}
+
+export function completeReview(s, score, now) {
+  const f = s.maxFloor;
+  const passed = score >= E.REVIEW_PASS_SCORE;
+  if (passed) {
+    s.reviews = { ...s.reviews, [f]: true };
+    delete s.cooldowns[reviewKey(f)];
+  } else s.cooldowns[reviewKey(f)] = now + E.reviewCooldownMs(f, s.perks);
+  s.stats.reviews = (s.stats.reviews || 0) + 1;
+  return { review: true, passed, score, retryIn: passed ? 0 : E.reviewCooldownMs(f, s.perks) };
 }
 
 export function promote(s, now) {

@@ -130,10 +130,81 @@ export class TaskCard extends Modal {
   }
 }
 
+// ------------------------------------------------------------------ HR performance review
+export class ReviewCard extends Modal {
+  constructor(game, onStart) {
+    super(game, { w: 290, h: 168, title: 'HR Office · Performance Review' });
+    this.onStart = onStart;
+  }
+  build() {
+    const s = this.game.state;
+    const r = S.reviewStatus(s, this.game.now());
+    const b = this.buttons;
+    const f = b.focus;
+    b.clear();
+    const by = this.y + this.h - 26;
+    if (r.state === 'cooldown') {
+      b.add({ x: this.x + 10, y: by, w: 120, h: 18, label: `Retry in ${formatTime(r.left)}`, disabled: true });
+      b.add({ x: this.x + 136, y: by, w: 84, h: 18, label: 'Skip', icon: 'so', color: '#2f7f6f', disabled: s.so < E.SKIP_COOLDOWN_SO, onClick: () => {
+        if (S.skipCooldown(s, S.reviewKey(s.maxFloor), this.game.now()).ok) {
+          this.game.sfx('coin');
+          this.game.markDirty();
+        }
+      } });
+    } else if (r.state === 'coffee') {
+      b.add({ x: this.x + 10, y: by, w: 120, h: 18, label: `Need ${r.cost} coffee`, disabled: true });
+      b.add({ x: this.x + 136, y: by, w: 84, h: 18, label: `Refill ${E.REFILL_COFFEE_SO}`, icon: 'so', color: '#2f7f6f', disabled: s.so < E.REFILL_COFFEE_SO, onClick: () => {
+        if (S.refillCoffee(s, this.game.now()).ok) {
+          this.game.sfx('coin');
+          this.game.markDirty();
+        }
+      } });
+    } else {
+      b.add({ x: this.x + 10, y: by, w: 210, h: 18, label: `Start review  (-${r.cost} coffee)`, color: C.goodBtn, onClick: () => {
+        if (!S.startReview(s, this.game.now()).ok) return this.game.sfx('bad');
+        this.game.markDirty();
+        this.game.pop();
+        this.onStart();
+      } });
+    }
+    b.add({ x: this.x + this.w - 64, y: by, w: 54, h: 18, label: 'Back', color: C.panelLight, onClick: () => this.close() });
+    b.focus = Math.min(f, b.items.length - 1);
+  }
+  renderBody(g, x, y) {
+    const s = this.game.state;
+    drawText(g, `Promotion to floor ${s.maxFloor + 1}: ${titleForFloor(s.maxFloor + 1)}`, x + 10, y + 6, { color: C.gold });
+    drawWrapped(
+      g,
+      'Your numbers look good. Before the elevator takes you up, HR needs a quick chat about your growth mindset. Answer like a future leader.',
+      x + 10, y + 20, this.w - 20,
+    );
+    drawText(g, `Pass mark: ${Math.round(E.REVIEW_PASS_SCORE * 100)}% · retry wait if you fail: ${formatTime(E.reviewCooldownMs(s.maxFloor, s.perks))}`, x + 10, y + 78, { color: C.dim });
+    drawText(g, 'One question is about your own track record.', x + 10, y + 92, { color: C.dim });
+  }
+}
+
+/** Shown when the HR desk is visited but no review is possible (not ready, already passed, wrong floor). */
+export function hrNotice(game, state) {
+  const s = game.state;
+  const st = S.promotionStatus(s);
+  let text;
+  if (state === 'passed') text = 'You already aced your performance review. The elevator is waiting for you!';
+  else if (state === 'top') text = s.flags.ceo ? 'HR reports to you now, CEO.' : 'There is nobody left to review you. Hit the KPI quota on this floor to become CEO.';
+  else if (state === 'wrongFloor') text = `Performance reviews happen on your highest floor (F${s.maxFloor}). Take the elevator up when you are ready.`;
+  else {
+    const missing = [];
+    if (!st.checks.stars) missing.push(`- KPI stars on this floor: ${st.stars}/${st.quota}`);
+    if (!st.checks.level) missing.push(`- Seniority level: Lv${st.level}/${st.levelReq}`);
+    if (!st.checks.sp) missing.push(`- Keycard fee: ${formatNum(st.sp)}/${formatNum(st.fee)} SP`);
+    text = `Reviews are by appointment only. Come back when you are promotion-ready:\n${missing.join('\n')}`;
+  }
+  game.push(new Dialog(game, { title: 'HR Office', w: 300, text, button: 'Understood' }));
+}
+
 // ------------------------------------------------------------------ elevator
 export class ElevatorPanel extends Modal {
   constructor(game, { onPromote, onTravel }) {
-    super(game, { w: 320, h: 196, title: 'Elevator' });
+    super(game, { w: 320, h: 208, title: 'Elevator' });
     this.onPromote = onPromote;
     this.onTravel = onTravel;
   }
@@ -145,8 +216,8 @@ export class ElevatorPanel extends Modal {
     b.clear();
     if (!st.top) {
       b.add({
-        x: this.x + 10, y: this.y + 82, w: this.w - 20, h: 20,
-        label: st.can ? `Get promoted to floor ${st.floor + 1}!` : `Promotion to floor ${st.floor + 1} locked`,
+        x: this.x + 10, y: this.y + 94, w: this.w - 20, h: 20,
+        label: st.can ? `Get promoted to floor ${st.floor + 1}!` : st.ready ? 'Pass your HR review first' : `Promotion to floor ${st.floor + 1} locked`,
         icon: st.can ? 'up' : 'lock', disabled: !st.can, color: C.goodBtn,
         onClick: () => {
           this.game.pop();
@@ -163,7 +234,7 @@ export class ElevatorPanel extends Modal {
       const unlocked = fl <= s.maxFloor;
       const here = fl === s.floor;
       b.add({
-        x: gx + (i % cols) * (bw + 2), y: this.y + 124 + Math.floor(i / cols) * (bh + 2), w: bw, h: bh,
+        x: gx + (i % cols) * (bw + 2), y: this.y + 136 + Math.floor(i / cols) * (bh + 2), w: bw, h: bh,
         label: String(fl), disabled: !unlocked,
         color: here ? C.gold : departmentColor(fl), textColor: here ? C.ink : null,
         onClick: () => {
@@ -195,9 +266,10 @@ export class ElevatorPanel extends Modal {
       row(0, st.checks.stars, `KPI stars earned on floor ${st.floor}`, `${st.stars}/${st.quota}`);
       row(1, st.checks.level, 'Seniority level', `Lv${st.level}/${st.levelReq}`);
       row(2, st.checks.sp, 'Keycard fee (Synergy Points)', `${formatNum(st.sp)}/${formatNum(st.fee)}`);
-      if (s.floor !== s.maxFloor) drawText(g, `(Promotions happen from your highest floor, F${s.maxFloor}.)`, x + 10, y + 56, { color: C.dim });
+      row(3, st.checks.review, st.checks.review ? 'Performance review (HR)' : st.ready ? 'Performance review: visit the HR office' : 'Performance review (HR, once ready)', st.checks.review ? 'PASSED' : 'pending');
+      if (s.floor !== s.maxFloor) drawText(g, `(Promotions happen from your highest floor, F${s.maxFloor}.)`, x + 10, y + 68, { color: C.dim });
     }
-    drawText(g, 'Ride to an unlocked floor (gold = you are here):', x + 10, y + 96, { color: C.dim });
+    drawText(g, 'Ride to an unlocked floor (gold = you are here):', x + 10, y + 108, { color: C.dim });
   }
 }
 
@@ -407,7 +479,7 @@ export class Dialog extends Modal {
     this.extra = extra;
     this.buttonLabel = button;
     const lines = wrapText(text, w - 24).length;
-    this.h = Math.min(250, 44 + lines * 10 + (extra ? extra.h : 0));
+    this.h = Math.min(250, 54 + lines * 10 + (extra ? extra.h : 0));
   }
   close() {
     super.close();
@@ -468,7 +540,7 @@ export const HOW_TO =
   'Move: arrow keys / WASD, or click the floor.\n' +
   'Interact: SPACE / ENTER near a desk, printer, meeting room... or click it.\n' +
   'Each task is a mini-game that costs coffee and earns Synergy Points (SP), XP and 0-3 KPI stars.\n' +
-  'Collect enough stars on a floor, reach the seniority level and pay the keycard fee at the elevator to get promoted.\n' +
+  'Collect enough stars on a floor, reach the seniority level and the keycard fee, then pass the HR performance review. Only then does the elevator take you up (going down is always fine).\n' +
   'Coffee refills over time (also offline). Tasks have cooldowns. Stock Options skip the waiting.\n' +
   'Esc: menu/back   M: music   B: shop   P: perks   T: training';
 

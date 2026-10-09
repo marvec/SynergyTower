@@ -372,6 +372,30 @@ const FURNITURE = {
     p.r(W - 12, -4, 8, 3, '#c9a227');
     p.r(W - 11, -3, 6, 1, '#1a1a22');
   } },
+  hrdesk: { lift: 18, draw(p, w) {
+    const W = w * 16;
+    p.box(0, 2, W, 13, 9, '#c9a77a', '#9a7a52');
+    p.r(W / 2 - 9, 8, 18, 5, '#f4f1e8');
+    p.r(W / 2 - 7, 9, 3, 3, '#7a3bb6');
+    p.r(W / 2 - 3, 9, 3, 3, '#7a3bb6');
+    p.r(W / 2 + 1, 9, 5, 1, '#7a3bb6');
+    p.r(W / 2 + 1, 11, 5, 1, '#7a3bb6');
+    p.r(6, -12, 14, 10, '#1a1a22');
+    p.r(7, -11, 12, 7, '#c8b8f0');
+    p.r(24, -5, 8, 4, '#efe9d9');
+    p.r(24, -7, 8, 2, '#f4f6f8');
+    p.r(W - 14, -6, 8, 5, '#7fc4ff');
+    p.r(W - 12, -9, 4, 3, '#ffffff');
+  } },
+  poster: { lift: 24, draw(p, w) {
+    const W = w * 16;
+    p.r(3, -22, W - 6, 19, '#1a1a22');
+    p.r(4, -21, W - 8, 17, '#2a6a9a');
+    p.r(6, -19, W - 12, 8, '#f2c14e');
+    p.r(W / 2 - 3, -17, 6, 4, '#e2504a');
+    p.r(7, -9, W - 14, 1, '#f4f1e8');
+    p.r(9, -7, W - 18, 1, '#f4f1e8');
+  } },
   printer: { lift: 16, draw(p) {
     p.box(0, 3, 16, 11, 14, '#d8dce4', '#b8bcc4');
     p.r(3, -9, 10, 2, '#1a1a22');
@@ -585,6 +609,7 @@ export function floorStyleForRoom(roomType, deptId) {
     case 'reception': return 'marble';
     case 'copy': return 'tile';
     case 'manager': return deptId === 'exec' ? 'parquet' : 'carpet';
+    case 'hr': return 'parquet';
     case 'special': return deptId === 'it' ? 'server' : deptId === 'exec' ? 'parquet' : 'carpet';
     default: return 'carpet';
   }

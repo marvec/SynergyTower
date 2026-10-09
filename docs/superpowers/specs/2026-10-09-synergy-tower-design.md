@@ -132,7 +132,11 @@ Plant (−15% cooldowns, single purchase).
 **Fake shop:** SO packs (10 / 60 / 140 / 400 for €0.99 / 4.99 / 9.99 / 24.99) go through a fake checkout modal clearly
 labelled "DEMO — no real payment". Clicking **Pay** credits the coins.
 
-**Promotion:** at the elevator panel, once stars ≥ quota, level ≥ required and SP ≥ fee → pay the fee, play the elevator ride
+**HR performance review:** every floor has an HR office. Once stars ≥ quota, level ≥ required and SP ≥ fee, the HR desk
+opens a Performance Review mini-game (corporate-answer quiz plus one question about your own stats; pass mark 60%, costs
+coffee, a failed review locks for 2× the station cooldown, which Stock Options can skip). Passing is stored per floor.
+
+**Promotion:** at the elevator panel, once stars ≥ quota, level ≥ required, SP ≥ fee and the HR review is passed → pay the fee, play the elevator ride
 animation and a fanfare, unlock the next floor and the new title. Unlocked floors can be revisited (good for SP/XP, but stars only count for their own floor).
 Clearing floor 40's quota triggers the CEO ending; free play continues after it.
 

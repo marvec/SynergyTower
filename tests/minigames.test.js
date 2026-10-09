@@ -5,10 +5,10 @@ import { installMockDocument, mockCanvas } from './mock-canvas.js';
 installMockDocument();
 const { createRng } = await import('../src/core/rng.js');
 const { createInput } = await import('../src/engine/input.js');
-const { ALL_GAMES } = await import('../src/core/tasks.js');
+const { MINIGAMES } = await import('../src/minigames/index.js');
 const { DEPARTMENTS } = await import('../src/data/departments.js');
 
-const ids = process.env.MG ? process.env.MG.split(',') : ALL_GAMES;
+const ids = process.env.MG ? process.env.MG.split(',') : Object.keys(MINIGAMES);
 const KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Enter', '1', '2', '3', '4', 'a', 'e', 's', 't'];
 
 for (const id of ids) {
@@ -21,7 +21,8 @@ for (const id of ids) {
     for (const [k, d] of [0, 0.35, 0.7, 1].entries()) {
       const dept = DEPARTMENTS[(k * 3) % DEPARTMENTS.length];
       const rng = createRng(1234 + k);
-      const inst = mod.create({ difficulty: d, rng, theme: { dept: dept.id, title: 'Test' }, sfx: () => {} });
+      const stats = { floor: 3, stars: 14, title: 'Mailroom Clerk' };
+      const inst = mod.create({ difficulty: d, rng, theme: { dept: dept.id, title: 'Test', stats }, sfx: () => {} });
       const input = createInput();
       const r = createRng(99 + k);
       let t = 0;

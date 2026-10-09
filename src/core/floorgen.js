@@ -90,8 +90,9 @@ export function generateFloor(floor) {
   vWall(ELEVATOR_ROOM.x1 + 1, TOP);
   const elevatorRoom = addRoom('elevator', ELEVATOR_ROOM.x0, ELEVATOR_ROOM.x1, TOP, 1, 4);
   const regions = [];
+  // The ground floor always splits both regions: it needs room for the reception + every required room type.
   const splitRegion = (a, b) => {
-    if (rng.chance(0.6)) {
+    if (floor === 1 || rng.chance(0.6)) {
       const cut = rng.int(a + 6, b - 6);
       vWall(cut, TOP);
       regions.push([a, cut - 1], [cut + 1, b]);
@@ -136,7 +137,7 @@ export function generateFloor(floor) {
 
   // Assign room types.
   const autoTypes = rng.shuffle(['manager', 'copy', 'restroom', 'meeting']);
-  const required = ['kitchen', 'meeting', 'special'];
+  const required = ['kitchen', 'meeting', 'special', 'hr'];
   if (floor === 1) required.push('openplan');
   const slots = [...regions.map((r) => ({ band: TOP, r })), ...bottomRooms.filter((b) => b[2] === 'auto').map((b) => ({ band: BOTTOM, r: b }))];
   const typeQueue = [...required, ...autoTypes];
@@ -231,6 +232,18 @@ export function generateFloor(floor) {
       place(r, 'plant', r.x0, r.y0);
       place(r, 'plant', r.x1, r.y1);
     },
+    hr(r) {
+      // HR office: the performance-review desk (gate for promotions) with the HR rep standing behind it.
+      const x = Math.floor((r.x0 + r.x1) / 2) - 1;
+      const y = r.y0 + 4;
+      if (place(r, 'hrdesk', x, y, 3, 1, { interact: 'hr' })) place(r, 'hrrep', x + 1, y - 1);
+      place(r, 'poster', Math.max(r.x0 + 2, x), r.y0, 2, 1);
+      place(r, 'filing', r.x0, r.y0);
+      place(r, 'filing', r.x1, r.y0);
+      decor(r, 'chairup', r.x0 + 1, y + 2);
+      place(r, 'plant', r.x1, r.y1);
+      place(r, 'plant', r.x0, r.y1);
+    },
     manager(r) {
       const x = Math.floor((r.x0 + r.x1) / 2) - 1;
       const y = r.y0 + 3;
@@ -312,8 +325,10 @@ export function generateFloor(floor) {
 
   const spawn = floor === 1 ? { x: 19.5, y: FLOOR_H - 2 } : { x: 19.5, y: TOP.y0 + 1.5 };
   const elevator = items.find((i) => i.interact === 'elevator');
+  const hrDesk = items.find((i) => i.interact === 'hr');
+  const hrRep = items.find((i) => i.type === 'hrrep');
 
-  return { floor, dept: dept.id, w: FLOOR_W, h: FLOOR_H, tiles, roomOf, rooms, items, spawn, elevator, entrance, elevatorRoom: elevatorRoom.id };
+  return { floor, dept: dept.id, w: FLOOR_W, h: FLOOR_H, tiles, roomOf, rooms, items, spawn, elevator, hrDesk, hrRep, entrance, elevatorRoom: elevatorRoom.id };
 }
 
 /** Boolean grid: true = walkable for characters. */

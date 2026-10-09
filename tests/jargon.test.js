@@ -29,3 +29,13 @@ test('jargon shows up regularly in the tower', () => {
   expect(n).toBeGreaterThanOrEqual(15);
   console.log(`jargon stations across 40 floors: ${n}`);
 });
+
+test('review questions fit the bubble and options fit their rows', async () => {
+  const { REVIEW } = await import('../src/data/mg-review.js');
+  expect(REVIEW.length).toBeGreaterThanOrEqual(25);
+  for (const r of REVIEW) {
+    expect(wrapText(r.q, 236).length).toBeLessThanOrEqual(4);
+    expect(new Set([r.a, ...r.w]).size).toBe(4);
+    for (const o of [r.a, ...r.w]) expect(measureText(o)).toBeLessThanOrEqual(276);
+  }
+});

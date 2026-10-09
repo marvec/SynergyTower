@@ -95,11 +95,11 @@ export class Hud {
     drawText(g, sText, x, 12, { color: done ? C.good : C.text });
     x -= 9;
     icon(g, 'star', x, 12);
-    if (st?.can && Math.floor(this.pulse * 2) % 2 === 0) {
+    const promo = st?.can ? ['PROMOTION READY', C.good] : st?.ready ? ['SEE HR FOR REVIEW', C.so] : null;
+    if (promo && Math.floor(this.pulse * 2) % 2 === 0) {
       x -= 6;
-      const t = 'PROMOTION READY';
-      x -= measureText(t);
-      drawText(g, t, x, 12, { color: C.good });
+      x -= measureText(promo[0]);
+      drawText(g, promo[0], x, 12, { color: promo[1] });
     }
 
     this.buttons.render(g);
