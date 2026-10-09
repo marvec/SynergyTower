@@ -83,7 +83,7 @@ The host owns intro/result cards, the timer frame, coffee charge and rewards. Mi
 | spreadsheet | Fix the Spreadsheet | Grid with row totals; click every wrong total. |
 | bingo | Meeting Buzzword Bingo | Buzzwords float by in speech bubbles; catch the ones on your card to complete lines. |
 | calendar | Schedule the Meeting | Several attendee calendars; pick the slot free for everyone. |
-| timing | Printer Jam / Close the Deal | Stop the oscillating needle inside the shrinking green zone. |
+| timing | Printer Jam / Close the Deal | Warm-up: mash Space/click to fill a draining bar (smash the printer!), then stop the oscillating needle inside the shrinking green zone. |
 | memory | Name Badge Memory | Flip pairs of colleague badges. |
 | simon | Server Rack Sequence | Repeat the blinking light sequence. |
 | math | Expense Report | Add up receipts; choose the correct total. |

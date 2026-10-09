@@ -1,13 +1,20 @@
-// Perfect Timing: stop the swinging needle inside the green zone. Themed as printer jam, deal closing, deploys…
+// Perfect Timing: first mash to fill a draining bar (smash the printer!), then stop the swinging needle in the green zone.
+// The mash phase is adapted from Printer Jam in ../corporate. Themed as printer jam, deal closing, deploys…
 import { W, H, C, rect, frame, panel, drawText, backdrop, header, timerBar, face, Floaters, Shake, Countdown, byDiff, finish } from '../engine/mgkit.js';
 
 const THEMES = {
-  default: { art: 'printer', verb: 'UNJAM', hit: 'Paper free!', miss: 'Still jammed...' },
-  sales: { art: 'deal', verb: 'CLOSE', hit: 'Deal closed!', miss: 'They walked away' },
-  it: { art: 'deploy', verb: 'DEPLOY', hit: 'Shipped!', miss: 'Rollback!' },
-  finance: { art: 'bell', verb: 'RING', hit: 'Ding ding!', miss: 'Off-beat!' },
-  marketing: { art: 'camera', verb: 'SNAP', hit: 'Perfect shot!', miss: 'Blurry...' },
-  exec: { art: 'sign', verb: 'SIGN', hit: 'Signed!', miss: 'Ink blot!' },
+  default: { art: 'printer', verb: 'UNJAM', hit: 'Paper free!', miss: 'Still jammed...',
+    mash: 'SMASH THE PRINTER!', mashed: 'Unjammed! Now align the paper.', hint: 'Percussive maintenance is a valid IT strategy.', smacks: ['BONK!', 'WHAM!', 'THUNK!', 'KA-CHUNK!'] },
+  sales: { art: 'deal', verb: 'CLOSE', hit: 'Deal closed!', miss: 'They walked away',
+    mash: 'PUMP UP THE PITCH!', mashed: 'Client is hooked! Now close it.', hint: 'Enthusiasm is a strategy too.', smacks: ['SYNERGY!', 'ROI!', 'WIN-WIN!', 'BOOM!'] },
+  it: { art: 'deploy', verb: 'DEPLOY', hit: 'Shipped!', miss: 'Rollback!',
+    mash: 'MASH TO COMPILE!', mashed: 'Build passed! Now hit the window.', hint: 'Faster typing = faster compiling. Science.', smacks: ['clack', 'CLACK!', 'tap', 'TAP!'] },
+  finance: { art: 'bell', verb: 'RING', hit: 'Ding ding!', miss: 'Off-beat!',
+    mash: 'CRANK THE TICKER!', mashed: 'Markets warming up! Now ring it.', hint: 'Line goes up if you crank hard enough.', smacks: ['CHING!', 'tick', 'TICK!', '$$$'] },
+  marketing: { art: 'camera', verb: 'SNAP', hit: 'Perfect shot!', miss: 'Blurry...',
+    mash: 'CHARGE THE FLASH!', mashed: 'Flash charged! Now snap it.', hint: 'More flash, more brand.', smacks: ['zzt', 'ZZT!', 'whirr', 'WHIRR!'] },
+  exec: { art: 'sign', verb: 'SIGN', hit: 'Signed!', miss: 'Ink blot!',
+    mash: 'SHAKE THE PEN!', mashed: 'Ink is flowing! Now sign it.', hint: 'A 400 EUR pen and it still will not write.', smacks: ['shake', 'SHAKE!', 'splat', 'CLICK!'] },
 };
 
 const BAR = { x: 60, y: 176, w: 360, h: 18 };
@@ -15,13 +22,22 @@ const BAR = { x: 60, y: 176, w: 360, h: 18 };
 export default {
   id: 'timing',
   name: 'Perfect Timing',
-  help: 'Press SPACE (or click) when the needle is inside the green zone. Yellow = half credit.',
+  help: 'First MASH Space (or click) to fill the bar, then press it when the needle is in the green zone. Yellow = half.',
   create({ difficulty: d, rng, theme, sfx = () => {} }) {
     const th = THEMES[theme?.dept] || THEMES.default;
     const rounds = Math.round(byDiff(d, 4, 7));
     const fl = new Floaters();
     const shake = new Shake();
-    const total = new Countdown(byDiff(d, 60, 55));
+    const total = new Countdown(byDiff(d, 70, 62));
+    // Mash phase: each press fills, the bar drains constantly. Par time = how fast a good masher finishes.
+    // At ~7 presses/s: easy fills in ~2.4 s, hard in ~5 s.
+    const perPress = byDiff(d, 0.09, 0.07);
+    const drain = byDiff(d, 0.12, 0.28);
+    const mashPar = byDiff(d, 3, 5);
+    let fill = 0;
+    let mashT = 0;
+    let mashScore = 0;
+    let bonk = 0; // art jolt after each press
     const results = [];
     let r = 0;
     let p = 0;
@@ -31,7 +47,7 @@ export default {
     let zw = 0.2;
     let zv = 0;
     let roundT = 0;
-    let phase = 'aim';
+    let phase = 'mash';
     let phaseT = 0;
     let anim = 0; // art animation clock
 
@@ -45,9 +61,10 @@ export default {
       roundT = 0;
       phase = 'aim';
     }
-    newRound();
 
     const sum = () => results.reduce((a, b) => a + b, 0);
+    // 20% for mashing quickly, 80% for the needle rounds.
+    const finalScore = () => 0.2 * mashScore + 0.8 * (sum() / rounds);
 
     const inst = {
       done: false,
@@ -57,7 +74,29 @@ export default {
         shake.update(dt);
         anim += dt;
         if (inst.done) return;
-        if (total.update(dt)) return finish(inst, sum() / rounds);
+        bonk = Math.max(0, bonk - dt * 6);
+        if (total.update(dt)) return finish(inst, phase === 'mash' ? 0.2 * fill * 0.5 : finalScore());
+        if (phase === 'mash') {
+          mashT += dt;
+          fill = Math.max(0, fill - drain * dt);
+          if (input.confirm() || input.pointer.clicked) {
+            fill = Math.min(1, fill + perPress);
+            bonk = 1;
+            sfx('click');
+            if (rng.chance(0.35)) fl.add(rng.pick(th.smacks), 240 + rng.float(-70, 70), rng.float(70, 110), C.gold);
+          }
+          if (fill >= 1) {
+            mashScore = Math.max(0.3, Math.min(1, 1 - Math.max(0, mashT - mashPar) / (mashPar * 2)));
+            sfx('good');
+            fl.add(th.mashed, W / 2, 150, C.good);
+            newRound();
+            phase = 'result'; // short breather before the first needle round
+            phaseT = 1.2;
+            r = -1;
+            anim = 0;
+          }
+          return;
+        }
         if (phase === 'aim') {
           p += dir * speed * dt;
           if (p > 1) (p = 2 - p), (dir = -1);
@@ -67,7 +106,8 @@ export default {
             if (zc > 0.92 - zw / 2 || zc < 0.08 + zw / 2) zv = -zv;
           }
           roundT += dt;
-          const press = input.confirm() || input.pointer.clicked;
+          // Grace period: a player still mashing from the warm-up must not fire the needle by accident.
+          const press = roundT > 0.35 && (input.confirm() || input.pointer.clicked);
           if (press || roundT > 6) {
             const dist = Math.abs(p - zc);
             let v = 0;
@@ -93,20 +133,40 @@ export default {
           phaseT -= dt;
           if (phaseT <= 0) {
             r++;
-            if (r >= rounds) return finish(inst, sum() / rounds);
+            if (r >= rounds) return finish(inst, finalScore());
             newRound();
           }
         }
+      },
+      renderMash(g) {
+        panel(g, BAR.x - 6, BAR.y - 6, BAR.w + 12, BAR.h + 12, { fill: C.panelDark });
+        rect(g, BAR.x, BAR.y, BAR.w, BAR.h, '#2a2f45');
+        const col = fill > 0.75 ? C.good : fill > 0.4 ? C.gold : C.warn;
+        rect(g, BAR.x, BAR.y, BAR.w * fill, BAR.h, col);
+        rect(g, BAR.x, BAR.y, BAR.w * fill, 2, 'rgba(255,255,255,0.4)');
+        const pulse = Math.floor(anim * 6) % 2 === 0;
+        drawText(g, th.mash, W / 2, 150, { align: 'center', scale: 2, color: pulse ? C.gold : '#ffffff', shadow: C.border });
+        drawText(g, 'Mash SPACE or click as fast as you can!', W / 2, 202, { align: 'center', color: C.text, shadow: C.border });
+        drawText(g, th.hint, W / 2, 216, { align: 'center', color: C.dim });
       },
       render(g) {
         g.save();
         shake.apply(g);
         backdrop(g);
-        header(g, theme?.title || 'Perfect Timing', `Round ${Math.min(r + 1, rounds)}/${rounds}`);
+        header(g, theme?.title || 'Perfect Timing', phase === 'mash' ? 'Warm-up' : `Round ${Math.max(1, Math.min(r + 1, rounds))}/${rounds}`);
         timerBar(g, total.left, total.total);
         const last = results[results.length - 1];
-        const state = phase === 'result' ? (last === 1 ? 'hit' : last === 0.5 ? 'half' : 'miss') : 'idle';
+        const state = phase === 'result' && r >= 0 ? (last === 1 ? 'hit' : last === 0.5 ? 'half' : 'miss') : r < 0 && phase === 'result' ? 'hit' : 'idle';
+        g.save();
+        if (bonk > 0) g.translate(Math.round(Math.sin(anim * 90) * 4 * bonk), Math.round(bonk * 3));
         ART[th.art](g, state, anim);
+        g.restore();
+        if (phase === 'mash') {
+          this.renderMash(g);
+          fl.render(g);
+          g.restore();
+          return;
+        }
         // Bar.
         panel(g, BAR.x - 6, BAR.y - 6, BAR.w + 12, BAR.h + 12, { fill: C.panelDark });
         rect(g, BAR.x, BAR.y, BAR.w, BAR.h, '#4a2a2a');
