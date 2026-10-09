@@ -77,8 +77,8 @@ export const PERKS = [
   { id: 'mug', name: 'Bigger Mug', desc: '+2 max coffee', currency: 'sp', max: 5, baseCost: 150, growth: 3.2 },
   { id: 'espresso', name: 'Espresso Machine', desc: '-10% coffee regen time', currency: 'sp', max: 5, baseCost: 250, growth: 3.3 },
   { id: 'chair', name: 'Ergonomic Chair', desc: '+8% XP from tasks', currency: 'sp', max: 5, baseCost: 300, growth: 3.4 },
-  { id: 'monitor', name: 'Second Monitor', desc: '+8% SP from tasks', currency: 'sp', max: 5, baseCost: 300, growth: 3.4 },
-  { id: 'stapler', name: 'Golden Stapler', desc: '+10% SP, forever', currency: 'so', max: 1, baseCost: 40, growth: 1 },
+  { id: 'monitor', name: 'Second Monitor', desc: '+8% paperclips from tasks', currency: 'sp', max: 5, baseCost: 300, growth: 3.4 },
+  { id: 'stapler', name: 'Golden Stapler', desc: '+10% paperclips, forever', currency: 'so', max: 1, baseCost: 40, growth: 1 },
   { id: 'plant', name: 'Corner Office Plant', desc: '-15% task cooldowns', currency: 'so', max: 1, baseCost: 60, growth: 1 },
 ];
 

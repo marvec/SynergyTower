@@ -6,6 +6,7 @@ import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
+import { CHAR_W, CHAR_H } from '../engine/art.js';
 
 class Modal {
   constructor(game, { w = 260, h = 160, title = '' } = {}) {
@@ -195,7 +196,7 @@ export function hrNotice(game, state) {
     const missing = [];
     if (!st.checks.stars) missing.push(`- KPI stars on this floor: ${st.stars}/${st.quota}`);
     if (!st.checks.level) missing.push(`- Seniority level: Lv${st.level}/${st.levelReq}`);
-    if (!st.checks.sp) missing.push(`- Keycard fee: ${formatNum(st.sp)}/${formatNum(st.fee)} SP`);
+    if (!st.checks.sp) missing.push(`- Keycard fee: ${formatNum(st.sp)}/${formatNum(st.fee)} paperclips`);
     text = `Reviews are by appointment only. Come back when you are promotion-ready:\n${missing.join('\n')}`;
   }
   game.push(new Dialog(game, { title: 'HR Office', w: 300, text, button: 'Understood' }));
@@ -265,7 +266,7 @@ export class ElevatorPanel extends Modal {
       };
       row(0, st.checks.stars, `KPI stars earned on floor ${st.floor}`, `${st.stars}/${st.quota}`);
       row(1, st.checks.level, 'Seniority level', `Lv${st.level}/${st.levelReq}`);
-      row(2, st.checks.sp, 'Keycard fee (Synergy Points)', `${formatNum(st.sp)}/${formatNum(st.fee)}`);
+      row(2, st.checks.sp, 'Keycard fee (paperclips)', `${formatNum(st.sp)}/${formatNum(st.fee)}`);
       row(3, st.checks.review, st.checks.review ? 'Performance review (HR)' : st.ready ? 'Performance review: visit the HR office' : 'Performance review (HR, once ready)', st.checks.review ? 'PASSED' : 'pending');
       if (s.floor !== s.maxFloor) drawText(g, `(Promotions happen from your highest floor, F${s.maxFloor}.)`, x + 10, y + 68, { color: C.dim });
     }
@@ -427,7 +428,7 @@ export class PerksOverlay extends Modal {
   }
 }
 
-// ------------------------------------------------------------------ training (SP → XP)
+// ------------------------------------------------------------------ training (paperclips → XP)
 export class TrainOverlay extends Modal {
   constructor(game) {
     super(game, { w: 300, h: 150, title: 'Training Center' });
@@ -443,7 +444,7 @@ export class TrainOverlay extends Modal {
     opts.forEach((xp, i) => {
       const cost = xp * E.TRAINING_SP_PER_XP;
       b.add({
-        x: this.x + 10 + i * 96, y: this.y + 82, w: 88, h: 30, label: `${labels[i]}`, sub: `${formatNum(cost)} SP`,
+        x: this.x + 10 + i * 96, y: this.y + 82, w: 88, h: 30, label: `${labels[i]}`, sub: `${formatNum(cost)} clips`,
         disabled: s.sp < cost,
         onClick: () => {
           const r = S.train(s, xp);
@@ -460,7 +461,7 @@ export class TrainOverlay extends Modal {
   }
   renderBody(g, x, y) {
     const s = this.game.state;
-    drawWrapped(g, `Turn Synergy Points into experience. ${E.TRAINING_SP_PER_XP} SP buys 1 XP. Level up to qualify for promotions.`, x + 10, y + 6, this.w - 20);
+    drawWrapped(g, `Turn paperclips into experience. ${E.TRAINING_SP_PER_XP} paperclips buy 1 XP. Level up to qualify for promotions.`, x + 10, y + 6, this.w - 20);
     drawText(g, `Lv${s.level}`, x + 10, y + 32, { color: C.xp });
     bar(g, x + 36, y + 32, this.w - 100, 8, s.xp / E.xpToNext(s.level), C.xp);
     drawText(g, `${formatNum(s.xp)}/${formatNum(E.xpToNext(s.level))}`, x + this.w - 10, y + 32, { align: 'right', color: C.dim });
@@ -492,6 +493,47 @@ export class Dialog extends Modal {
   renderBody(g, x, y) {
     const h = drawWrapped(g, this.text, x + 12, y + 6, this.w - 24);
     this.extra?.draw(g, x, y + 10 + h);
+  }
+}
+
+// ------------------------------------------------------------------ CEO: personnel decision
+/** The CEO talks to a colleague and decides their fate. npc: { a (Actor), id: { name, role, years, note } }. */
+export class FateDialog extends Modal {
+  constructor(game, { npc, line, dept, floor, onFire, onKeep }) {
+    super(game, { w: 300, h: 148, title: 'Personnel Decision' });
+    this.npc = npc;
+    this.line = line;
+    this.dept = dept;
+    this.floor = floor;
+    this.onFire = onFire;
+    this.onKeep = onKeep;
+  }
+  build() {
+    const b = this.buttons;
+    const f = b.focus;
+    b.clear();
+    const by = this.y + this.h - 26;
+    b.add({ x: this.x + 10, y: by, w: 96, h: 18, label: 'Fire (F)', hotkey: 'f', color: C.bad, onClick: () => this.decide(this.onFire) });
+    b.add({ x: this.x + 112, y: by, w: 96, h: 18, label: 'Keep (K)', hotkey: 'k', color: C.goodBtn, onClick: () => this.decide(this.onKeep) });
+    b.add({ x: this.x + 214, y: by, w: 76, h: 18, label: 'Later', color: C.panelLight, onClick: () => this.close() });
+    b.focus = Math.min(f, b.items.length - 1);
+  }
+  decide(fn) {
+    this.close();
+    fn?.();
+  }
+  renderBody(g, x, y) {
+    const { a, id } = this.npc;
+    rect(g, x + 10, y + 8, 40, 52, C.panelDark);
+    frame(g, x + 10, y + 8, 40, 52, C.border);
+    g.drawImage(a.sheet, 0, 0, CHAR_W, CHAR_H, x + 14, y + 12, CHAR_W * 2, CHAR_H * 2);
+    const tx = x + 60;
+    drawText(g, id.name, tx, y + 8, { color: C.gold });
+    drawText(g, id.role, tx, y + 19, { color: C.text });
+    drawText(g, `${this.dept} · floor ${this.floor}`, tx, y + 30, { color: C.dim });
+    drawText(g, `With the company: ${id.years} year${id.years === 1 ? '' : 's'}`, tx, y + 41, { color: C.dim });
+    drawText(g, `File: ${id.note}`, tx, y + 52, { color: C.dim });
+    drawWrapped(g, `"${this.line}"`, x + 10, y + 68, this.w - 20, { color: C.so });
   }
 }
 
@@ -539,13 +581,14 @@ export class PauseMenu extends Modal {
 export const HOW_TO =
   'Move: arrow keys / WASD, or click the floor.\n' +
   'Interact: SPACE / ENTER near a desk, printer, meeting room... or click it.\n' +
-  'Each task is a mini-game that costs coffee and earns Synergy Points (SP), XP and 0-3 KPI stars.\n' +
+  'Each task is a mini-game that costs coffee and earns paperclips (the office currency), XP and 0-3 KPI stars.\n' +
   'Collect enough stars on a floor, reach the seniority level and the keycard fee, then pass the HR performance review. Only then does the elevator take you up (going down is always fine).\n' +
   'Coffee refills over time (also offline). Tasks have cooldowns. Stock Options skip the waiting.\n' +
   'Esc: menu/back   M: music   B: shop   P: perks   T: training';
 
-export function drawStarsLarge(g, n, x, y) {
-  for (let i = 0; i < 3; i++) icon(g, i < n ? 'star' : 'starOff', x + i * 20, y, 2);
+/** Three big result stars centred on cx (74 px wide, 22 px tall). */
+export function drawStarsLarge(g, n, cx, y) {
+  for (let i = 0; i < 3; i++) icon(g, i < n ? 'starBig' : 'starBigOff', cx - 37 + i * 26, y, 2);
 }
 
 export { frame };

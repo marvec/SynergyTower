@@ -77,11 +77,15 @@ export function bar(g, x, y, w, h, frac, color, back = C.panelDark) {
   }
 }
 
-// --- Pixel icons (7×7). Palette: k border, others per icon.
+// --- Pixel icons (7×7 unless the map says otherwise). Palette: k border, others per icon.
 const ICONS = {
-  sp: { map: '..kkk..|.kyyyk.|kyywyyk|kywyyyk|kyyyyok|.kyyok.|..kkk..', pal: { y: '#f2c14e', w: '#fff6c8', o: '#c98d1e' } },
-  star: { map: '...k...|..kyk..|kkyyykk|kyyyyyk|.kyyyk.|.kykyk.|.k...k.', pal: { y: '#f2c14e' } },
-  starOff: { map: '...k...|..kgk..|kkgggkk|kgggggk|.kgggk.|.kgkgk.|.k...k.', pal: { g: '#4a5068' } },
+  // Paperclips: the soft currency (state key `sp`).
+  sp: { map: '....ss.|...s..s|..s.s.d|.s.s.d.|s.s.d..|s..d...|.sd....', pal: { s: '#dfe5f2', d: '#8a93aa' } },
+  star: { map: '...y...|...y...|yyywyyy|.yyyyo.|..yyo..|.yy.yo.|.y...o.', pal: { y: '#f2c14e', w: '#fff6c8', o: '#c98d1e' } },
+  starOff: { map: '...g...|...g...|ggglggg|.ggggd.|..ggd..|.gg.gd.|.g...d.', pal: { g: '#4a5068', l: '#5d6480', d: '#393e52' } },
+  // 11×11 star for the results screen.
+  starBig: { map: '.....k.....|....kyk....|...kywok...|kkkkywyokkk|kyyyyyyyyok|.kyyyyyyok.|..kyyyyok..|.kyyyyyyok.|.kyyokyyok.|kyok...kyok|kkk.....kkk', pal: { y: '#f2c14e', w: '#fff6c8', o: '#c98d1e' } },
+  starBigOff: { map: '.....k.....|....kgk....|...kgldk...|kkkkglgdkkk|kggggggggdk|.kggggggdk.|..kggggdk..|.kggggggdk.|.kggdkggdk.|kgdk...kgdk|kkk.....kkk', pal: { g: '#4a5068', l: '#5d6480', d: '#393e52' } },
   coffee: { map: '.w.w...|kkkkkk.|kbbbbkk|kbbbbkk|kbbbbk.|.kkkk..|kkkkkk.', pal: { w: '#d8d8d8', b: '#c08552' } },
   so: { map: 'kkkkkkk|kgggggk|kgggkgk|kggkggk|kgkgggk|kkggggk|kkkkkkk', pal: { g: '#7ee0c3' } },
   xp: { map: '...k...|..kbk..|.kbbbk.|kkbbbkk|..kbk..|..kbk..|..kkk..', pal: { b: '#8ab4ff' } },
@@ -104,8 +108,8 @@ export function icon(g, name, x, y, scale = 1) {
   if (!c) {
     const rows = def.map.split('|');
     c = document.createElement('canvas');
-    c.width = 7;
-    c.height = 7;
+    c.width = rows[0].length;
+    c.height = rows.length;
     const cg = c.getContext('2d');
     rows.forEach((row, yy) => {
       for (let xx = 0; xx < row.length; xx++) {
@@ -117,7 +121,7 @@ export function icon(g, name, x, y, scale = 1) {
     });
     iconCache.set(name, c);
   }
-  g.drawImage(c, Math.round(x), Math.round(y), 7 * scale, 7 * scale);
+  g.drawImage(c, Math.round(x), Math.round(y), c.width * scale, c.height * scale);
 }
 
 export function stars(g, count, x, y, scale = 1, max = 3) {

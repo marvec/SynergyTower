@@ -6,7 +6,8 @@ import { findPath } from '../core/pathfind.js';
 import { createRng } from '../core/rng.js';
 import { DEPARTMENTS } from '../data/departments.js';
 import { SKIN_TONES, HAIR_COLORS } from '../data/corpColors.js';
-import { drawText, wrapText } from '../engine/font.js';
+import { FIRST_NAMES, LAST_NAMES, ROLES, FILE_NOTES } from '../data/people.js';
+import { drawText, wrapText, measureText } from '../engine/font.js';
 import { C, rect } from '../engine/ui.js';
 
 const charCache = new Map();
@@ -32,6 +33,8 @@ export class Actor {
     this.anim = 0;
     this.path = null;
     this.bubble = null; // { text, t }
+    this.who = null; // { name, role } shown on top of speech bubbles
+    this.carry = null; // 'box' while a fired colleague clears their desk
   }
   setLook(look) {
     this.look = look;
@@ -62,22 +65,53 @@ export class Actor {
     g.fillStyle = 'rgba(0,0,0,0.28)';
     g.fillRect(px - 5, py - 1, 10, 3);
     g.fillRect(px - 4, py - 2, 8, 5);
+    const box = () => {
+      const bx = px - 6;
+      const by = py - 12;
+      rect(g, bx, by, 12, 8, '#5a3d22');
+      rect(g, bx + 1, by + 1, 10, 6, '#b0814f');
+      rect(g, bx + 1, by + 1, 10, 1, '#cfa06a');
+      rect(g, bx + 4, by + 3, 4, 1, '#5a3d22');
+      rect(g, bx + 2, by - 2, 2, 2, '#4caf50'); // the plant comes along
+      rect(g, bx + 7, by - 3, 1, 3, '#d8dfe8'); // and the stapler
+    };
+    if (this.carry && this.dir === 'up') box();
     g.drawImage(this.sheet, this.frame * CHAR_W, DIR_ROW[this.dir] * CHAR_H, CHAR_W, CHAR_H, px - CHAR_W / 2, py - CHAR_H + 1, CHAR_W, CHAR_H);
+    if (this.carry && this.dir !== 'up') box();
   }
   drawBubble(g) {
     if (!this.bubble) return;
     const lines = wrapText(this.bubble.text, 120);
-    const w = Math.max(...lines.map((l) => l.length * 5)) + 10;
-    const bw = Math.min(130, w);
-    const bh = lines.length * 10 + 6;
+    const who = this.who;
+    const head = who ? 20 : 0;
+    const textW = Math.max(...lines.map((l) => measureText(l)), who ? measureText(who.name) : 0, who ? measureText(who.role) : 0);
+    const bw = Math.min(150, textW + 10);
+    const bh = lines.length * 10 + 6 + head;
     const bx = Math.round(this.x * TILE - bw / 2);
     const by = Math.round(this.y * TILE - CHAR_H - bh - 6);
     rect(g, bx, by, bw, bh, C.border);
     rect(g, bx + 1, by + 1, bw - 2, bh - 2, '#fbf8ef');
     rect(g, bx + bw / 2 - 2, by + bh - 1, 5, 2, '#fbf8ef');
     rect(g, bx + bw / 2 - 1, by + bh + 1, 3, 2, C.border);
-    lines.forEach((l, i) => drawText(g, l, bx + 5, by + 4 + i * 10, { color: C.ink }));
+    if (who) {
+      rect(g, bx + 1, by + 1, bw - 2, head - 1, '#e9e3d2');
+      drawText(g, who.name, bx + 5, by + 3, { color: C.accentDark });
+      drawText(g, who.role, bx + 5, by + 11, { color: '#7a7466' });
+      rect(g, bx + 1, by + head, bw - 2, 1, '#cfc7b2');
+    }
+    lines.forEach((l, i) => drawText(g, l, bx + 5, by + 4 + head + i * 10, { color: C.ink }));
   }
+}
+
+/** A colleague's name, role and personnel-file trivia, deterministic per NPC seed. */
+export function npcIdentity(seed, deptId) {
+  const r = createRng(seed * 7121 + 11);
+  return {
+    name: `${r.pick(FIRST_NAMES)} ${r.pick(LAST_NAMES)}`,
+    role: r.pick(ROLES[deptId] || ROLES.lobby),
+    years: r.int(1, 24),
+    note: r.pick(FILE_NOTES),
+  };
 }
 
 export function npcLook(seed, deptId) {
@@ -244,12 +278,31 @@ export class NpcBrain {
     this.wait = this.rng.float(0.5, 4);
     this.speed = this.rng.float(1.6, 2.4);
     this.talkPause = 0;
+    this.exit = null; // { x, y } tile when fired: walk there, then `gone`
+    this.gone = false;
+  }
+  /** Fired: say goodbye, then walk to the elevator tile (x, y) and disappear. */
+  leave(x, y) {
+    this.exit = { x, y, routed: false };
+    this.talkPause = 1.6;
+    this.speed = 2.8;
+    this.a.path = null;
   }
   update(dt, blocked) {
     const a = this.a;
     if (this.talkPause > 0) {
       this.talkPause -= dt;
       a.moving = false;
+      return;
+    }
+    if (this.exit && (!a.path || !a.path.length)) {
+      if (this.exit.routed) {
+        this.gone = true;
+        return;
+      }
+      this.exit.routed = true;
+      a.path = findPath(this.fl.walk, this.fl.w, this.fl.h, Math.floor(a.x), Math.floor(a.y), this.exit.x, this.exit.y, 4000) || [];
+      if (!a.path.length) this.gone = true;
       return;
     }
     if (!a.path || !a.path.length) {
@@ -268,7 +321,7 @@ export class NpcBrain {
     const dy = ty - a.y;
     const d = Math.hypot(dx, dy);
     const step = this.speed * dt;
-    if (blocked?.(a.x + (dx / (d || 1)) * 0.4, a.y + (dy / (d || 1)) * 0.4)) {
+    if (!this.exit && blocked?.(a.x + (dx / (d || 1)) * 0.4, a.y + (dy / (d || 1)) * 0.4)) {
       a.moving = false;
       return;
     }

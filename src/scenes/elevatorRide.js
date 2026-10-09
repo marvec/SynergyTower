@@ -8,11 +8,13 @@ import { titleForFloor, floorName, departmentForFloor } from '../data/department
 import * as E from '../core/economy.js';
 
 export class ElevatorRide {
-  constructor(game, from, to, { promoted = false } = {}) {
+  /** warp: arrived through the terminal's `systemctl isolate` (no fee, no signing bonus). */
+  constructor(game, from, to, { promoted = false, warp = false } = {}) {
     this.game = game;
     this.from = from;
     this.to = to;
     this.promoted = promoted;
+    this.warp = warp;
     this.t = 0;
     this.travel = Math.min(3, 0.6 + Math.abs(to - from) * 0.12);
     this.phase = 'closing';
@@ -104,15 +106,15 @@ export class ElevatorRide {
     const s = this.game.state;
     const x = W / 2 - 140;
     const y = H / 2 - 92;
-    panel(g, x, y, 280, 194, { title: 'PROMOTED!' });
+    panel(g, x, y, 280, 194, { title: this.warp ? 'TARGET REACHED' : 'PROMOTED!' });
     const pop = Math.min(1, this.t * 3);
     drawText(g, titleForFloor(this.to), W / 2, y + 26, { align: 'center', scale: pop > 0.9 ? 2 : 1, color: C.gold, shadow: C.border });
     drawText(g, `Floor ${this.to} · ${floorName(this.to)} · ${departmentForFloor(this.to).name}`, W / 2, y + 50, { align: 'center' });
     const lines = [
       ['star', `New KPI quota: ${E.starQuota(this.to)} stars`],
-      ['sp', `Tasks now pay ${E.taskReward(this.to, 2).sp} SP at 2 stars`],
+      ['sp', `Tasks now pay ${E.taskReward(this.to, 2).sp} paperclips at 2 stars`],
       ['coffee', `Max coffee ${12 + Math.floor(this.to / 5) + 2 * (s.perks.mug || 0)}, tasks cost ${E.coffeeCost(this.to)}`],
-      ['so', '+1 Stock Option signing bonus'],
+      this.warp ? ['lock', 'No keycard, no HR review. systemd said so.'] : ['so', '+1 Stock Option signing bonus'],
       ['clock', `Task cooldowns: ${Math.round(E.stationCooldownMs(this.to, s.perks) / 60000)} min`],
     ];
     lines.forEach(([ic, t], i) => {

@@ -11,6 +11,9 @@ export const ALL_GAMES = [
   'karaoke', 'tailgate', 'defender', 'plant',
 ];
 
+/** Furniture with a computer on it, in order of preference for the terminal. */
+const TERMINAL_TYPES = ['desk', 'headsetdesk', 'tradingdesk', 'reception', 'bossdesk'];
+
 const cache = new Map();
 
 /** Full playable floor: layout + walkability + assigned tasks. Deterministic per floor number. */
@@ -71,6 +74,12 @@ export function buildFloor(floor) {
     };
     chosen.push(it);
   }
+
+  // One computer without a task opens the workstation terminal (prefer plain desks, then any desk with a PC).
+  const pcs = fl.items.filter((it) => !it.task && TERMINAL_TYPES.includes(it.type) && isItemReachable(fl, walk, dist, it));
+  pcs.sort((a, b) => TERMINAL_TYPES.indexOf(a.type) - TERMINAL_TYPES.indexOf(b.type) || a.id - b.id);
+  const best = pcs.filter((it) => it.type === pcs[0]?.type);
+  if (best.length) rng.pick(best).terminal = true;
 
   const reachable = [];
   for (let i = 0; i < walk.length; i++) if (dist[i] >= 0) reachable.push(i);

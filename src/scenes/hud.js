@@ -54,7 +54,7 @@ export class Hud {
     drawText(g, s.corp.name.slice(0, 18), 22, 3, { color: C.gold });
     drawText(g, `F${s.floor} · ${titleForFloor(s.maxFloor)}`, 22, 12, { color: C.dim });
 
-    // Right, row 1: SP, coffee, SO.
+    // Right, row 1: paperclips, coffee, SO.
     let x = W - 4;
     const item = (ic, text, color = C.text, y = 3) => {
       const w = measureText(text);

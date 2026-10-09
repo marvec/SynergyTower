@@ -11,9 +11,11 @@ import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import { departmentForFloor, floorName, titleForFloor } from '../data/departments.js';
 import { COMMON_NPC_LINES } from '../data/npcLines.js';
-import { FloorView, Actor, NpcBrain, npcLook } from './floorWorld.js';
+import { FIRED_LINES, KEPT_LINES } from '../data/people.js';
+import { FloorView, Actor, NpcBrain, npcLook, npcIdentity } from './floorWorld.js';
 import { Hud, HUD_H } from './hud.js';
-import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, HOW_TO, ReviewCard, hrNotice } from './overlays.js';
+import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, HOW_TO, ReviewCard, hrNotice, FateDialog } from './overlays.js';
+import { TerminalScene } from './terminal.js';
 import { MinigameScene } from './minigameScene.js';
 
 const SPEED = 4.4;
@@ -31,13 +33,19 @@ export class FloorScene {
     const spawn = arrival === 'entrance' ? { x: 19.9, y: this.fl.h - 2.2 } : { x: 19.9, y: 2.6 };
     this.player = new Actor(game.playerLook(), spawn.x, spawn.y);
     this.player.dir = arrival === 'entrance' ? 'up' : 'down';
-    this.npcs = this.fl.npcs.map((n) => {
-      const a = new Actor(npcLook(n.seed, this.fl.dept), n.x, n.y);
-      return { a, brain: new NpcBrain(a, this.fl, n.seed) };
-    });
+    const fired = game.state.fired || {};
+    this.npcs = this.fl.npcs
+      .filter((n) => !fired[n.seed])
+      .map((n) => {
+        const a = new Actor(npcLook(n.seed, this.fl.dept), n.x, n.y);
+        const id = npcIdentity(n.seed, this.fl.dept);
+        a.who = { name: id.name, role: id.role };
+        return { a, brain: new NpcBrain(a, this.fl, n.seed), seed: n.seed, id };
+      });
     // The HR rep stands behind the review desk all day.
     const rep = this.fl.hrRep;
     this.hrRep = rep ? new Actor({ ...npcLook(floor * 91 + 7, this.fl.dept), jacket: '#4a3a6a', tie: null, glasses: true }, rep.x + 0.5, rep.y + 0.75) : null;
+    if (this.hrRep) this.hrRep.who = { name: npcIdentity(floor * 91 + 7, 'legalhr').name, role: 'HR Business Partner' };
     this.rng = createRng(floor * 17 + Date.now());
     this.cam = { x: 0, y: 0 };
     this.snapCamera();
@@ -73,7 +81,7 @@ export class FloorScene {
           w: 320,
           text:
             `Congratulations, ${s.player.name}! You are our newest ${titleForFloor(1)}.\n` +
-            'Complete tasks marked with ! to earn Synergy Points, XP and KPI stars. Hit the star quota, level up, save up for the keycard fee and pass your HR performance review - then the elevator takes you up.\n' +
+            'Complete tasks marked with ! to earn paperclips, XP and KPI stars. Hit the star quota, level up, save up for the keycard fee and pass your HR performance review - then the elevator takes you up.\n' +
             '40 floors. One corner office. Good luck!',
           button: "Let's synergize",
         }),
@@ -136,8 +144,9 @@ export class FloorScene {
       else if (it.interact === 'elevator') list.push({ kind: 'elevator', it });
       else if (it.interact === 'coffee') list.push({ kind: 'coffee', it });
       else if (it.interact === 'hr') list.push({ kind: 'hr', it });
+      else if (it.terminal) list.push({ kind: 'terminal', it });
     }
-    for (const n of this.npcs) list.push({ kind: 'npc', n });
+    for (const n of this.npcs) if (!n.brain.exit) list.push({ kind: 'npc', n });
     return list;
   }
   distTo(target) {
@@ -176,8 +185,12 @@ export class FloorScene {
       p.faceTowards(a.x - p.x, a.y - p.y);
       t.n.brain.talkPause = 3.5;
       a.path = null;
-      a.say(this.nextLine());
+      const line = this.nextLine();
+      a.say(line);
       game.sfx('blip');
+      if (S.canFire(s)) {
+        game.push(new FateDialog(game, { npc: t.n, line, dept: this.dept.name, floor: this.floorNo, onFire: () => this.fire(t.n), onKeep: () => this.keep(t.n) }));
+      }
       return;
     }
     const it = t.it;
@@ -198,6 +211,9 @@ export class FloorScene {
         this.hrRep?.say(r.state === 'passed' ? 'Congratulations again!' : 'Do you have an appointment?', 2.5);
         hrNotice(game, r.state);
       }
+    } else if (t.kind === 'terminal') {
+      game.sfx('click');
+      game.push(new TerminalScene(game, { floor: this.floorNo, ws: it.id, onWarp: (f) => this.warp(f) }));
     } else if (t.kind === 'coffee') {
       const r = S.useCoffeeMachine(s, this.floorNo, game.now());
       if (r.ok) {
@@ -264,6 +280,36 @@ export class FloorScene {
     game.markDirty();
     const { ElevatorRide } = await import('./elevatorRide.js');
     game.set(new ElevatorRide(game, from, f, { promoted: false }));
+  }
+
+  /** CEO only: the colleague clears their desk and takes the elevator out, never to return. */
+  fire(n) {
+    const game = this.game;
+    const stash = this.rng.int(5, 60);
+    if (!S.fireEmployee(game.state, n.seed, stash).ok) return game.sfx('bad');
+    game.saveNow();
+    game.sfx('fail');
+    n.a.say(this.rng.pick(FIRED_LINES), 4);
+    n.a.carry = 'box';
+    n.brain.leave(Math.floor(this.fl.spawn.x), Math.floor(this.fl.spawn.y));
+    game.toast(`${n.id.name} is out. Desk stash: +${stash} paperclips`, C.gold);
+  }
+
+  keep(n) {
+    this.game.sfx('good');
+    n.a.say(this.rng.pick(KEPT_LINES), 3.5);
+    n.brain.talkPause = 3.5;
+  }
+
+  /** Terminal secret (`systemctl isolate levelXX.target`): ride straight to any floor. */
+  async warp(f) {
+    const game = this.game;
+    const from = game.state.floor;
+    const r = S.warpToFloor(game.state, f);
+    if (!r.ok) return;
+    game.saveNow();
+    const { ElevatorRide } = await import('./elevatorRide.js');
+    game.set(new ElevatorRide(game, from, f, { promoted: r.promoted, warp: true }));
   }
 
   /** Item or NPC under a world-space point. */
@@ -395,7 +441,9 @@ export class FloorScene {
     for (const n of this.npcs) {
       n.brain.update(dt, (x, y) => Math.hypot(x - p.x, y - p.y) < 0.45);
       n.a.update(dt);
+      if (n.brain.gone) game.sfx('ding');
     }
+    this.npcs = this.npcs.filter((n) => !n.brain.gone);
     p.update(dt);
     this.hrRep?.update(dt);
 
@@ -482,6 +530,12 @@ export class FloorScene {
           icon(g, 'clock', cx - w / 2 + 1, y + 3);
           drawText(g, t, cx - w / 2 + 10, y + 3, { color: C.dim });
         } else if (r.state === 'passed') icon(g, 'check', cx - 3, y + 4);
+      } else if (it.terminal) {
+        const y = top - 7 + bob;
+        rect(g, cx - 8, y, 16, 10, C.border);
+        rect(g, cx - 7, y + 1, 14, 8, '#070b08');
+        drawText(g, '>', cx - 5, y + 1, { color: '#5fd068' });
+        if (Math.floor(this.time * 2) % 2 === 0) rect(g, cx, y + 7, 4, 1, '#5fd068');
       } else if (it.interact === 'coffee') {
         if (S.cooldownLeft(s, `coffee-machine-${this.floorNo}`, now) <= 0) icon(g, 'coffee', cx - 3, top - 10 + bob);
       }
@@ -493,7 +547,13 @@ export class FloorScene {
     if (!t) return;
     let text = '';
     let sub = '';
-    if (t.kind === 'npc') text = 'Talk';
+    if (t.kind === 'npc') {
+      text = 'Talk';
+      sub = S.canFire(s) ? `${t.n.id.name} - decide their fate` : t.n.id.name;
+    } else if (t.kind === 'terminal') {
+      text = 'Workstation';
+      sub = 'open terminal';
+    }
     else if (t.kind === 'elevator') text = 'Elevator';
     else if (t.kind === 'coffee') text = 'Coffee machine';
     else if (t.kind === 'hr') {

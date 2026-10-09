@@ -69,7 +69,15 @@ The host owns intro/result cards, the timer frame, coffee charge and rewards. Mi
   Marketing · IT · Finance · Legal & HR · Executive Suite.
 - **Job titles:** one per floor, from "Unpaid Intern" (1) to "Chief Executive Officer" (40).
 - **NPC colleagues** wander between rooms (random walk on walkable tiles) and say department-flavoured one-liners when the
-  player talks to them (Space/click).
+  player talks to them (Space/click). Each has a deterministic name and role (from the NPC seed), shown on top of the bubble.
+- **Workstation terminal:** on every floor one desk without a task (marked `>_`) opens a fake Linux shell
+  (`src/core/terminal.js`: virtual file system, ~70 joke commands, history, Tab completion). Secret:
+  `systemctl isolate levelXX.target` rides the elevator straight to floor XX (01-40); going above your highest floor makes it
+  your new highest floor, with no fee and no review. Hints: `ls -a` → `.bash_history`, `/etc/motd`, `man systemctl`,
+  `systemctl list-units --type=target`.
+- **CEO powers:** once you reach floor 40 (highest floor = 40), talking to any colleague on any floor opens a Personnel
+  Decision dialog: Fire or Keep. A fired colleague picks up a cardboard box, walks to the elevator (floor 1: out of the front
+  door) and never returns (`state.fired[npcSeed]`); their desk stash of 5-60 paperclips goes to you.
 - **Rendering:** a tile pass (floor, then wall tops/front faces), then y-sorted sprites (furniture, NPCs, player), then
   station markers ("!" when ready, a clock when cooling down), then the HUD.
 
@@ -120,8 +128,8 @@ plant, …) while keeping variety, so every mechanic appears repeatedly across t
 ## 5. Economy & progression
 
 **Currencies / meters**
-- **Synergy Points (SP)** — the soft currency, earned from every task. Spent on the elevator keycard fee, perks and Training.
-- **Experience (XP) → Seniority Level** — earned from tasks; **Training** (HR) converts SP into XP (the "generic points
+- **Paperclips** (state key `sp`) — the soft currency, earned from every task. Spent on the elevator keycard fee, perks and Training.
+- **Experience (XP) → Seniority Level** — earned from tasks; **Training** (HR) converts paperclips into XP (the "generic points
   into bigger points" exchange). Each floor requires a minimum Seniority Level.
 - **KPI Stars ★** — 0-3 per task play, counted per floor. Each floor's promotion needs a star quota. This is the main gate.
 - **Stock Options (SO)** — the premium "corporate standing" currency. Start with 5; +1 per promotion, +1 per level-up,
@@ -158,7 +166,7 @@ Clearing floor 40's quota triggers the CEO ending; free play continues after it.
 
 - Keyboard: arrows/WASD move, Space/Enter interact or confirm, Esc menu/back, M mute.
 - Mouse: click a floor tile to walk there (A* path), click a station/NPC/elevator to walk up and interact, and click HUD buttons.
-- HUD: corp name + title, floor, SP, Level + XP bar, Coffee (+ regen timer), SO, Stars x/quota, and buttons
+- HUD: corp name + title, floor, paperclips, Level + XP bar, Coffee (+ regen timer), SO, Stars x/quota, and buttons
   [Shop] [Perks] [Train] [Sound] [Menu].
 - Text input (corp/player names) uses a DOM `<input>` overlay; everything else is drawn on the canvas.
 

@@ -18,10 +18,11 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     coffee: { value: E.maxCoffee(1), updatedAt: now },
     starsByFloor: {},
     reviews: {}, // floor → true once the HR performance review there is passed
+    fired: {}, // NPC seed → true: colleagues the CEO has let go (they never come back)
     bestByTask: {},
     cooldowns: {},
     perks: {},
-    stats: { tasksPlayed: 0, perfectTasks: 0, soPurchased: 0, promotions: 0 },
+    stats: { tasksPlayed: 0, perfectTasks: 0, soPurchased: 0, promotions: 0, fired: 0, warps: 0 },
     settings: { music: true, sfx: true },
     flags: { introSeen: false, ceo: false },
   };
@@ -155,6 +156,31 @@ export function promote(s, now) {
   s.coffee.value = Math.max(s.coffee.value, coffeeMax(s));
   s.coffee.updatedAt = now;
   return true;
+}
+
+/**
+ * The terminal's `systemctl isolate levelXX.target`: jump straight to any floor. Jumping above your highest floor
+ * makes it your new highest floor (no fee, no review). Returns { ok, promoted }.
+ */
+export function warpToFloor(s, floor) {
+  if (!Number.isInteger(floor) || floor < 1 || floor > E.FLOORS) return { ok: false, promoted: false };
+  const promoted = floor > s.maxFloor;
+  s.maxFloor = Math.max(s.maxFloor, floor);
+  s.floor = floor;
+  s.stats.warps = (s.stats.warps || 0) + 1;
+  return { ok: true, promoted };
+}
+
+/** Once you reach the CEO floor you can fire anybody, on any floor. */
+export const canFire = (s) => s.maxFloor >= E.FLOORS;
+
+/** Fires the colleague with this NPC seed; their desk stash of paperclips goes to the CEO. */
+export function fireEmployee(s, seed, stash = 0) {
+  if (!canFire(s) || s.fired?.[seed]) return { ok: false };
+  s.fired = { ...s.fired, [seed]: true };
+  s.sp += stash;
+  s.stats.fired = (s.stats.fired || 0) + 1;
+  return { ok: true, stash };
 }
 
 export function goToFloor(s, floor) {

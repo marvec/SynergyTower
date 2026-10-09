@@ -159,16 +159,16 @@ export class MinigameScene {
     const y = H / 2 - 100;
     const titles = ['Needs improvement', 'Meets expectations', 'Exceeds expectations', 'Outstanding!'];
     panel(g, x, y, 240, 206, { title: titles[r.stars], titleColor: r.stars ? C.accent : '#7a2b2b' });
-    drawStarsLarge(g, this.revealed, W / 2 - 27, y + 22);
-    drawText(g, `Score ${Math.round(r.score * 100)}%`, W / 2, y + 42, { align: 'center', color: C.dim });
-    let yy = y + 56;
+    drawStarsLarge(g, this.revealed, W / 2, y + 18);
+    drawText(g, `Score ${Math.round(r.score * 100)}%`, W / 2, y + 44, { align: 'center', color: C.dim });
+    let yy = y + 58;
     const line = (ic, label, val, color) => {
       icon(g, ic, x + 40, yy);
       drawText(g, label, x + 52, yy, { color: C.dim });
       drawText(g, val, x + 200, yy, { align: 'right', color });
       yy += 12;
     };
-    line('sp', 'Synergy Points', `+${formatNum(r.sp)}`, C.gold);
+    line('sp', 'Paperclips', `+${formatNum(r.sp)}`, C.gold);
     line('xp', 'Experience', `+${formatNum(r.xp)}`, C.xp);
     line('star', 'KPI stars', `+${r.stars}`, C.text);
     if (r.soGained) line('so', 'Stock Options', `+${r.soGained}`, C.so);

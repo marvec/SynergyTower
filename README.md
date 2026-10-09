@@ -6,6 +6,8 @@ until you become CEO.
 
 - 30+ mini-games (spreadsheets, inbox triage, reply-all storms, expense reports, karaoke at the office party...)
 - An HR performance review gates every promotion
+- Collect paperclips, chat with colleagues, poke around the workstation terminals (some commands are more useful than
+  others), and once you are CEO, decide who stays
 - All art is drawn in code and all music and sound is synthesized with WebAudio: no external assets
 - Works offline (service worker)
 

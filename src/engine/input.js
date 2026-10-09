@@ -6,6 +6,7 @@ export function createInput() {
   const down = new Set();
   let pressed = new Set();
   let typed = [];
+  let seq = []; // every key press this frame, in order (raw KeyboardEvent.key, repeats included)
   const pointer = { x: -1, y: -1, down: false, clicked: false, released: false, moved: false, inside: false };
   let nextClick = false;
   let nextRelease = false;
@@ -24,6 +25,11 @@ export function createInput() {
     confirm: () => pressed.has('Space') || pressed.has('Enter'),
     back: () => pressed.has('Escape'),
     typed: () => typed,
+    /** Ordered key presses for text UIs that mix characters with Enter/Tab/arrows within one frame. */
+    keySeq: () => seq,
+    queueKey(key) {
+      seq.push(key);
+    },
     wheel: () => wheel,
     /** Marks the current click as handled so lower layers ignore it. */
     consumeClick() {
@@ -32,6 +38,7 @@ export function createInput() {
     consumeKeys() {
       pressed = new Set();
       typed = [];
+      seq = [];
     },
     keyDown(key) {
       const k = norm(key);
@@ -67,6 +74,7 @@ export function createInput() {
     endFrame() {
       pressed = new Set();
       typed = [];
+      seq = [];
       pointer.moved = false;
     },
     /** Call once per frame before update. */
@@ -82,6 +90,7 @@ export function createInput() {
       down.clear();
       pressed = new Set();
       typed = [];
+      seq = [];
     },
   };
   return input;
@@ -98,6 +107,7 @@ export function attachInput(input, canvas, toGame) {
     if (e.target instanceof HTMLInputElement) return;
     if (block.has(e.key)) e.preventDefault();
     input.keyDown(e.key);
+    if (!e.metaKey && !e.ctrlKey) input.queueKey(e.key);
     if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) input.typeChar(e.key);
     if (e.key === 'Backspace') input.typeChar('\b');
   });

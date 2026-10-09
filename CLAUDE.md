@@ -33,7 +33,8 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 - `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`),
   throttled autosave to `localStorage['synergytower.save.v1']`, toasts.
 - Scenes import each other with dynamic `import()` where a cycle would otherwise form (floor ⇄ elevator ride ⇄ title).
-- Promotion gate: stars + level + keycard SP make you `ready`; then the HR desk (an `hr` room on every floor) runs the
+- The soft currency is **paperclips** (state key and code name `sp`, a leftover from "Synergy Points").
+- Promotion gate: stars + level + keycard paperclips make you `ready`; then the HR desk (an `hr` room on every floor) runs the
   `review` mini-game in `mode: 'review'`; `state.reviews[floor]` must be true before the elevator promotes.
 - Floors are generated deterministically from the floor number (`buildFloor(n)` is cached). All floors are 40×28 tiles.
   The elevator lobby sits at a fixed top-centre position. Tests assert that every station is reachable.
@@ -74,3 +75,7 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
 - `__game`: the game context (`__game.state`, `__game.top`, `__game.push(...)`).
 - `__step(frames)`: advance the loop manually (rAF pauses in background tabs).
 - `__mg('spreadsheet', 0.7)`: launch any mini-game at a given difficulty (needs a loaded career).
+- In game: the `>_` desk on every floor opens the terminal; `systemctl isolate levelXX.target` jumps to floor XX.
+  On floor 40 (CEO) talking to a colleague offers Fire/Keep (`state.fired`, keyed by NPC seed).
+- The terminal reads `input.keySeq()` (ordered raw keys) rather than `typed()` + `pressed`, because characters and Enter
+  can land in the same frame (fast typing, or a background tab where rAF is paused).
