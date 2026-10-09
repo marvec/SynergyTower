@@ -1,6 +1,6 @@
 // The main play scene: walk a floor, talk to colleagues, start tasks, use the elevator.
 import { W, H } from '../engine/screen.js';
-import { TILE, WALL_H, CHAR_H } from '../engine/art.js';
+import { TILE, CHAR_H } from '../engine/art.js';
 import { C, rect, panel, icon, stars, formatTime } from '../engine/ui.js';
 import { drawText, measureText } from '../engine/font.js';
 import { buildFloor } from '../core/tasks.js';
@@ -18,6 +18,7 @@ import { MinigameScene } from './minigameScene.js';
 const SPEED = 4.4;
 const R = 0.3;
 const REACH = 1.05;
+const TOP_MARGIN = 36;
 
 export class FloorScene {
   constructor(game, floor, { arrival = 'elevator' } = {}) {
@@ -117,7 +118,9 @@ export class FloorScene {
   camTarget() {
     const { fl } = this;
     const x = Math.max(0, Math.min(fl.w * TILE - W, this.player.x * TILE - W / 2));
-    const y = Math.max(-HUD_H - WALL_H - 2, Math.min(fl.h * TILE - H + 24, this.player.y * TILE - H / 2 - 6));
+    // Top limit: the tallest furniture in the first row (lift 26) plus its bobbing "!" marker and best-star dots
+    // reach ~30 px above the map edge; keep all of that below the HUD.
+    const y = Math.max(-HUD_H - TOP_MARGIN, Math.min(fl.h * TILE - H + 24, this.player.y * TILE - H / 2 - 6));
     return { x, y };
   }
 
