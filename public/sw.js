@@ -1,5 +1,7 @@
-// Offline support: cache-first with background refresh (stale-while-revalidate) for same-origin GETs.
-const CACHE = 'synergytower-v1';
+// Offline support for same-origin GETs.
+// Page navigations are network-first (cache only when offline), so another app later served on the same
+// localhost port is never hijacked by a stale copy of this game. Hashed assets use stale-while-revalidate.
+const CACHE = 'synergytower-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/index.html', '/manifest.webmanifest', '/icon.svg'])).catch(() => {}));
@@ -15,6 +17,20 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            e.waitUntil(caches.open(CACHE).then((c) => c.put('/index.html', copy)));
+          }
+          return res;
+        })
+        .catch(async () => (await caches.match('/index.html')) || (await caches.match('/')) || new Response('Offline', { status: 503 })),
+    );
+    return;
+  }
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
       const cached = await cache.match(req, { ignoreSearch: true });

@@ -81,8 +81,8 @@ export function perkCost(perk, currentLevel) {
 }
 
 export const SO_PACKS = [
-  { id: 'pack10', so: 10, price: '€0.99', label: 'Handful of Options' },
-  { id: 'pack60', so: 60, price: '€4.99', label: 'Vesting Schedule' },
-  { id: 'pack140', so: 140, price: '€9.99', label: 'Golden Handshake', tag: 'Popular' },
-  { id: 'pack400', so: 400, price: '€24.99', label: 'Golden Parachute', tag: 'Best value' },
+  { id: 'pack10', so: 10, price: '€0.99', label: 'Handful' },
+  { id: 'pack60', so: 60, price: '€4.99', label: 'Vesting Plan' },
+  { id: 'pack140', so: 140, price: '€9.99', label: 'Handshake', tag: 'Popular' },
+  { id: 'pack400', so: 400, price: '€24.99', label: 'Parachute', tag: 'Best value' },
 ];

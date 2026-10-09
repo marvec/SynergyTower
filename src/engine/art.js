@@ -192,17 +192,25 @@ const FURNITURE = {
     });
     p.r(8, -2, 16, 3, '#d8dce4');
   } },
-  chair: { lift: 6, solid: false, draw(p, w, h, k) {
-    p.r(3, 2, 10, 9, '#1a1a22');
-    p.r(4, 3, 8, 7, k.chair);
-    p.r(4, 3, 8, 1, shade(k.chair, 0.25));
-    p.r(7, 11, 2, 3, '#1a1a22');
-    p.r(4, 13, 8, 1, '#1a1a22');
+  chair: { lift: 8, solid: false, draw(p, w, h, k) {
+    // Office chair seen from behind: backrest, seat, gas lift, star base.
+    p.r(4, -3, 8, 8, '#1a1a22');
+    p.r(5, -2, 6, 6, k.chair);
+    p.r(5, -2, 6, 1, shade(k.chair, 0.3));
+    p.r(3, 5, 10, 4, '#1a1a22');
+    p.r(4, 6, 8, 2, '#3a3f4e');
+    p.r(7, 9, 2, 3, '#1a1a22');
+    p.r(4, 12, 8, 1, '#1a1a22');
+    p.px(3, 13, '#1a1a22');
+    p.px(12, 13, '#1a1a22');
   } },
   chairup: { lift: 2, solid: false, draw(p, w, h, k) {
-    p.r(3, 5, 10, 8, '#1a1a22');
-    p.r(4, 6, 8, 6, k.chair);
-    p.r(4, 6, 8, 1, shade(k.chair, 0.25));
+    // Chair facing up (we see the seat and the backrest at the bottom).
+    p.r(3, 3, 10, 6, '#1a1a22');
+    p.r(4, 4, 8, 4, '#3a3f4e');
+    p.r(4, 8, 8, 6, '#1a1a22');
+    p.r(5, 9, 6, 4, k.chair);
+    p.r(5, 9, 6, 1, shade(k.chair, 0.3));
   } },
   bigchair: { lift: 8, solid: false, draw(p) {
     p.r(2, -2, 12, 14, '#1a1a22');

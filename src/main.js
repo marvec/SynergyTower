@@ -4,6 +4,16 @@ import { createInput, attachInput } from './engine/input.js';
 import { createAudio } from './engine/audio.js';
 import { createGame } from './game.js';
 import { TitleScene } from './scenes/title.js';
+import { MinigameScene } from './scenes/minigameScene.js';
+
+// Static public files (served from public/, not bundled).
+for (const [rel, href, type] of [['manifest', '/manifest.webmanifest'], ['icon', '/icon.svg', 'image/svg+xml']]) {
+  const l = document.createElement('link');
+  l.rel = rel;
+  l.href = href;
+  if (type) l.type = type;
+  document.head.appendChild(l);
+}
 
 const canvas = document.getElementById('game');
 const screen = createScreen(canvas);
@@ -47,9 +57,24 @@ function frame(t) {
 }
 requestAnimationFrame(frame);
 
-if ('serviceWorker' in navigator && location.port !== '3000') {
+if ('serviceWorker' in navigator && location.port !== '5317') {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
-// Handy for debugging in the console.
+// Handy for debugging in the console. __step advances frames even when the tab is hidden (rAF paused).
 window.__game = game;
+window.__step = (frames = 1, dt = 1 / 30) => {
+  for (let i = 0; i < frames; i++) {
+    input.beginFrame();
+    game.update(dt);
+    game.render(screen.g);
+    input.endFrame();
+  }
+  return game.top?.constructor.name;
+};
+
+/** Debug: launch any mini-game, e.g. __mg('spreadsheet', 0.5). Needs a loaded career. */
+window.__mg = (game_id, difficulty = 0.5) => {
+  game.push(new MinigameScene(game, { id: `debug-${game_id}`, game: game_id, title: `Debug: ${game_id}`, difficulty, seed: 1 }, null));
+  return game_id;
+};

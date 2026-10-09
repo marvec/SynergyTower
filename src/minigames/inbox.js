@@ -112,11 +112,11 @@ export default {
         timerBar(g, left, perItem);
         const s = monitor(g, 90, 34, 300, 130);
         rect(g, s.x, s.y, s.w, 12, C.accent);
-        drawText(g, 'Inbox — ' + (queue.length - i) + ' unread', s.x + 4, s.y + 2);
+        drawText(g, 'Inbox - ' + (queue.length - i) + ' unread', s.x + 4, s.y + 2);
         // Upcoming list.
         for (let k = 1; k <= 3 && i + k < queue.length; k++) {
           rect(g, s.x + 6, s.y + 78 + k * 12, s.w - 12, 10, '#d5dce8');
-          drawText(g, '• ' + queue[i + k].text.slice(0, 44), s.x + 9, s.y + 79 + k * 12, { color: '#6a7080' });
+          drawText(g, '· ' + queue[i + k].text.slice(0, 44), s.x + 9, s.y + 79 + k * 12, { color: '#6a7080' });
         }
         if (i < queue.length) {
           const item = queue[i];

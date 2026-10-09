@@ -30,12 +30,12 @@ promoted floor by floor until they become CEO. Progression is deliberately slow 
 
 ## 2. Platform & architecture
 
-- **Runtime/tooling:** Bun 1.3. `bun run dev` runs `server.js` (Bun.serve + HTML import, hot reload, port 3000).
+- **Runtime/tooling:** Bun 1.3. `bun run dev` runs `server.js` (Bun.serve + HTML import, hot reload, port 5317).
   `bun run build` → static `dist/` (`bun build ./src/index.html` + copy `public/`). `bun run preview` serves `dist/`
-  on port 4173. `bun test` runs the unit and smoke tests.
+  on port 4317. `bun test` runs the unit and smoke tests.
 - **No framework.** Vanilla ES modules + Canvas 2D at a logical resolution of 480×270, integer-scaled, `image-rendering: pixelated`.
-- **Offline:** the service worker (`public/sw.js`) caches app-shell responses at runtime (stale-while-revalidate) and
-  is registered only outside the dev server. There is a web app manifest and an SVG icon.
+- **Offline:** the service worker (`public/sw.js`) caches the app shell. Navigations are network-first with a cache fallback,
+  and assets are stale-while-revalidate. It is registered only outside the dev server. There is a web app manifest and an SVG icon.
 - **Port-friendly layering** (keeps a Flutter port mechanical):
   - `src/core/` — pure logic, no DOM: economy formulas, progression, save state, RNG, floor generation, task assignment.
   - `src/data/` — pure content: departments, titles, quiz banks, phrases, NPC lines, sprite pixel maps, music patterns.

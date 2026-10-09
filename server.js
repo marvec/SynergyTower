@@ -1,7 +1,7 @@
 // Dev server: bundles src/index.html on the fly (hot reload) and serves public/ files.
 import homepage from './src/index.html';
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || 5317);
 
 const server = Bun.serve({
   port: PORT,

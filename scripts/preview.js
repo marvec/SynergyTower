@@ -1,5 +1,5 @@
 // Serves the production build from dist/ (service worker active here, not on the dev server).
-const PORT = Number(process.env.PORT || 4173);
+const PORT = Number(process.env.PORT || 4317);
 
 const server = Bun.serve({
   port: PORT,
