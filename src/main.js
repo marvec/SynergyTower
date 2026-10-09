@@ -7,7 +7,7 @@ import { TitleScene } from './scenes/title.js';
 import { MinigameScene } from './scenes/minigameScene.js';
 
 // Static public files (served from public/, not bundled).
-for (const [rel, href, type] of [['manifest', '/manifest.webmanifest'], ['icon', '/icon.svg', 'image/svg+xml']]) {
+for (const [rel, href, type] of [['manifest', './manifest.webmanifest'], ['icon', './icon.svg', 'image/svg+xml']]) {
   const l = document.createElement('link');
   l.rel = rel;
   l.href = href;
@@ -59,7 +59,7 @@ function frame(t) {
 requestAnimationFrame(frame);
 
 if ('serviceWorker' in navigator && location.port !== '5317') {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 
 // Handy for debugging in the console. __step advances frames even when the tab is hidden (rAF paused).

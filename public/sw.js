@@ -1,10 +1,10 @@
 // Offline support for same-origin GETs.
 // Page navigations are network-first (cache only when offline), so another app later served on the same
 // localhost port is never hijacked by a stale copy of this game. Hashed assets use stale-while-revalidate.
-const CACHE = 'synergytower-v2';
+const CACHE = 'synergytower-v3';
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/index.html', '/manifest.webmanifest', '/icon.svg'])).catch(() => {}));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])).catch(() => {}));
   self.skipWaiting();
 });
 
@@ -23,11 +23,11 @@ self.addEventListener('fetch', (e) => {
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();
-            e.waitUntil(caches.open(CACHE).then((c) => c.put('/index.html', copy)));
+            e.waitUntil(caches.open(CACHE).then((c) => c.put('./index.html', copy)));
           }
           return res;
         })
-        .catch(async () => (await caches.match('/index.html')) || (await caches.match('/')) || new Response('Offline', { status: 503 })),
+        .catch(async () => (await caches.match('./index.html')) || (await caches.match('./')) || new Response('Offline', { status: 503 })),
     );
     return;
   }
@@ -46,7 +46,7 @@ self.addEventListener('fetch', (e) => {
       }
       const res = await network;
       if (res) return res;
-      if (req.mode === 'navigate') return (await cache.match('/index.html')) || (await cache.match('/'));
+      if (req.mode === 'navigate') return (await cache.match('./index.html')) || (await cache.match('./'));
       return new Response('Offline', { status: 503 });
     }),
   );
