@@ -28,7 +28,7 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 | Content | `src/data/` | Pure data: departments/titles/NPC lines, corp colours, task titles, music, `mg-*.js` mini-game content. |
 | Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit. |
 | Scenes | `src/scenes/` | title → setup → exterior → floor ⇄ (overlays, mini-game host, elevator ride) → ending. |
-| Mini-games | `src/minigames/` | One file per mechanic (16), registered in `src/minigames/index.js`. |
+| Mini-games | `src/minigames/` | One file per mechanic (17), registered in `src/minigames/index.js`. |
 
 - `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`),
   throttled autosave to `localStorage['synergytower.save.v1']`, toasts.
@@ -47,7 +47,7 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
 - The score maps to stars as <0.35 → 0, <0.6 → 1, <0.85 → 2, else 3. A perfect player should reach ≥0.85, a random one ~0.
 - Every game needs an overall time limit (≤ ~90 s) and must support keyboard **and** mouse.
 - Theme content by `theme.dept`: lobby, support, sales, marketing, it, finance, legalhr, exec.
-- Use the helpers in `src/engine/mgkit.js` (backdrop, header, timerBar, monitor, choiceBox, Floaters, Shake, byDiff, finish).
+- Use the helpers in `src/engine/mgkit.js` (backdrop, header, timerBar, monitor, choiceBox, pickChoice, Floaters, Shake, byDiff, finish).
 - The host (`src/scenes/minigameScene.js`) owns the countdown, pause/forfeit, coffee and rewards. Mini-games know
   nothing about the economy.
 
@@ -63,6 +63,8 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
 - Payments are **fake** (`FakeCheckout` in `src/scenes/overlays.js`, labelled DEMO). There is no real payment code.
 - Service worker (`public/sw.js`): page navigations are network-first (cache only when offline), so another app later
   run on the same localhost port isn't hijacked. Bump `CACHE` when changing caching behaviour.
+- `bun --hot` sometimes misses a change to a shared module (seen with `mgkit.js` on SynologyDrive), so the served bundle
+  mixes old and new code (`x is not a function` in the browser). Restart `bun run dev` after editing shared engine files.
 - Bun's HTML bundler resolves `<link href>` tags, so the manifest and icon links are injected at runtime in `src/main.js`.
 
 ## Debugging in the browser console

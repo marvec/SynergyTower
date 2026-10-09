@@ -6,7 +6,7 @@ import { taskTitle } from '../data/taskTitles.js';
 
 export const ALL_GAMES = [
   'inbox', 'compose', 'typing', 'spreadsheet', 'bingo', 'calendar', 'timing', 'memory',
-  'simon', 'math', 'quiz', 'order', 'whack', 'stealth', 'stocks', 'coffee',
+  'simon', 'math', 'quiz', 'order', 'whack', 'stealth', 'stocks', 'coffee', 'jargon',
 ];
 
 const cache = new Map();

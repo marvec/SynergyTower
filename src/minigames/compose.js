@@ -1,29 +1,9 @@
 // Write the Email: fill each blank in the email with the right corporate phrase.
-import { W, C, rect, drawText, measureText, backdrop, header, timerBar, monitor, choiceBox, Floaters, Shake, byDiff, finish } from '../engine/mgkit.js';
+import { W, C, rect, drawText, measureText, backdrop, header, timerBar, monitor, choiceBox, Floaters, Shake, byDiff, finish, pickChoice } from '../engine/mgkit.js';
 import { COMPOSE, SUBJECTS } from '../data/mg-compose.js';
 
-const inside = (p, r) => p.x >= r.x && p.y >= r.y && p.x < r.x + r.w && p.y < r.y + r.h;
 
 /** Number keys, arrows (2-column grid) + confirm, or click. Returns picked index or -1. */
-function pickChoice(input, rects, st) {
-  const n = rects.length;
-  for (let k = 0; k < n; k++) if (input.pressedExact(String(k + 1))) return k;
-  const p = input.pointer;
-  let hit = -1;
-  rects.forEach((r, k) => {
-    if (inside(p, r)) {
-      if (p.moved) st.focus = k;
-      if (p.clicked) hit = k;
-    }
-  });
-  if (hit >= 0) return hit;
-  if (input.pressed('ArrowRight')) st.focus = (st.focus + 1) % n;
-  if (input.pressed('ArrowLeft')) st.focus = (st.focus + n - 1) % n;
-  if (input.pressed('ArrowDown') && st.focus + 2 < n) st.focus += 2;
-  if (input.pressed('ArrowUp') && st.focus - 2 >= 0) st.focus -= 2;
-  if (input.confirm()) return st.focus;
-  return -1;
-}
 
 export default {
   id: 'compose',

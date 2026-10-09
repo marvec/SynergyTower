@@ -29,7 +29,7 @@ test('every floor has the full station count, all reachable', () => {
   }
 });
 
-test('all 16 mini-games appear across the tower, and each floor has variety', () => {
+test('all mini-games appear across the tower, and each floor has variety', () => {
   const seen = new Set();
   for (const fl of floors) {
     const games = new Set(fl.tasks.map((t) => t.task.game));

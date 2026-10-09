@@ -73,7 +73,7 @@ The host owns intro/result cards, the timer frame, coffee charge and rewards. Mi
 - **Rendering:** a tile pass (floor, then wall tops/front faces), then y-sorted sprites (furniture, NPCs, player), then
   station markers ("!" when ready, a clock when cooling down), then the HUD.
 
-## 4. Mini-games (16 mechanics, themed per department → hundreds of task variants)
+## 4. Mini-games (17 mechanics, themed per department → hundreds of task variants)
 
 | id | Name (default theme) | Mechanic |
 |---|---|---|
@@ -93,6 +93,7 @@ The host owns intro/result cards, the timer frame, coffee charge and rewards. Mi
 | stealth | Boss Alert | Alt-tab (Space) when the boss walks by, but not for colleagues. |
 | stocks | Quarterly Ticker | Buy low, sell high on a moving chart to hit a profit target. |
 | coffee | Coffee Run | Memorise colleagues' orders, then rebuild each one. |
+| jargon | Jargon Decoder | The boss says a buzzword ("Let's pin that down"); pick what it really means. Ported from ../corporate. |
 
 Each task has a difficulty of 0..1 (rising with the floor, plus some per-task variance) that controls speed, count, time limit and
 distractors. The department theme changes titles and word lists (e.g. `timing` = "Unjam the Printer" in the Lobby,
@@ -158,7 +159,7 @@ It autosaves on change (throttled) and on `visibilitychange`. Loading migrates b
 ## 9. Testing
 
 - `bun test`: economy curves (monotonic, positive, every floor reachable), floor generation (same size on every floor; every
-  station and the elevator are reachable from the elevator via BFS), task assignment (every floor has the right count, all 16
+  station and the elevator are reachable from the elevator via BFS), task assignment (every floor has the right count, all 17
   mechanics are used somewhere), mini-game smoke tests (every mechanic × several difficulties runs 60 simulated seconds
   with random input against a mock 2D context without throwing, and ends with a score in [0,1]), and save round-trip.
 - Manual and browser check: title → setup → exterior → lobby → play a mini-game → promotion.

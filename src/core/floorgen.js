@@ -18,13 +18,13 @@ export const ELEVATOR_ROOM = { x0: 17, x1: 22 };
 // Which mini-games a station kind can host. The task assigner picks among these.
 export const STATION_GAMES = {
   desk: ['inbox', 'compose', 'typing', 'spreadsheet'],
-  whiteboard: ['order', 'calendar'],
-  meetingtable: ['bingo', 'calendar', 'order'],
+  whiteboard: ['order', 'calendar', 'jargon'],
+  meetingtable: ['bingo', 'calendar', 'order', 'jargon'],
   printer: ['timing'],
   shredder: ['inbox'],
-  watercooler: ['quiz'],
+  watercooler: ['quiz', 'jargon'],
   espressobar: ['coffee'],
-  bossdesk: ['stealth', 'quiz'],
+  bossdesk: ['stealth', 'quiz', 'jargon'],
   filing: ['memory', 'spreadsheet'],
   serverrack: ['simon', 'whack'],
   tradingdesk: ['stocks', 'math'],
@@ -33,7 +33,7 @@ export const STATION_GAMES = {
   headsetdesk: ['quiz', 'typing', 'inbox'],
   gong: ['timing', 'math'],
   easel: ['order', 'memory', 'whack'],
-  boardtable: ['bingo', 'stocks', 'order'],
+  boardtable: ['bingo', 'stocks', 'order', 'jargon'],
 };
 
 export function generateFloor(floor) {

@@ -148,3 +148,29 @@ export function finish(inst, score) {
   inst.score = clamp(score, 0, 1);
   inst.done = true;
 }
+
+const inRectP = (p, r) => p.x >= r.x && p.y >= r.y && p.x < r.x + r.w && p.y < r.y + r.h;
+
+/**
+ * Choice selection for 2-column option grids: number keys, pointer hover/click, arrows + Space/Enter.
+ * `st.focus` holds the keyboard focus. Returns the picked index or -1.
+ */
+export function pickChoice(input, rects, st) {
+  const n = rects.length;
+  for (let k = 0; k < n; k++) if (input.pressedExact(String(k + 1))) return k;
+  const p = input.pointer;
+  let hit = -1;
+  rects.forEach((r, k) => {
+    if (inRectP(p, r)) {
+      if (p.moved) st.focus = k;
+      if (p.clicked) hit = k;
+    }
+  });
+  if (hit >= 0) return hit;
+  if (input.pressed('ArrowRight')) st.focus = (st.focus + 1) % n;
+  if (input.pressed('ArrowLeft')) st.focus = (st.focus + n - 1) % n;
+  if (input.pressed('ArrowDown') && st.focus + 2 < n) st.focus += 2;
+  if (input.pressed('ArrowUp') && st.focus - 2 >= 0) st.focus -= 2;
+  if (input.confirm()) return st.focus;
+  return -1;
+}

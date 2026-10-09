@@ -15,7 +15,8 @@ import whack from './whack.js';
 import stealth from './stealth.js';
 import stocks from './stocks.js';
 import coffee from './coffee.js';
+import jargon from './jargon.js';
 
 export const MINIGAMES = Object.fromEntries(
-  [inbox, compose, typing, spreadsheet, bingo, calendar, timing, memory, simon, math, quiz, order, whack, stealth, stocks, coffee].map((m) => [m.id, m]),
+  [inbox, compose, typing, spreadsheet, bingo, calendar, timing, memory, simon, math, quiz, order, whack, stealth, stocks, coffee, jargon].map((m) => [m.id, m]),
 );

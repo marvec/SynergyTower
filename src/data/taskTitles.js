@@ -100,6 +100,17 @@ export const TASK_TITLES = {
     finance: ['Treasury Trading'],
     exec: ['Manage Shareholder Value'],
   },
+  jargon: {
+    default: ['Jargon Decoder', 'Decode the Boss'],
+    lobby: ['Decode the Memo'],
+    support: ['Decode the Escalation'],
+    sales: ['Decode the Client', 'Pipeline Speak'],
+    marketing: ['Brand-Speak Decoder'],
+    it: ['Decode the Architect'],
+    finance: ['Decode the CFO'],
+    legalhr: ['Decode the Policy', 'HR Speak 101'],
+    exec: ['Board-Speak Translation', 'Decode the Shareholder Letter'],
+  },
   coffee: {
     default: ['Coffee Run', 'Barista Duty'],
     exec: ['Executive Espresso'],
