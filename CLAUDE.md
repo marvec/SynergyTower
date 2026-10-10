@@ -70,8 +70,10 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
 - `input.down/pressed('ArrowUp')` also match WASD. Use `pressedExact` for letter hotkeys.
 - Economy numbers live only in `src/core/economy.js`. `tests/economy.test.js` checks that an average 2★ player can
   always afford the next floor. Re-run it after tuning.
-- Hallway posters ("YOUR LOGO HERE", `fl.posters` from `placePosters` in `floorgen.js`, drawn into the baked wall rows) are
-  sponsorship ad space; interacting shows `SPONSOR_PITCH` from `src/data/sponsors.js`, a placeholder until the contact form exists.
+- Hallway posters: every floor has a "YOUR LOGO HERE" sponsorship spot and a fake ad (`FAKE_ADS`, invented brands) on the
+  upper part of the corridor wall, each centred in a wall section (`placePosters` in `floorgen.js`, `posterContent` in
+  `floorWorld.js`). Interacting shows `SPONSOR_PITCH` / `adPitch` from `src/data/sponsors.js`, placeholders until the
+  sponsorship contact form exists.
 - Payments are **fake** (`FakeCheckout` in `src/scenes/overlays.js`, labelled DEMO). There is no real payment code.
 - Service worker (`public/sw.js`): page navigations are network-first (cache only when offline), so another app later
   run on the same localhost port isn't hijacked. Bump `CACHE` when changing caching behaviour.

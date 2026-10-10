@@ -7,7 +7,7 @@ import { createRng } from '../core/rng.js';
 import { DEPARTMENTS } from '../data/departments.js';
 import { SKIN_TONES, HAIR_COLORS } from '../data/corpColors.js';
 import { FIRST_NAMES, LAST_NAMES, ROLES, FILE_NOTES } from '../data/people.js';
-import { POSTER_TEXT } from '../data/sponsors.js';
+import { POSTER_TEXT, FAKE_ADS } from '../data/sponsors.js';
 import { drawText, wrapText, measureText } from '../engine/font.js';
 import { C, rect } from '../engine/ui.js';
 
@@ -102,6 +102,23 @@ export class Actor {
     }
     lines.forEach((l, i) => drawText(g, l, bx + 5, by + 4 + head + i * 10, { color: C.ink }));
   }
+}
+
+/**
+ * What a hallway poster shows and where: centred in its wall section. Fake ads rotate by floor among the brands whose name
+ * fits the section (ACME Systems Inc. on floor 1). Returns { x, w } in world px, plus `ad` for a fake ad.
+ */
+export function posterContent(p, floor) {
+  const room = (p.x1 - p.x0 + 1) * TILE - 4;
+  let ad = null;
+  let w = measureText(POSTER_TEXT) + 10;
+  if (p.kind === 'ad') {
+    const fits = FAKE_ADS.filter((a) => measureText(a.name) + 16 <= room);
+    ad = fits[(floor - 1) % fits.length];
+    w = measureText(ad.name) + 16;
+  }
+  const cx = ((p.x0 + p.x1 + 1) / 2) * TILE;
+  return { x: Math.round(cx - w / 2), w, ad };
 }
 
 /** A colleague's name, role and personnel-file trivia, deterministic per NPC seed. */
@@ -222,16 +239,30 @@ export class FloorView {
     });
   }
 
-  /** "Your logo here" sponsorship poster on a wall's front face (row-canvas coordinates: the face spans y 16..28). */
+  /** A hallway poster on the upper part of the wall (row-canvas coordinates: the wall top spans y 0..16). */
   drawPoster(g, p) {
-    const x = p.x * TILE + 2;
-    const w = p.w * TILE - 4;
-    rect(g, x + 1, 18, w, 10, 'rgba(0,0,0,0.25)');
-    rect(g, x, 17, w, 10, '#2b2e38');
-    rect(g, x + 1, 18, w - 2, 8, '#fbf8ef');
-    rect(g, x + 1, 18, 2, 8, this.kit.accent);
-    rect(g, x + w - 3, 18, 2, 8, this.kit.accent);
-    drawText(g, POSTER_TEXT, x + w / 2, 18, { align: 'center', color: '#5a5f70' });
+    const c = posterContent(p, this.fl.floor);
+    const x = c.x;
+    const y = 1;
+    rect(g, x + 1, y + 1, c.w, 14, 'rgba(0,0,0,0.3)');
+    rect(g, x, y, c.w, 14, '#1a1c24');
+    if (!c.ad) {
+      rect(g, x + 1, y + 1, c.w - 2, 12, '#fbf8ef');
+      rect(g, x + 1, y + 1, 2, 12, this.kit.accent);
+      rect(g, x + c.w - 3, y + 1, 2, 12, this.kit.accent);
+      drawText(g, POSTER_TEXT, x + c.w / 2, y + 3, { align: 'center', color: '#5a5f70' });
+      return;
+    }
+    const { bg, fg, mark } = c.ad;
+    rect(g, x + 1, y + 1, c.w - 2, 12, bg);
+    rect(g, x + 1, y + 1, c.w - 2, 1, 'rgba(255,255,255,0.25)');
+    const mx = x + 4;
+    const my = y + 4;
+    if (mark === 'diamond') for (let k = 0; k < 3; k++) rect(g, mx + 2 - k, my + k, 1 + k * 2, 1, fg), rect(g, mx + 2 - k, my + 5 - k, 1 + k * 2, 1, fg);
+    else if (mark === 'circle') rect(g, mx + 1, my, 4, 6, fg), rect(g, mx, my + 1, 6, 4, fg);
+    else if (mark === 'square') rect(g, mx, my, 6, 6, fg), rect(g, mx + 2, my + 2, 2, 2, bg);
+    else for (const [dx, dy, w] of [[3, 0, 2], [2, 1, 2], [1, 2, 4], [2, 3, 2], [1, 4, 2], [0, 5, 2]]) rect(g, mx + dx, my + dy, w, 1, fg);
+    drawText(g, c.ad.name, x + 13, y + 3, { color: fg });
   }
 
   /** Top of an item's drawn sprite in world px (for markers). */

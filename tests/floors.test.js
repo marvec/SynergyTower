@@ -2,6 +2,8 @@ import { test, expect } from 'bun:test';
 import { FLOORS, stationCount } from '../src/core/economy.js';
 import { FLOOR_W, FLOOR_H, T_WALL, isItemReachable } from '../src/core/floorgen.js';
 import { buildFloor, ALL_GAMES } from '../src/core/tasks.js';
+import { measureText } from '../src/engine/font.js';
+import { POSTER_TEXT, FAKE_ADS } from '../src/data/sponsors.js';
 
 const floors = Array.from({ length: FLOORS }, (_, i) => buildFloor(i + 1));
 
@@ -70,16 +72,19 @@ test('games are spread evenly over the tower: every game early, regularly, about
   }
 });
 
-test('every floor has 2-3 sponsorship posters on unbroken hallway wall, nothing in front of them', () => {
+test('every floor has a "your logo here" poster and a fake ad, each fitting an unbroken hallway wall section', () => {
+  const room = (p) => (p.x1 - p.x0 + 1) * 16 - 4;
   for (let f = 1; f <= FLOORS; f++) {
     const fl = buildFloor(f);
-    expect(fl.posters.length).toBeGreaterThanOrEqual(2);
-    expect(fl.posters.length).toBeLessThanOrEqual(3);
+    expect(fl.posters.map((p) => p.kind).sort()).toEqual(['ad', 'logo']);
     for (const p of fl.posters) {
-      for (let x = p.x; x < p.x + p.w; x++) {
+      for (let x = p.x0; x <= p.x1; x++) {
         expect(fl.tiles[p.y * fl.w + x]).toBe(T_WALL);
-        expect(fl.walk[(p.y + 1) * fl.w + x]).toBeTruthy();
+        expect(fl.tiles[(p.y + 1) * fl.w + x]).not.toBe(T_WALL);
       }
+      if (p.kind === 'logo') expect(measureText(POSTER_TEXT) + 10).toBeLessThanOrEqual(room(p));
+      else expect(FAKE_ADS.some((a) => measureText(a.name) + 16 <= room(p))).toBe(true);
     }
   }
+  expect(measureText(FAKE_ADS[0].name) + 16).toBeLessThanOrEqual(room(buildFloor(1).posters.find((p) => p.kind === 'ad')));
 });

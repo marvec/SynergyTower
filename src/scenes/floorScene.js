@@ -12,8 +12,8 @@ import * as E from '../core/economy.js';
 import { departmentForFloor, floorName, titleForFloor } from '../data/departments.js';
 import { COMMON_NPC_LINES } from '../data/npcLines.js';
 import { FIRED_LINES, KEPT_LINES } from '../data/people.js';
-import { SPONSOR_PITCH } from '../data/sponsors.js';
-import { FloorView, Actor, NpcBrain, npcLook, npcIdentity } from './floorWorld.js';
+import { SPONSOR_PITCH, adPitch } from '../data/sponsors.js';
+import { FloorView, Actor, NpcBrain, npcLook, npcIdentity, posterContent } from './floorWorld.js';
 import { Hud, HUD_H } from './hud.js';
 import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, HOW_TO, ReviewCard, hrNotice, FateDialog } from './overlays.js';
 import { TerminalScene } from './terminal.js';
@@ -50,7 +50,11 @@ export class FloorScene {
     this.hrRep = rep ? new Actor({ ...npcLook(floor * 91 + 7, this.fl.dept), jacket: '#4a3a6a', tie: null, glasses: true }, rep.x + 0.5, rep.y + 0.75) : null;
     if (this.hrRep) this.hrRep.who = { name: npcIdentity(floor * 91 + 7, 'legalhr').name, role: 'HR Business Partner' };
     // Sponsorship posters on the hallway wall, as interactable pseudo-items (top = the wall's front face).
-    this.posters = (this.fl.posters || []).map((p) => ({ x: p.x, y: p.y, w: p.w, h: 1, top: p.y * TILE + 4 }));
+    this.posters = (this.fl.posters || []).map((p) => {
+      const c = posterContent(p, floor);
+      const x0 = Math.floor(c.x / TILE);
+      return { x: x0, y: p.y, w: Math.ceil((c.x + c.w) / TILE) - x0, h: 1, top: p.y * TILE - 12, ad: c.ad };
+    });
     this.rng = createRng(floor * 17 + Date.now());
     this.cam = { x: 0, y: 0 };
     this.snapCamera();
@@ -243,7 +247,7 @@ export class FloorScene {
       game.push(new TerminalScene(game, { floor: this.floorNo, ws: it.id, onWarp: (f) => this.warp(f) }));
     } else if (t.kind === 'poster') {
       game.sfx('click');
-      game.push(new Dialog(game, { ...SPONSOR_PITCH, w: 280 }));
+      game.push(new Dialog(game, { ...(t.it.ad ? adPitch(t.it.ad) : SPONSOR_PITCH), w: 280 }));
     } else if (t.kind === 'coffee') {
       const r = S.useCoffeeMachine(s, this.floorNo, game.now());
       if (r.ok) {
@@ -593,8 +597,8 @@ export class FloorScene {
       text = 'Workstation';
       sub = 'open terminal';
     } else if (t.kind === 'poster') {
-      text = 'Ad space';
-      sub = 'sponsor this wall';
+      text = t.it.ad ? t.it.ad.name : 'Ad space';
+      sub = t.it.ad ? 'advertisement' : 'sponsor this wall';
     } else if (t.kind === 'board') {
       text = 'Whiteboard';
       sub = t.b.checked ? 'look again' : 'take a look';
