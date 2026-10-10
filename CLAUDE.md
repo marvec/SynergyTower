@@ -72,10 +72,15 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
   always afford the next floor. Re-run it after tuning.
 - Hallway posters: every floor has a "YOUR LOGO HERE" sponsorship spot and a fake ad (`FAKE_ADS`, invented brands) on the
   upper part of the corridor wall, each centred in a wall section (`placePosters` in `floorgen.js`, `posterContent` in
-  `floorWorld.js`). Interacting shows `SPONSOR_PITCH` / `adPitch` from `src/data/sponsors.js`, placeholders until the
-  sponsorship contact form exists.
+  `floorWorld.js`). Interacting shows `SPONSOR_PITCH` / `adPitch` from `src/data/sponsors.js`, with an "Advertise here"
+  button that opens the feedback form on the `sponsor` topic.
 - HUD stats are clickable: `Hud.hits` (rebuilt every render) opens `StatsDialog` (`src/scenes/statsDialog.js`) on the matching
   tab. "Games played" = distinct station mini-games in `state.played` (any result counts; `S.gamesPlayed`).
+- Feedback form: `openFeedback(context)` in `src/engine/feedback.js` is a DOM overlay (title link, ☰ menu, posters) with
+  topics (task idea, bug, sponsorship, other; email required for sponsorship). It lazy-loads
+  reCAPTCHA v3 (the only external script) and POSTs to `api/feedback.js`, a Vercel Function (project `well-be/synergy-tower`,
+  API only, see `vercel.json`/`.vercelignore`) that verifies the token and emails via Resend. Public keys/URL in `src/config.js`;
+  secrets are Vercel env vars (`RECAPTCHA_SECRET`, `RESEND_API_KEY`, `FEEDBACK_TO`, optional `FEEDBACK_FROM`, `ALLOWED_ORIGINS`).
 - Payments are **fake** (`FakeCheckout` in `src/scenes/overlays.js`, labelled DEMO). There is no real payment code.
 - Service worker (`public/sw.js`): page navigations are network-first (cache only when offline), so another app later
   run on the same localhost port isn't hijacked. Bump `CACHE` when changing caching behaviour.

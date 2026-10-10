@@ -1,7 +1,7 @@
 // The main play scene: walk a floor, talk to colleagues, start tasks, use the elevator.
 import { W, H } from '../engine/screen.js';
 import { TILE, CHAR_H } from '../engine/art.js';
-import { C, rect, panel, icon, stars, formatTime } from '../engine/ui.js';
+import { C, rect, panel, icon, stars, formatTime, openCoffee } from '../engine/ui.js';
 import { drawText, measureText } from '../engine/font.js';
 import { buildFloor } from '../core/tasks.js';
 import { itemNeighbors } from '../core/floorgen.js';
@@ -13,6 +13,7 @@ import { departmentForFloor, floorName, titleForFloor } from '../data/department
 import { COMMON_NPC_LINES } from '../data/npcLines.js';
 import { FIRED_LINES, KEPT_LINES } from '../data/people.js';
 import { SPONSOR_PITCH, adPitch } from '../data/sponsors.js';
+import { openFeedback } from '../engine/feedback.js';
 import { FloorView, Actor, NpcBrain, npcLook, npcIdentity, posterContent } from './floorWorld.js';
 import { Hud, HUD_H } from './hud.js';
 import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, HOW_TO, ReviewCard, hrNotice, FateDialog } from './overlays.js';
@@ -74,6 +75,7 @@ export class FloorScene {
         game.audio.setMusic(st.music);
         game.markDirty();
       },
+      coffee: openCoffee,
       menu: () => this.openMenu(),
     });
   }
@@ -247,7 +249,8 @@ export class FloorScene {
       game.push(new TerminalScene(game, { floor: this.floorNo, ws: it.id, onWarp: (f) => this.warp(f) }));
     } else if (t.kind === 'poster') {
       game.sfx('click');
-      game.push(new Dialog(game, { ...(t.it.ad ? adPitch(t.it.ad) : SPONSOR_PITCH), w: 280 }));
+      const action = { label: 'Advertise here', onClick: () => openFeedback(`poster on floor ${this.floorNo}`, 'sponsor') };
+      game.push(new Dialog(game, { ...(t.it.ad ? adPitch(t.it.ad) : SPONSOR_PITCH), w: 280, action }));
     } else if (t.kind === 'coffee') {
       const r = S.useCoffeeMachine(s, this.floorNo, game.now());
       if (r.ok) {

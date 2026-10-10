@@ -17,6 +17,7 @@ export class Hud {
       { icon: 'cart', label: 'Shop', key: 'shop', hotkey: 'b' },
       { icon: 'up', label: 'Perks', key: 'perks', hotkey: 'p' },
       { icon: 'book', label: 'Train', key: 'train', hotkey: 't' },
+      { icon: 'coffee', label: 'Tip', key: 'coffee' },
       { icon: 'note', label: '', key: 'music' },
       { icon: 'menu', label: '', key: 'menu' },
     ];

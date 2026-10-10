@@ -32,3 +32,90 @@ body {
   padding: 0 6px;
   border-radius: 0;
 }
+#feedback {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 9, 16, 0.75);
+  font: 14px/1.4 ui-monospace, Menlo, Consolas, monospace;
+  color: #e8e4f4;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
+}
+#feedback form {
+  box-sizing: border-box;
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: #262a3d;
+  border: 3px solid #4a4f6e;
+  box-shadow: 0 0 0 3px #0d0f18;
+}
+#feedback h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #ffd75e;
+}
+#feedback p {
+  margin: 0;
+  color: #aab0cc;
+}
+#feedback textarea,
+#feedback input,
+#feedback select {
+  box-sizing: border-box;
+  width: 100%;
+  border: 0;
+  padding: 8px;
+  background: #f4f1e8;
+  color: #1b1e2b;
+  font: 16px ui-monospace, Menlo, Consolas, monospace;
+  resize: vertical;
+}
+#feedback .row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+#feedback button {
+  border: 0;
+  padding: 8px 16px;
+  font: bold 14px ui-monospace, Menlo, Consolas, monospace;
+  color: #fff;
+  background: #3f8f5a;
+  cursor: pointer;
+}
+#feedback button.cancel {
+  background: #4a4f6e;
+}
+#feedback button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+#feedback .status:empty {
+  display: none;
+}
+#feedback .status.err {
+  color: #ff8a80;
+}
+#feedback .status.ok {
+  color: #8be09b;
+}
+#feedback small {
+  color: #7a80a0;
+  font-size: 11px;
+}
+#feedback a {
+  color: #c8b8e8;
+}
+/* The form shows Google's required notice, so the floating badge can go. */
+.grecaptcha-badge {
+  visibility: hidden;
+}

@@ -1,0 +1,8 @@
+# Vercel only hosts the feedback API (api/); the game itself is on GitHub Pages.
+server.js
+src
+tests
+docs
+scripts
+dist
+.github

@@ -1,13 +1,13 @@
 // Hallway posters: a "Your logo here" sponsorship spot and a fake ad on every floor. Pure data.
-// The ads are invented brands; a sponsorship contact form will replace the placeholder pitch later.
+// The ads are invented brands. Both dialogs offer a button that opens the contact form on the sponsorship topic.
 export const POSTER_TEXT = 'YOUR LOGO HERE';
 
 export const SPONSOR_PITCH = {
   title: 'Advertise here',
   text:
     'This premium hallway spot is seen by every new hire climbing all 40 floors of the tower.\n' +
-    'Want your brand on it? Sponsorship enquiries open soon - a contact form is on its way.',
-  button: 'Got it',
+    'Want your brand on it? Send a sponsorship enquiry and the author will get back to you.',
+  button: 'Close',
 };
 
 /** mark: logo shape drawn left of the name (diamond, circle, square, bolt). */
@@ -26,6 +26,6 @@ export const FAKE_ADS = [
 
 export const adPitch = (ad) => ({
   title: ad.name,
-  text: `"${ad.tagline}"\n(A made-up sponsor. This wall could carry your brand instead: sponsorship enquiries open soon.)`,
+  text: `"${ad.tagline}"\n(A made-up sponsor. This wall could carry your brand instead.)`,
   button: 'Nice',
 });

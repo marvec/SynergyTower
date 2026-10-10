@@ -1,12 +1,13 @@
 // Modal overlays drawn above the floor: task card, elevator, shop + fake checkout, perks, training, menu, dialogs.
 import { W, H } from '../engine/screen.js';
-import { C, rect, panel, dim, icon, stars, bar, formatNum, formatTime, ButtonSet, frame } from '../engine/ui.js';
+import { C, rect, panel, dim, icon, stars, bar, formatNum, formatTime, ButtonSet, frame, openCoffee } from '../engine/ui.js';
 import { drawText, drawWrapped, measureText, wrapText } from '../engine/font.js';
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
+import { openFeedback } from '../engine/feedback.js';
 
 export class Modal {
   constructor(game, { w = 260, h = 160, title = '' } = {}) {
@@ -473,8 +474,10 @@ export class TrainOverlay extends Modal {
 
 // ------------------------------------------------------------------ dialog
 export class Dialog extends Modal {
-  constructor(game, { title = '', text = '', button = 'OK', w = 280, onClose = null, extra = null }) {
+  /** action: optional second button { label, onClick, color }, shown left of the close button. */
+  constructor(game, { title = '', text = '', button = 'OK', w = 280, onClose = null, extra = null, action = null }) {
     super(game, { w, h: 60, title });
+    this.action = action;
     this.text = text;
     this.onClose = onClose;
     this.extra = extra;
@@ -488,7 +491,14 @@ export class Dialog extends Modal {
   }
   build() {
     this.buttons.clear();
-    this.buttons.add({ x: this.x + this.w / 2 - 40, y: this.y + this.h - 24, w: 80, h: 18, label: this.buttonLabel, onClick: () => this.close() });
+    const y = this.y + this.h - 24;
+    const a = this.action;
+    if (a) {
+      const aw = measureText(a.label) + 20;
+      const x = this.x + (this.w - aw - 86) / 2;
+      this.buttons.add({ x, y, w: aw, h: 18, label: a.label, color: a.color || C.goodBtn, onClick: () => (this.close(), a.onClick()) });
+      this.buttons.add({ x: x + aw + 6, y, w: 80, h: 18, label: this.buttonLabel, color: C.panelLight, onClick: () => this.close() });
+    } else this.buttons.add({ x: this.x + this.w / 2 - 40, y, w: 80, h: 18, label: this.buttonLabel, onClick: () => this.close() });
   }
   renderBody(g, x, y) {
     const h = drawWrapped(g, this.text, x + 12, y + 6, this.w - 24);
@@ -540,7 +550,7 @@ export class FateDialog extends Modal {
 // ------------------------------------------------------------------ pause menu
 export class PauseMenu extends Modal {
   constructor(game, { onQuit }) {
-    super(game, { w: 200, h: 176, title: 'Menu' });
+    super(game, { w: 200, h: 220, title: 'Menu' });
     this.onQuit = onQuit;
     this.confirmReset = false;
   }
@@ -562,6 +572,8 @@ export class PauseMenu extends Modal {
       this.game.markDirty();
     });
     add('How to play', () => this.game.push(new Dialog(this.game, { title: 'How to play', w: 320, text: HOW_TO })));
+    add('Send feedback', () => openFeedback(`floor ${s.floor}, level ${s.level}, ${s.player.name} @ ${s.corp.name}`));
+    add('Buy author a coffee', openCoffee, C.goodBtn);
     add('Save & quit to title', () => {
       this.game.saveNow();
       this.onQuit();

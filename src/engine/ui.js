@@ -236,3 +236,32 @@ export function drawButton(g, b, focused, hovered) {
   if (b.label) drawText(g, b.label, tx, ty, { align: 'center', color: tc, shadow });
   if (hasSub) drawText(g, b.sub, b.x + b.w / 2, ty + 10, { align: 'center', color: b.disabled ? '#7a7d8d' : C.gold, shadow: C.border });
 }
+
+// External links drawn on the canvas. They open from the pointerup handler (a user gesture) rather than from the game
+// loop, so popup blockers let them through. Spots expire quickly, so a link vanishes with the scene that drew it.
+const linkSpots = [];
+export const COFFEE_URL = 'https://buymeacoffee.com/marvec';
+/** Opens the tip page. Called from button handlers, which run within the browser's user-activation window after a click or key press. */
+export const openCoffee = () => window.open(COFFEE_URL, '_blank', 'noopener');
+
+/** Right-aligned link text ending at x. `url` may also be a function, called on click. */
+export function drawLink(g, input, text, x, y, url) {
+  const w = measureText(text);
+  const lx = x - w;
+  const hover = linkAt(input.pointer.x, input.pointer.y, lx, y, w) && input.pointer.inside;
+  drawText(g, text, lx, y, { color: hover ? C.gold : '#c8b8e8', shadow: '#000' });
+  rect(g, lx, y + 7, w, 1, hover ? C.gold : '#8878a8');
+  const now = performance.now();
+  for (let i = linkSpots.length - 1; i >= 0; i--) if (now - linkSpots[i].t > 250 || linkSpots[i].url === url) linkSpots.splice(i, 1);
+  linkSpots.push({ x: lx, y: y - 2, w, h: 11, url, t: now });
+}
+
+function linkAt(px, py, x, y, w) {
+  return px >= x && px < x + w && py >= y - 2 && py < y + 9;
+}
+
+/** The URL (or callback) of a live link under the pointer, if any. */
+export function linkUnder(px, py) {
+  const now = performance.now();
+  return linkSpots.find((s) => now - s.t < 250 && px >= s.x && px < s.x + s.w && py >= s.y && py < s.y + s.h)?.url;
+}

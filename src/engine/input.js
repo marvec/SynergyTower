@@ -1,4 +1,5 @@
 // Unified input: keyboard state, per-frame presses, typed characters and a pointer in game coordinates.
+import { linkUnder } from './ui.js';
 // Key names follow KeyboardEvent.key, normalised: 'ArrowUp', ' ' → 'Space', letters lowercase.
 const KEY_ALIASES = { w: 'ArrowUp', a: 'ArrowLeft', s: 'ArrowDown', d: 'ArrowRight' };
 
@@ -127,6 +128,9 @@ export function attachInput(input, canvas, toGame) {
   canvas.addEventListener('pointerup', (e) => {
     const p = pos(e);
     input.pointerUp(p.x, p.y);
+    const url = linkUnder(p.x, p.y);
+    if (typeof url === 'function') url();
+    else if (url) window.open(url, '_blank', 'noopener');
   });
   canvas.addEventListener('pointerleave', () => (input.pointer.inside = false));
   canvas.addEventListener('wheel', (e) => input.addWheel(Math.sign(e.deltaY)), { passive: true });
