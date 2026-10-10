@@ -1,7 +1,7 @@
 import { MINIGAMES } from '../minigames/index.js';
 // Title screen: animated tower at dusk, logo, continue / new career.
 import { W, H } from '../engine/screen.js';
-import { C, ButtonSet, rect, drawLink, COFFEE_URL } from '../engine/ui.js';
+import { C, ButtonSet, rect, drawLink, openCoffee } from '../engine/ui.js';
 import { openFeedback } from '../engine/feedback.js';
 import { drawText, measureText } from '../engine/font.js';
 import { CORP_COLORS } from '../data/corpColors.js';
@@ -80,7 +80,7 @@ export class TitleScene {
     if (this.savedInfo) drawText(g, this.savedInfo, 42, 138, { color: C.so, shadow: '#000' });
     this.buttons.render(g);
     drawText(g, 'v0.1 · works offline · M toggles music', 4, H - 11, { color: '#8890b0' });
-    drawLink(g, this.game.input, 'Buy author a coffee', W - 4, H - 11, COFFEE_URL);
+    drawLink(g, this.game.input, 'Buy author a coffee', W - 4, H - 11, openCoffee);
     drawLink(g, this.game.input, 'Feedback', W - 4 - measureText('Buy author a coffee') - 14, H - 11, sendFeedback);
   }
 }

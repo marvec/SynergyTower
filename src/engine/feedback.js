@@ -1,6 +1,7 @@
 // Feedback form: a DOM overlay (real text fields work better than canvas ones, especially on phones).
 // Protected by reCAPTCHA v3, whose script is only loaded when the form is first opened.
 import { FEEDBACK_URL, RECAPTCHA_SITE_KEY } from '../config.js';
+import { track } from './analytics.js';
 
 let recaptcha = null;
 function loadRecaptcha() {
@@ -33,6 +34,7 @@ export const feedbackOpen = () => open;
 export function openFeedback(context = '', topic = 'task') {
   if (open) return;
   open = true;
+  track('feedback_open', { topic });
   if (RECAPTCHA_SITE_KEY) loadRecaptcha().catch(() => {});
 
   const wrap = document.createElement('div');
@@ -98,6 +100,7 @@ export function openFeedback(context = '', topic = 'task') {
       });
       const r = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(r.error || `Server error ${res.status}`);
+      track('feedback_sent', { topic: form.topic.value });
       say('Thanks! Your feedback was sent.', 'ok');
       setTimeout(close, 1500);
     } catch (err) {

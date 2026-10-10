@@ -14,6 +14,7 @@ import { COMMON_NPC_LINES } from '../data/npcLines.js';
 import { FIRED_LINES, KEPT_LINES } from '../data/people.js';
 import { SPONSOR_PITCH, adPitch } from '../data/sponsors.js';
 import { openFeedback } from '../engine/feedback.js';
+import { track } from '../engine/analytics.js';
 import { FloorView, Actor, NpcBrain, npcLook, npcIdentity, posterContent } from './floorWorld.js';
 import { Hud, HUD_H } from './hud.js';
 import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, HOW_TO, ReviewCard, hrNotice, FateDialog } from './overlays.js';
@@ -249,6 +250,7 @@ export class FloorScene {
       game.push(new TerminalScene(game, { floor: this.floorNo, ws: it.id, onWarp: (f) => this.warp(f) }));
     } else if (t.kind === 'poster') {
       game.sfx('click');
+      track('poster_view', { kind: t.it.ad ? 'ad' : 'sponsor' });
       const action = { label: 'Advertise here', onClick: () => openFeedback(`poster on floor ${this.floorNo}`, 'sponsor') };
       game.push(new Dialog(game, { ...(t.it.ad ? adPitch(t.it.ad) : SPONSOR_PITCH), w: 280, action }));
     } else if (t.kind === 'coffee') {
@@ -308,6 +310,7 @@ export class FloorScene {
     const game = this.game;
     const from = game.state.maxFloor;
     if (!S.promote(game.state, game.now())) return game.sfx('bad');
+    track('promotion', { floor: game.state.maxFloor });
     game.saveNow();
     const { ElevatorRide } = await import('./elevatorRide.js');
     game.set(new ElevatorRide(game, from, game.state.maxFloor, { promoted: true }));

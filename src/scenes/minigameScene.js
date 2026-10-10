@@ -1,4 +1,5 @@
 // Hosts one mini-game: countdown → play → results (stars, rewards, level-ups). Esc during play offers to forfeit.
+import { track } from '../engine/analytics.js';
 import { W, H } from '../engine/screen.js';
 import { C, rect, panel, dim, icon, bar, formatNum, formatTime, ButtonSet } from '../engine/ui.js';
 import { drawText, wrapText } from '../engine/font.js';
@@ -90,6 +91,7 @@ export class MinigameScene {
     const before = { level: s.level };
     this.result = S.completeTask(s, this.task, this.floor, score, this.game.now());
     this.result.score = score;
+    track('task_played', { game: this.task.game, floor: this.floor, stars: this.result.stars });
     this.result.before = before;
     this.game.markDirty();
     this.game.saveNow();
@@ -103,6 +105,7 @@ export class MinigameScene {
   }
   completeReview(score) {
     this.result = S.completeReview(this.game.state, score, this.game.now());
+    track('review', { floor: this.floor, passed: this.result.passed });
     this.game.markDirty();
     this.game.saveNow();
     this.phase = 'result';

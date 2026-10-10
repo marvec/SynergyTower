@@ -84,7 +84,9 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
 - SEO: meta/Open Graph/JSON-LD and a screen-reader/crawler text block (`.sr-only`) live in `src/index.html`; crawler files
   are `public/robots.txt`, `sitemap.xml` and `llms.txt` (update its facts and game list when content changes).
   `public/og-image.png` (1200×630) is the title screen at 2.5× with the bottom 18 px cropped, captured from the dev server.
-- Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits.
+- Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
+  visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
+  coffee_click). `track` is a no-op elsewhere, so tests and the dev server send nothing.
 - Payments are **fake** (`FakeCheckout` in `src/scenes/overlays.js`, labelled DEMO). There is no real payment code.
 - Service worker (`public/sw.js`): page navigations are network-first (cache only when offline), so another app later
   run on the same localhost port isn't hijacked. Bump `CACHE` when changing caching behaviour.

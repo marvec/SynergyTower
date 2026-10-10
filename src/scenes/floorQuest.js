@@ -2,6 +2,7 @@
 //   feedback: find a named colleague and chat with them (earlier chats don't count), then write their 360 review.
 //   lostpw:   mobile whiteboards roll in when the task starts; one shows your pet. Then log back in at the desk.
 // The FloorScene owns one FloorQuest at a time and routes interactions here; the desk half is a normal mini-game.
+import { track } from '../engine/analytics.js';
 import { TILE, CHAR_W, CHAR_H } from '../engine/art.js';
 import { C, rect, frame, panel, icon, bar } from '../engine/ui.js';
 import { drawText, measureText } from '../engine/font.js';
@@ -270,6 +271,7 @@ export class FloorQuest {
     this.over = true;
     this.scene.quest = null;
     S.completeTask(game.state, this.task, game.state.floor, 0, game.now());
+    track('task_played', { game: this.task.game, floor: game.state.floor, stars: 0, quest: 'failed' });
     game.markDirty();
     game.saveNow();
     game.sfx('fail');

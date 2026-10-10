@@ -1,4 +1,5 @@
 // UI kit: palette, panels, pixel icons and a keyboard+mouse button set.
+import { track } from './analytics.js';
 import { drawText, measureText } from './font.js';
 
 export const C = {
@@ -242,7 +243,10 @@ export function drawButton(g, b, focused, hovered) {
 const linkSpots = [];
 export const COFFEE_URL = 'https://buymeacoffee.com/marvec';
 /** Opens the tip page. Called from button handlers, which run within the browser's user-activation window after a click or key press. */
-export const openCoffee = () => window.open(COFFEE_URL, '_blank', 'noopener');
+export const openCoffee = () => {
+  track('coffee_click');
+  window.open(COFFEE_URL, '_blank', 'noopener');
+};
 
 /** Right-aligned link text ending at x. `url` may also be a function, called on click. */
 export function drawLink(g, input, text, x, y, url) {

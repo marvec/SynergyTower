@@ -1,4 +1,5 @@
 // New career: name your corporation, pick its colour, name and style your employee.
+import { track } from '../engine/analytics.js';
 import { W, H } from '../engine/screen.js';
 import { C, ButtonSet, panel, rect, frame, setAccent } from '../engine/ui.js';
 import { drawText } from '../engine/font.js';
@@ -67,6 +68,7 @@ export class SetupScene {
       this.game.sfx('bad');
       return this.nameField.focus();
     }
+    track('career_start');
     const s = S.newGame({ corpName, colorId: CORP_COLORS[this.color].id, playerName, skin: this.skin, hair: this.hair }, this.game.now());
     s.player.hairStyle = this.hairStyle;
     this.game.setState(s);
