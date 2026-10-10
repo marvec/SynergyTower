@@ -222,6 +222,7 @@ export class FloorView {
 
   /** Top of an item's drawn sprite in world px (for markers). */
   itemTop(it) {
+    if (it.top != null) return it.top; // temporary props (quest whiteboards)
     const def = furnitureDef(it.type);
     return it.y * TILE - (def ? def.lift : 0);
   }

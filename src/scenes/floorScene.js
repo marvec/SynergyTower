@@ -17,6 +17,8 @@ import { Hud, HUD_H } from './hud.js';
 import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, HOW_TO, ReviewCard, hrNotice, FateDialog } from './overlays.js';
 import { TerminalScene } from './terminal.js';
 import { MinigameScene } from './minigameScene.js';
+import { FloorQuest } from './floorQuest.js';
+import { MINIGAMES } from '../minigames/index.js';
 
 const SPEED = 4.4;
 const R = 0.3;
@@ -54,6 +56,7 @@ export class FloorScene {
     this.time = 0;
     this.stepT = 0;
     this.focus = null;
+    this.quest = null; // active floor quest (360 Feedback, Lost Password)
     this.hud = new Hud(game, {
       shop: () => game.push(new ShopOverlay(game)),
       perks: () => game.push(new PerksOverlay(game)),
@@ -147,6 +150,7 @@ export class FloorScene {
       else if (it.terminal) list.push({ kind: 'terminal', it });
     }
     for (const n of this.npcs) if (!n.brain.exit) list.push({ kind: 'npc', n });
+    for (const b of this.quest?.props || []) list.push({ kind: 'board', it: b.it, b });
     return list;
   }
   distTo(target) {
@@ -179,16 +183,35 @@ export class FloorScene {
     const p = this.player;
     this.pending = null;
     p.path = null;
+    const q = this.quest;
+    if (q) {
+      if (t.kind === 'board') {
+        p.faceTowards(t.b.x - p.x, t.b.y - p.y);
+        return q.inspect(t.b);
+      }
+      if (t.kind === 'npc' && q.onTalk(t.n)) {
+        p.faceTowards(t.n.a.x - p.x, t.n.a.y - p.y);
+        t.n.a.faceTowards(p.x - t.n.a.x, p.y - t.n.a.y);
+        t.n.a.path = null;
+        return;
+      }
+      if (t.kind === 'task' && q.isStation(t.it)) return q.atStation();
+      if (['task', 'elevator', 'hr', 'terminal'].includes(t.kind)) {
+        game.sfx('bad');
+        game.toast(`Busy with "${q.task.title}". Finish it or give up (G).`, C.warn);
+        return;
+      }
+    }
     if (t.kind === 'npc') {
       const a = t.n.a;
       a.faceTowards(p.x - a.x, p.y - a.y);
       p.faceTowards(a.x - p.x, a.y - p.y);
       t.n.brain.talkPause = 3.5;
       a.path = null;
-      const line = this.nextLine();
+      const line = q?.hintLine(t.n) || this.nextLine();
       a.say(line);
       game.sfx('blip');
-      if (S.canFire(s)) {
+      if (S.canFire(s) && !q) {
         game.push(new FateDialog(game, { npc: t.n, line, dept: this.dept.name, floor: this.floorNo, onFire: () => this.fire(t.n), onKeep: () => this.keep(t.n) }));
       }
       return;
@@ -239,15 +262,18 @@ export class FloorScene {
   }
 
   startTask(task) {
-    const game = this.game;
-    game.push(
-      new MinigameScene(game, task, async (result) => {
-        if (result.ceoUnlocked) {
-          const { EndingScene } = await import('./ending.js');
-          game.push(new EndingScene(game));
-        }
-      }),
-    );
+    if (MINIGAMES[task.game].quest) {
+      this.quest = new FloorQuest(this, task);
+      return;
+    }
+    this.game.push(new MinigameScene(this.game, task, (result) => this.taskDone(result)));
+  }
+
+  async taskDone(result) {
+    if (result?.ceoUnlocked) {
+      const { EndingScene } = await import('./ending.js');
+      this.game.push(new EndingScene(this.game));
+    }
   }
 
   startReview() {
@@ -374,6 +400,10 @@ export class FloorScene {
       return this.openMenu();
     }
     if (input.pressedExact('h') || input.pressedExact('?')) game.push(new Dialog(game, { title: 'How to play', w: 320, text: HOW_TO }));
+    if (this.quest) {
+      if (input.pressedExact('g')) this.quest.giveUp();
+      else this.quest.update(dt);
+    }
 
     // Keyboard movement.
     let kx = (input.down('ArrowRight') ? 1 : 0) - (input.down('ArrowLeft') ? 1 : 0);
@@ -459,17 +489,19 @@ export class FloorScene {
     g.fillStyle = '#0d0f18';
     g.fillRect(0, 0, W, H);
     const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : [])];
-    this.view.render(g, this.cam, actors);
+    this.view.render(g, this.cam, [...actors, ...(this.quest?.props || [])]);
 
     g.save();
     g.translate(-Math.round(this.cam.x), -Math.round(this.cam.y));
     if (this.focus && this.focus.kind !== 'npc') this.drawFocus(g, this.focus.it);
     this.drawMarkers(g, s, now);
+    this.quest?.renderWorld(g);
     for (const a of actors) a.drawBubble(g);
     g.restore();
 
     this.drawPrompt(g, s, now);
     this.hud.render(g);
+    this.quest?.renderHud(g);
     if (this.banner > 0) this.drawBanner(g);
   }
 
@@ -549,10 +581,13 @@ export class FloorScene {
     let sub = '';
     if (t.kind === 'npc') {
       text = 'Talk';
-      sub = S.canFire(s) ? `${t.n.id.name} - decide their fate` : t.n.id.name;
+      sub = S.canFire(s) && !this.quest ? `${t.n.id.name} - decide their fate` : t.n.id.name;
     } else if (t.kind === 'terminal') {
       text = 'Workstation';
       sub = 'open terminal';
+    } else if (t.kind === 'board') {
+      text = 'Whiteboard';
+      sub = t.b.checked ? 'look again' : 'take a look';
     }
     else if (t.kind === 'elevator') text = 'Elevator';
     else if (t.kind === 'coffee') text = 'Coffee machine';
@@ -565,6 +600,7 @@ export class FloorScene {
       text = t.it.task.title;
       const left = S.cooldownLeft(s, t.it.task.id, now);
       sub = left > 0 ? `busy ${formatTime(left)}` : `-${E.coffeeCost(this.floorNo)} coffee`;
+      if (this.quest) sub = this.quest.isStation(t.it) ? this.quest.stationSub() : 'finish your task first';
     }
     const w = measureText(text) + measureText(sub) + 56;
     const x = 4;

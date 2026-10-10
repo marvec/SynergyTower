@@ -198,6 +198,26 @@ export const TASK_TITLES = {
     exec: ['Executive Bonsai'],
     marketing: ['Instagrammable Plant'],
   },
+  chart: {
+    default: ['Fix the Chart', 'Make the Line Go Up'],
+    sales: ['Massage the Forecast', 'Pipeline Chart for the VP'],
+    marketing: ['Engagement Dashboard', 'Make the Funnel Pop'],
+    it: ['Uptime Dashboard'],
+    finance: ['Adjust the EBITDA', 'Creative Accounting Chart'],
+    exec: ['Board Deck Hockey Stick', 'Investor Growth Slide'],
+  },
+  feedback: {
+    default: ['360 Feedback', 'Peer Review'],
+    support: ['Rate a Teammate', 'Peer Review'],
+    legalhr: ['360 Review Cycle', 'Peer Calibration'],
+    exec: ['Review a Direct Report', 'Leadership 360'],
+  },
+  lostpw: {
+    default: ['Lost Password', 'Locked Out'],
+    it: ['Forgot My Own Password', 'Locked Out (Again)'],
+    exec: ['Locked Out of the Board Portal'],
+    finance: ['Locked Out of the Ledger'],
+  },
 };
 
 export function taskTitle(game, deptId, variant = 0) {

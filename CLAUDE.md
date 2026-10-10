@@ -28,7 +28,7 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 | Content | `src/data/` | Pure data: departments/titles/NPC lines, corp colours, task titles, music, `mg-*.js` mini-game content. |
 | Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit. |
 | Scenes | `src/scenes/` | title → setup → exterior → floor ⇄ (overlays, mini-game host, elevator ride) → ending. |
-| Mini-games | `src/minigames/` | One file per mechanic (30 station games + `review`, the HR performance review), registered in `src/minigames/index.js`. |
+| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review), registered in `src/minigames/index.js`. |
 
 - `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`),
   throttled autosave to `localStorage['synergytower.save.v1']`, toasts.
@@ -53,6 +53,11 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
 - Use the helpers in `src/engine/mgkit.js` (backdrop, header, timerBar, monitor, choiceBox, pickChoice, Floaters, Shake, byDiff, finish).
 - The host (`src/scenes/minigameScene.js`) owns the countdown, pause/forfeit, coffee and rewards. Mini-games know
   nothing about the economy.
+- **Floor quests** (`feedback`, `lostpw`): the module sets `quest: '<kind>'` and `deskHelp`. Starting the task creates a
+  `FloorQuest` (`src/scenes/floorQuest.js`) on the FloorScene (find a colleague / search temporary whiteboards against a
+  wall-clock timer, G gives up); back at the station the desk half runs in the normal host with `create({ ..., quest })`.
+  `create()` must still work without `quest` (smoke tests). `inst.peek()` exposes answers for the perfect-player tests
+  in `tests/quests.test.js`.
 
 ## Conventions & gotchas
 

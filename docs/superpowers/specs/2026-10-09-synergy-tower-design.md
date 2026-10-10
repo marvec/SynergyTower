@@ -81,7 +81,7 @@ The host owns intro/result cards, the timer frame, coffee charge and rewards. Mi
 - **Rendering:** a tile pass (floor, then wall tops/front faces), then y-sorted sprites (furniture, NPCs, player), then
   station markers ("!" when ready, a clock when cooling down), then the HUD.
 
-## 4. Mini-games (30 mechanics, themed per department → hundreds of task variants)
+## 4. Mini-games (33 mechanics, themed per department → hundreds of task variants)
 
 | id | Name (default theme) | Mechanic |
 |---|---|---|
@@ -115,6 +115,14 @@ The host owns intro/result cards, the timer frame, coffee charge and rewards. Mi
 | tailgate | Badge Tailgate | Stop badge-less strangers sneaking through the turnstile, let employees pass. |
 | defender | Calendar Defender | Lane tower defence: place Declines and Out-of-Office walls to stop meeting invites reaching Focus Time. |
 | plant | Desk Plant Survival | Keep the desk plant alive through a compressed quarter: water, blinds, pests. |
+| chart | Magic Chart | Mystery sliders, knobs and switches each have a hidden sweet spot; tune them so the chart climbs to the target, three quarters in a row (sweet spots drift on hard). |
+| feedback | 360 Feedback | *Floor quest:* find the named colleague on the floor and chat (earlier chats don't count), then fill in their review form from what they said. |
+| lostpw | Lost Password | *Floor quest:* mobile whiteboards roll in when the task starts; find the one with your pet's photo before the timer runs out, then log in with its name. |
+
+**Floor quests** (`quest` on the mini-game module, `src/scenes/floorQuest.js`): starting the task keeps you on the floor with
+an objective panel and a wall-clock timer (50-80 s by difficulty). Other stations, the HR desk, the terminal and the elevator are
+blocked meanwhile; G gives up (0 stars, cooldown applies, coffee not refunded), and so does running out of time. Returning to the
+station opens the desk half as a normal mini-game; what you found is passed in as `quest`, plus a speed bonus for time left.
 
 Each task has a difficulty of 0..1 (rising with the floor, plus some per-task variance) that controls speed, count, time limit and
 distractors. The department theme changes titles and word lists (e.g. `timing` = "Unjam the Printer" in the Lobby,

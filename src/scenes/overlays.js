@@ -8,7 +8,7 @@ import { MINIGAMES } from '../minigames/index.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
 
-class Modal {
+export class Modal {
   constructor(game, { w = 260, h = 160, title = '' } = {}) {
     this.game = game;
     this.opaque = false;

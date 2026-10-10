@@ -8,7 +8,7 @@ export const ALL_GAMES = [
   'inbox', 'compose', 'typing', 'spreadsheet', 'bingo', 'calendar', 'timing', 'memory',
   'simon', 'math', 'quiz', 'order', 'whack', 'stealth', 'stocks', 'coffee', 'jargon',
   'replyall', 'password', 'cables', 'orgchart', 'meeting', 'pitch', 'fridge', 'expense', 'frogger',
-  'karaoke', 'tailgate', 'defender', 'plant',
+  'karaoke', 'tailgate', 'defender', 'plant', 'chart', 'feedback', 'lostpw',
 ];
 
 /** Furniture with a computer on it, in order of preference for the terminal. */

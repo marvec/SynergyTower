@@ -4,7 +4,8 @@ A pixel-art, 2.5D browser game about climbing the corporate ladder. You start as
 40-floor tower, walk each floor, do office chores as mini-games, earn currencies and get promoted floor by floor
 until you become CEO.
 
-- 30+ mini-games (spreadsheets, inbox triage, reply-all storms, expense reports, karaoke at the office party...)
+- 33 mini-games (spreadsheets, inbox triage, reply-all storms, expense reports, karaoke at the office party...), some of them
+  played across the whole floor (track down a colleague for their 360 review, hunt the whiteboards for your lost password)
 - An HR performance review gates every promotion
 - Collect paperclips, chat with colleagues, poke around the workstation terminals (some commands are more useful than
   others), and once you are CEO, decide who stays

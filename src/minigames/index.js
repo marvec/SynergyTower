@@ -29,12 +29,15 @@ import fridge from './fridge.js';
 import defender from './defender.js';
 import pitch from './pitch.js';
 import karaoke from './karaoke.js';
+import chart from './chart.js';
+import feedback from './feedback.js'; // floor quest: find the colleague first
+import lostpw from './lostpw.js'; // floor quest: search the whiteboards first
 import review from './review.js'; // HR performance review: opened from the HR desk, never assigned to stations
 
 export const MINIGAMES = Object.fromEntries(
   [
     inbox, compose, typing, spreadsheet, bingo, calendar, timing, memory, simon, math, quiz, order, whack, stealth, stocks, coffee, jargon,
-    replyall, password, cables, orgchart, meeting, pitch, fridge, expense, frogger, karaoke, tailgate, defender, plant,
+    replyall, password, cables, orgchart, meeting, pitch, fridge, expense, frogger, karaoke, tailgate, defender, plant, chart, feedback, lostpw,
     review,
   ].map((m) => [m.id, m]),
 );

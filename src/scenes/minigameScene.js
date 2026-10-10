@@ -28,6 +28,7 @@ export class MinigameScene {
       rng: createRng((task.seed * 7919 + Date.now()) >>> 0),
       theme: { dept, title: task.title, stats },
       sfx: (n) => game.sfx(n),
+      quest: task.quest, // floor-quest findings (360 Feedback, Lost Password)
     });
     this.phase = 'ready';
     this.t = 0;
@@ -136,7 +137,7 @@ export class MinigameScene {
       dim(g, 0.5);
       panel(g, W / 2 - 130, H / 2 - 45, 260, 90, { title: this.task.title });
       drawText(g, this.mod.name, W / 2, H / 2 - 24, { align: 'center', color: C.gold });
-      const lines = wrapText(this.mod.help, 240);
+      const lines = wrapText((this.task.quest && this.mod.deskHelp) || this.mod.help, 240);
       lines.slice(0, 3).forEach((l, i) => drawText(g, l, W / 2, H / 2 - 10 + i * 10, { align: 'center' }));
       const n = Math.max(1, 3 - Math.floor(this.t / 0.5));
       drawText(g, this.t > 1.4 ? 'GO!' : String(n), W / 2, H / 2 + 24, { align: 'center', scale: 2, color: C.gold, shadow: C.border });
