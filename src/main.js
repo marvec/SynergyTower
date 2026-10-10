@@ -5,6 +5,7 @@ import { createAudio } from './engine/audio.js';
 import { createGame } from './game.js';
 import { TitleScene } from './scenes/title.js';
 import { MinigameScene } from './scenes/minigameScene.js';
+import { initAnalytics } from './engine/analytics.js';
 
 // Static public files (served from public/, not bundled).
 for (const [rel, href, type] of [['manifest', './manifest.webmanifest'], ['icon', './icon.svg', 'image/svg+xml']]) {
@@ -14,6 +15,8 @@ for (const [rel, href, type] of [['manifest', './manifest.webmanifest'], ['icon'
   if (type) l.type = type;
   document.head.appendChild(l);
 }
+
+initAnalytics();
 
 const canvas = document.getElementById('game');
 const screen = createScreen(canvas);
