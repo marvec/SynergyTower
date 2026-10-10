@@ -30,20 +30,44 @@ export function drawSky(g, w, h, mode = 'day', t = 0) {
   }
 }
 
-/** Parallax skyline; offset scrolls it. */
+// One repeating strip of buildings per (mode, seed, layer): { period, buildings: [{ x, bw, bh, windows }] }.
+const skylineCache = new Map();
+function skylineStrip(mode, seed, li, maxH) {
+  const key = `${mode}:${seed}:${li}`;
+  let strip = skylineCache.get(key);
+  if (strip) return strip;
+  const r = createRng(seed + li * 11);
+  const buildings = [];
+  let x = 0;
+  while (x < 400) {
+    const bw = r.int(18, 46);
+    const bh = r.int(30, maxH);
+    const windows = [];
+    for (let yy = 4; yy < bh - 6; yy += 6)
+      for (let xx = 3; xx < bw - 3; xx += 5) if (r.chance(mode === 'day' ? 0.35 : 0.3)) windows.push(xx, yy);
+    buildings.push({ x, bw, bh, windows });
+    x += bw + r.int(0, 8);
+  }
+  strip = { period: x, buildings };
+  skylineCache.set(key, strip);
+  return strip;
+}
+
+/** Parallax skyline; offset scrolls it. The strip repeats seamlessly, so any offset is valid. */
 export function drawSkyline(g, w, groundY, mode = 'day', offset = 0, seed = 5) {
   const layers = mode === 'day' ? [['#8aa8c8', 0.3, 110], ['#6b86a6', 0.6, 70]] : [['#1c2240', 0.3, 110], ['#141932', 0.6, 70]];
   layers.forEach(([color, par, maxH], li) => {
-    const r = createRng(seed + li * 11);
-    let x = -((offset * par) % 400) - 40;
-    while (x < w + 40) {
-      const bw = r.int(18, 46);
-      const bh = r.int(30, maxH);
-      rect(g, x, groundY - bh, bw, bh, color);
-      const lit = mode === 'day' ? shade(color, 0.25) : '#f2d878';
-      for (let yy = groundY - bh + 4; yy < groundY - 6; yy += 6)
-        for (let xx = x + 3; xx < x + bw - 3; xx += 5) if (r.chance(mode === 'day' ? 0.35 : 0.3)) rect(g, xx, yy, 2, 3, lit);
-      x += bw + r.int(0, 8);
+    const { period, buildings } = skylineStrip(mode, seed, li, maxH);
+    const lit = mode === 'day' ? shade(color, 0.25) : '#f2d878';
+    const shift = Math.floor(((offset * par) % period + period) % period);
+    for (let base = -shift - period; base < w + 40; base += period) {
+      for (const b of buildings) {
+        const bx = base + b.x;
+        if (bx + b.bw < -40 || bx > w + 40) continue;
+        const top = groundY - b.bh;
+        rect(g, bx, top, b.bw, b.bh, color);
+        for (let i = 0; i < b.windows.length; i += 2) rect(g, bx + b.windows[i], top + b.windows[i + 1], 2, 3, lit);
+      }
     }
   });
 }
