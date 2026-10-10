@@ -7,6 +7,7 @@ import { createRng } from '../core/rng.js';
 import { DEPARTMENTS } from '../data/departments.js';
 import { SKIN_TONES, HAIR_COLORS } from '../data/corpColors.js';
 import { FIRST_NAMES, LAST_NAMES, ROLES, FILE_NOTES } from '../data/people.js';
+import { POSTER_TEXT } from '../data/sponsors.js';
 import { drawText, wrapText, measureText } from '../engine/font.js';
 import { C, rect } from '../engine/ui.js';
 
@@ -211,6 +212,7 @@ export class FloorView {
           tx: x,
         });
       }
+      for (const p of fl.posters || []) if (p.y === y) this.drawPoster(rg, p);
       this.wallRows.push(any ? rc : null);
     }
 
@@ -218,6 +220,18 @@ export class FloorView {
       const baked = bakeFurniture(it.type, it.w, it.h, this.kit);
       return { it, baked, solid: it.solid, lift: furnitureDef(it.type)?.lift || 0 };
     });
+  }
+
+  /** "Your logo here" sponsorship poster on a wall's front face (row-canvas coordinates: the face spans y 16..28). */
+  drawPoster(g, p) {
+    const x = p.x * TILE + 2;
+    const w = p.w * TILE - 4;
+    rect(g, x + 1, 18, w, 10, 'rgba(0,0,0,0.25)');
+    rect(g, x, 17, w, 10, '#2b2e38');
+    rect(g, x + 1, 18, w - 2, 8, '#fbf8ef');
+    rect(g, x + 1, 18, 2, 8, this.kit.accent);
+    rect(g, x + w - 3, 18, 2, 8, this.kit.accent);
+    drawText(g, POSTER_TEXT, x + w / 2, 18, { align: 'center', color: '#5a5f70' });
   }
 
   /** Top of an item's drawn sprite in world px (for markers). */

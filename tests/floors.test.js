@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test';
 import { FLOORS, stationCount } from '../src/core/economy.js';
-import { FLOOR_W, FLOOR_H, isItemReachable } from '../src/core/floorgen.js';
+import { FLOOR_W, FLOOR_H, T_WALL, isItemReachable } from '../src/core/floorgen.js';
 import { buildFloor, ALL_GAMES } from '../src/core/tasks.js';
 
 const floors = Array.from({ length: FLOORS }, (_, i) => buildFloor(i + 1));
@@ -67,5 +67,19 @@ test('games are spread evenly over the tower: every game early, regularly, about
     expect([g, list[0] <= 6]).toEqual([g, true]);
     const gaps = list.slice(1).map((f, i) => f - list[i]);
     expect([g, Math.max(...gaps, 40 - list[list.length - 1]) <= 7]).toEqual([g, true]);
+  }
+});
+
+test('every floor has 2-3 sponsorship posters on unbroken hallway wall, nothing in front of them', () => {
+  for (let f = 1; f <= FLOORS; f++) {
+    const fl = buildFloor(f);
+    expect(fl.posters.length).toBeGreaterThanOrEqual(2);
+    expect(fl.posters.length).toBeLessThanOrEqual(3);
+    for (const p of fl.posters) {
+      for (let x = p.x; x < p.x + p.w; x++) {
+        expect(fl.tiles[p.y * fl.w + x]).toBe(T_WALL);
+        expect(fl.walk[(p.y + 1) * fl.w + x]).toBeTruthy();
+      }
+    }
   }
 });

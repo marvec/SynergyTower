@@ -1,3 +1,4 @@
+import { MINIGAMES } from '../minigames/index.js';
 // Title screen: animated tower at dusk, logo, continue / new career.
 import { W, H } from '../engine/screen.js';
 import { C, ButtonSet, rect } from '../engine/ui.js';
@@ -6,6 +7,9 @@ import { CORP_COLORS } from '../data/corpColors.js';
 import { drawSky, drawSkyline, drawTower, towerHeight, TOWER_W } from './cityscape.js';
 import { Dialog, HOW_TO } from './overlays.js';
 import { titleForFloor } from '../data/departments.js';
+
+// Station mini-games (the HR review isn't one).
+const GAME_COUNT = Object.keys(MINIGAMES).length - 1;
 
 export class TitleScene {
   constructor(game) {
@@ -70,8 +74,9 @@ export class TitleScene {
     const wob = Math.round(Math.sin(this.t * 2) * 2);
     drawText(g, 'SYNERGY', 40, 40 + wob, { scale: 4, color: C.gold, shadow: '#000' });
     drawText(g, 'TOWER', 40, 76 - wob, { scale: 4, color: '#ffffff', shadow: '#000' });
-    drawText(g, 'Climb 40 floors of corporate absurdity.', 42, 116, { color: '#e8dff8', shadow: '#000' });
-    if (this.savedInfo) drawText(g, this.savedInfo, 42, 132, { color: C.so, shadow: '#000' });
+    drawText(g, 'Climb 40 floors of corporate absurdity.', 42, 112, { color: '#e8dff8', shadow: '#000' });
+    drawText(g, `Prove your skills in ${GAME_COUNT} challenging tasks!`, 42, 122, { color: C.gold, shadow: '#000' });
+    if (this.savedInfo) drawText(g, this.savedInfo, 42, 138, { color: C.so, shadow: '#000' });
     this.buttons.render(g);
     drawText(g, 'v0.1 · works offline · M toggles music', 4, H - 11, { color: '#8890b0' });
   }

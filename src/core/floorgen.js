@@ -336,7 +336,40 @@ export function generateFloor(floor) {
   const hrDesk = items.find((i) => i.interact === 'hr');
   const hrRep = items.find((i) => i.type === 'hrrep');
 
-  return { floor, dept: dept.id, w: FLOOR_W, h: FLOOR_H, tiles, roomOf, rooms, items, spawn, elevator, hrDesk, hrRep, entrance, elevatorRoom: elevatorRoom.id };
+  const posters = placePosters(floor, tiles, items);
+
+  return { floor, dept: dept.id, w: FLOOR_W, h: FLOOR_H, tiles, roomOf, rooms, items, spawn, elevator, hrDesk, hrRep, entrance, elevatorRoom: elevatorRoom.id, posters };
+}
+
+export const POSTER_W = 5;
+
+/**
+ * Sponsorship posters ("Your logo here") on the corridor side of the top band wall, the one wall face visible from the
+ * hallway. Each spans POSTER_W wall tiles with no door in it and nothing standing in front of it; up to 3 per floor.
+ */
+function placePosters(floor, tiles, items) {
+  const rng = createRng(floor * 4241 + 9);
+  const y = TOP_WALL_Y;
+  const blocked = (x) =>
+    tiles[y * FLOOR_W + x] !== T_WALL || tiles[(y + 1) * FLOOR_W + x] === T_WALL || items.some((it) => x >= it.x && x < it.x + it.w && y + 1 >= it.y && y + 1 < it.y + it.h);
+  const runs = [];
+  let start = -1;
+  for (let x = 1; x <= FLOOR_W - 1; x++) {
+    if (x < FLOOR_W - 1 && !blocked(x)) {
+      if (start < 0) start = x;
+    } else if (start >= 0) {
+      if (x - start >= POSTER_W) runs.push([start, x - 1]);
+      start = -1;
+    }
+  }
+  const out = [];
+  for (const [a, b] of rng.shuffle(runs)) {
+    if (out.length >= 3) break;
+    const x = rng.int(a, b - POSTER_W + 1);
+    if (out.some((p) => Math.abs(p.x - x) < POSTER_W + 3)) continue;
+    out.push({ x, y, w: POSTER_W });
+  }
+  return out.sort((p, q) => p.x - q.x);
 }
 
 /** Boolean grid: true = walkable for characters. */
