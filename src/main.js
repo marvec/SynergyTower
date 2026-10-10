@@ -48,7 +48,8 @@ game.set(new TitleScene(game));
 
 let last = performance.now();
 function frame(t) {
-  const dt = Math.min(0.05, (t - last) / 1000);
+  // The first rAF timestamp can predate the performance.now() above, so clamp a negative dt to 0.
+  const dt = Math.max(0, Math.min(0.05, (t - last) / 1000));
   last = t;
   input.beginFrame();
   game.update(dt);
