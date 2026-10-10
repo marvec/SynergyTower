@@ -79,7 +79,7 @@ export class TitleScene {
     drawText(g, `Prove your skills in ${GAME_COUNT} challenging tasks!`, 42, 122, { color: C.gold, shadow: '#000' });
     if (this.savedInfo) drawText(g, this.savedInfo, 42, 138, { color: C.so, shadow: '#000' });
     this.buttons.render(g);
-    drawText(g, 'v0.1 · works offline · M toggles music', 4, H - 11, { color: '#8890b0' });
+    drawText(g, 'v1.0 · works offline · no cookies · M toggles music', 4, H - 11, { color: '#8890b0' });
     drawLink(g, this.game.input, 'Buy author a coffee', W - 4, H - 11, openCoffee);
     drawLink(g, this.game.input, 'Feedback', W - 4 - measureText('Buy author a coffee') - 14, H - 11, sendFeedback);
   }

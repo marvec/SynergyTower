@@ -1,6 +1,6 @@
 {
   "name": "synergy-tower",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "SynergyTower — climb a 40-floor corporate tower one silly office mini-game at a time.",
