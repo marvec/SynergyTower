@@ -119,3 +119,12 @@ body {
 .grecaptcha-badge {
   visibility: hidden;
 }
+/* Text for search engines and screen readers; the game itself is drawn on the canvas. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

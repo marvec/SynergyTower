@@ -4,12 +4,66 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#1b1e2b" />
-    <meta name="description" content="SynergyTower — climb a 40-floor corporate tower one silly office mini-game at a time." />
-    <title>SynergyTower</title>
+    <title>SynergyTower – a pixel-art office career game in your browser</title>
+    <meta name="description" content="A free pixel-art browser game about climbing the corporate ladder: start as a new hire, beat 33 silly office mini-games and get promoted floor by floor up a 40-floor tower until you become CEO." />
+    <meta name="keywords" content="browser game, pixel art, office game, mini-games, corporate satire, free online game, idle, casual" />
+    <meta name="author" content="Martin Večeřa" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://synergytower.co.uk/" />
+    <link rel="apple-touch-icon" href="https://synergytower.co.uk/apple-touch-icon.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SynergyTower" />
+    <meta property="og:url" content="https://synergytower.co.uk/" />
+    <meta property="og:title" content="SynergyTower – climb the corporate ladder, one mini-game at a time" />
+    <meta property="og:description" content="A free pixel-art browser game about climbing the corporate ladder: start as a new hire, beat 33 silly office mini-games and get promoted floor by floor up a 40-floor tower until you become CEO." />
+    <meta property="og:image" content="https://synergytower.co.uk/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="SynergyTower title screen: a pixel-art office tower at dusk" />
+    <meta property="og:locale" content="en_GB" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SynergyTower – climb the corporate ladder, one mini-game at a time" />
+    <meta name="twitter:description" content="A free pixel-art browser game about climbing the corporate ladder: start as a new hire, beat 33 silly office mini-games and get promoted floor by floor up a 40-floor tower until you become CEO." />
+    <meta name="twitter:image" content="https://synergytower.co.uk/og-image.png" />
+    <meta name="twitter:image:alt" content="SynergyTower title screen: a pixel-art office tower at dusk" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "SynergyTower",
+        "url": "https://synergytower.co.uk/",
+        "image": "https://synergytower.co.uk/og-image.png",
+        "description": "A free pixel-art browser game about climbing the corporate ladder: start as a new hire, beat 33 silly office mini-games and get promoted floor by floor up a 40-floor tower until you become CEO.",
+        "genre": ["Casual", "Simulation", "Mini-games", "Satire"],
+        "gamePlatform": ["Web browser", "Desktop", "Mobile"],
+        "applicationCategory": "Game",
+        "operatingSystem": "Any",
+        "playMode": "SinglePlayer",
+        "inLanguage": "en",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
+        "author": { "@type": "Person", "name": "Martin Večeřa", "url": "https://github.com/marvec" },
+        "codeRepository": "https://github.com/marvec/SynergyTower"
+      }
+    </script>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
     <canvas id="game" aria-label="SynergyTower game"></canvas>
+    <main class="sr-only">
+      <h1>SynergyTower: a pixel-art office career game</h1>
+      <p>A free pixel-art browser game about climbing the corporate ladder: start as a new hire, beat 33 silly office mini-games and get promoted floor by floor up a 40-floor tower until you become CEO.</p>
+      <ul>
+        <li>33 office mini-games: spreadsheets, inbox triage, reply-all storms, expense reports, karaoke at the office party and more</li>
+        <li>Floor-wide quests: track down a colleague for their 360 review or hunt the whiteboards for your lost password</li>
+        <li>An HR performance review gates every promotion; reach floor 40 and decide who stays as CEO</li>
+        <li>Keyboard, mouse and touch controls; works offline; free, no sign-up</li>
+      </ul>
+      <p><a href="https://github.com/marvec/SynergyTower">Source code on GitHub</a></p>
+    </main>
+    <noscript><p style="color:#fff;font-family:sans-serif;padding:16px">SynergyTower is a browser game and needs JavaScript to run.</p></noscript>
     <input id="text-input" type="text" maxlength="22" autocomplete="off" spellcheck="false" />
     <script type="module" src="./main.js"></script>
   </body>

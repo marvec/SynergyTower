@@ -1,0 +1,32 @@
+# SynergyTower
+
+> SynergyTower is a free pixel-art browser game about climbing the corporate ladder. You start as a new hire at the bottom of a 40-floor office tower, walk each floor, do office chores as 33 short mini-games, earn paperclips (the office currency) and KPI stars, pass an HR performance review and get promoted floor by floor until you become CEO. It runs in any modern browser on desktop and mobile, needs no sign-up and works offline.
+
+Play it at https://synergytower.co.uk/ . The game is drawn on an HTML canvas, so this file describes what the page itself cannot show as text.
+
+## How to play
+
+- Move with the arrow keys / WASD, or click/tap the floor. Interact with SPACE / ENTER or by clicking a desk, printer, meeting room or colleague.
+- Each task is a mini-game (up to about 90 seconds) that costs coffee and pays paperclips, XP and 0-3 KPI stars.
+- To be promoted you need enough stars on the floor, the required seniority level and the keycard fee in paperclips, and then you must pass the HR performance review. Only then does the elevator take you up.
+- Coffee refills over time, even while you are away. Esc opens the menu, M toggles music, B opens the shop, P perks, T training.
+- On floor 40 you are CEO and decide which colleagues stay.
+
+## Mini-games
+
+Meeting Buzzword Bingo, Cable Spaghetti, Schedule the Meeting, Coffee Run, Write the Email, Calendar Defender, Expense Fraud Detective, 360 Feedback (find a colleague across the floor), Fridge Tetris, Coffee Crossing, Magic Chart, Inbox Triage, Jargon Decoder, PowerPoint Karaoke, Lost Password (search the floor's whiteboards), Expense Report, Meeting Survival, Name Badge Memory, Slide Deck Order, Org Chart Shuffle, Password Policy, Elevator Pitch, Desk Plant Survival, Corporate Quiz, Reply-All Apocalypse, Server Rack Sequence, Fix the Spreadsheet, Boss Alert, Quarterly Ticker, Badge Tailgate, Perfect Timing and more. Every game supports keyboard and mouse.
+
+## Facts
+
+- Price: free. In-game purchases are fake and labelled DEMO; there are no real payments.
+- Platforms: web browser (desktop, tablet, phone); installable as a PWA; works offline.
+- Tech: vanilla JavaScript and Canvas 2D at 480x270, all art drawn in code, all music and sound synthesised with WebAudio, no external assets.
+- Author: Martin Večeřa (https://github.com/marvec).
+- Language: English.
+
+## Links
+
+- [Play SynergyTower](https://synergytower.co.uk/): the game
+- [Source code](https://github.com/marvec/SynergyTower): GitHub repository with README
+- [Support the author](https://buymeacoffee.com/marvec): Buy Me a Coffee
+- Feedback, bug reports, new task ideas and sponsorship enquiries: use the "Feedback" link on the title screen or "Send feedback" in the in-game menu. Brands can sponsor the "Your logo here" posters in the tower's hallways.
