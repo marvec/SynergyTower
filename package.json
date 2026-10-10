@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "SynergyTower — climb a 40-floor corporate tower one silly office mini-game at a time.",
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "dev": "bun --hot server.js",
     "build": "bun scripts/build.js",
