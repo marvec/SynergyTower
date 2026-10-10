@@ -17,12 +17,13 @@ export const ELEVATOR_ROOM = { x0: 17, x1: 22 };
 
 // Which mini-games a station kind can host. The task assigner picks among these.
 export const STATION_GAMES = {
-  desk: ['inbox', 'compose', 'typing', 'spreadsheet', 'replyall', 'password', 'whack', 'stealth', 'math', 'cables', 'chart', 'feedback', 'lostpw'],
-  whiteboard: ['order', 'calendar', 'jargon', 'defender', 'karaoke'],
-  meetingtable: ['bingo', 'calendar', 'order', 'jargon', 'meeting', 'feedback'],
+  desk: ['inbox', 'compose', 'typing', 'spreadsheet', 'replyall', 'password', 'whack', 'stealth', 'math', 'cables', 'chart', 'feedback', 'lostpw',
+    'simon', 'timing', 'stocks', 'expense'],
+  whiteboard: ['order', 'calendar', 'jargon', 'defender', 'karaoke', 'orgchart', 'memory'],
+  meetingtable: ['bingo', 'calendar', 'order', 'jargon', 'meeting', 'feedback', 'orgchart'],
   printer: ['timing'],
   shredder: ['inbox', 'expense'],
-  watercooler: ['quiz', 'jargon'],
+  watercooler: ['quiz', 'jargon', 'memory'],
   espressobar: ['coffee'],
   bossdesk: ['stealth', 'quiz', 'jargon', 'orgchart', 'defender', 'stocks', 'feedback', 'chart'],
   filing: ['memory', 'spreadsheet', 'orgchart', 'expense'],
@@ -35,7 +36,7 @@ export const STATION_GAMES = {
   easel: ['order', 'memory', 'whack', 'karaoke', 'chart'],
   boardtable: ['bingo', 'stocks', 'order', 'jargon', 'meeting', 'karaoke', 'chart'],
   fridge: ['fridge'],
-  kitchentable: ['frogger'],
+  kitchentable: ['frogger', 'coffee'],
   directory: ['pitch', 'tailgate'],
   copier: ['cables', 'timing', 'simon'],
   tvscreen: ['karaoke', 'cables', 'stocks', 'chart'],

@@ -128,10 +128,12 @@ Each task has a difficulty of 0..1 (rising with the floor, plus some per-task va
 distractors. The department theme changes titles and word lists (e.g. `timing` = "Unjam the Printer" in the Lobby,
 "Close the Deal" in Sales, "Deploy Window" in IT).
 
-**Stations per floor:** 6 on floor 1, rising to 12 on floor 40 (`6 + floor((f-1)/6)` capped at 12). The mini-game is chosen by room
-fit (meeting room → bingo/calendar/order, desks → inbox/compose/typing/spreadsheet, copy room → timing, department room →
-department specials, kitchen fridge/table → fridge/frogger, elevator directory → pitch/tailgate, plants →
-plant, …) while keeping variety, so every mechanic appears repeatedly across the tower.
+**Stations per floor:** 8 on floor 1, rising to 14 on floor 40 (`8 + floor((f-1)/6)` capped at 14). Which games a station can
+host is set by room fit (meeting room → bingo/calendar/order, desks → most computer games, copy room → timing, kitchen
+fridge/table → fridge/frogger/coffee, elevator directory → pitch/tailgate, plants → plant, …); every game has at least one
+station type found on (almost) every floor. Assignment is planned tower-wide: each floor takes the games used least so far, so
+all 33 games appear by floor 5 and then every ~3 floors, 12-14 floors each, never twice on one floor and at most one floor
+quest per floor. No game is held back for later floors; floor-specific specialities can be added on top later.
 
 ## 5. Economy & progression
 

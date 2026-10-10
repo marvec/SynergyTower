@@ -184,10 +184,10 @@ export class MinigameScene {
     }
     const stars = s.starsByFloor[this.floor] || 0;
     const quota = E.starQuota(this.floor);
-    drawText(g, `Floor ${this.floor} KPI: ${stars}/${quota}`, W / 2, y + 150, { align: 'center' });
-    bar(g, x + 30, y + 161, 180, 7, stars / quota, stars >= quota ? C.good : C.gold);
-    if (r.ceoUnlocked) drawText(g, 'The board is calling...', W / 2, y + 170, { align: 'center', color: C.gold });
-    else if (stars >= quota && this.floor === s.maxFloor && this.floor < E.FLOORS) drawText(g, s.reviews?.[this.floor] ? 'Quota met! Head to the elevator.' : 'Quota met! Visit the HR office.', W / 2, y + 170, { align: 'center', color: C.good });
+    drawText(g, `Floor ${this.floor} KPI: ${stars}/${quota}`, W / 2, y + 141, { align: 'center' });
+    bar(g, x + 30, y + 152, 180, 7, stars / quota, stars >= quota ? C.good : C.gold);
+    if (r.ceoUnlocked) drawText(g, 'The board is calling...', W / 2, y + 162, { align: 'center', color: C.gold });
+    else if (stars >= quota && this.floor === s.maxFloor && this.floor < E.FLOORS) drawText(g, s.reviews?.[this.floor] ? 'Quota met! Head to the elevator.' : 'Quota met! Visit the HR office.', W / 2, y + 162, { align: 'center', color: C.good });
     this.buttons.render(g);
   }
   exit() {}

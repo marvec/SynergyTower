@@ -37,6 +37,8 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 - Promotion gate: stars + level + keycard paperclips make you `ready`; then the HR desk (an `hr` room on every floor) runs the
   `review` mini-game in `mode: 'review'`; `state.reviews[floor]` must be true before the elevator promotes.
 - Floors are generated deterministically from the floor number (`buildFloor(n)` is cached). All floors are 40×28 tiles.
+  Games are assigned tower-wide (least-used first), so the first `buildFloor` call plans all 40 floors (~20 ms) and changing
+  one floor's stations reshuffles later floors; `tests/floors.test.js` checks the spread.
   The elevator lobby sits at a fixed top-centre position. Tests assert that every station is reachable.
 - Rendering: the floor tiles are baked once, then walls (per row), furniture and actors are depth-sorted by their base y.
   Furniture art lives in `src/engine/art.js` as draw functions (footprint + `lift` = height above the footprint).

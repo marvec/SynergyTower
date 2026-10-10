@@ -32,7 +32,7 @@ export const levelRequiredForFloor = (floor) => floor;
 export const xpToNext = (level) => Math.round(18 * 1.15 ** (level - 1) * (3 + level));
 export const keycardFee = (floor) => Math.round(25 * 1.17 ** (floor - 1) * (2 + floor));
 export const coffeeCost = (floor) => 1 + Math.floor((floor - 1) / 13);
-export const stationCount = (floor) => Math.min(12, 6 + Math.floor((floor - 1) / 6));
+export const stationCount = (floor) => Math.min(14, 8 + Math.floor((floor - 1) / 6));
 
 export function stationCooldownMs(floor, perks = {}) {
   const base = 60 * 1.08 ** (floor - 1);

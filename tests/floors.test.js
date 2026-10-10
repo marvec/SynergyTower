@@ -52,3 +52,20 @@ test('generation is deterministic', () => {
   const a = buildFloor(17);
   expect(a.tasks.map((t) => t.task.game)).toEqual(buildFloor(17).tasks.map((t) => t.task.game));
 });
+
+test('games are spread evenly over the tower: every game early, regularly, about equally often', () => {
+  const floors = new Map(ALL_GAMES.map((g) => [g, []]));
+  for (let f = 1; f <= 40; f++) {
+    const games = buildFloor(f).tasks.map((t) => t.task.game);
+    expect(new Set(games).size).toBe(games.length); // no repeats on one floor
+    expect(games.filter((g) => g === 'feedback' || g === 'lostpw').length).toBeLessThanOrEqual(1); // one floor quest at most
+    for (const g of games) floors.get(g).push(f);
+  }
+  const counts = [...floors.values()].map((l) => l.length);
+  expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(3);
+  for (const [g, list] of floors) {
+    expect([g, list[0] <= 6]).toEqual([g, true]);
+    const gaps = list.slice(1).map((f, i) => f - list[i]);
+    expect([g, Math.max(...gaps, 40 - list[list.length - 1]) <= 7]).toEqual([g, true]);
+  }
+});
