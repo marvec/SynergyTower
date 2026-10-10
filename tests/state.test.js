@@ -1,6 +1,7 @@
 import { test, expect } from 'bun:test';
 import * as S from '../src/core/state.js';
 import * as E from '../src/core/economy.js';
+import { ALL_GAMES } from '../src/core/tasks.js';
 
 const task = { id: 'f1-3' };
 const fresh = () => S.newGame({ corpName: 'Acme', colorId: 'bigblue', playerName: 'Pat' }, 0);
@@ -133,4 +134,22 @@ test('old saves without reviews load and need a review', () => {
   const back = S.deserialize(JSON.stringify(old), 0);
   expect(back.reviews).toEqual({});
   expect(S.promotionStatus(back).checks.review).toBe(false);
+});
+
+test('games played counts distinct mini-game types per character, any result, and survives old saves', () => {
+  const s = S.newGame({ playerName: 'Pat' }, 0);
+  expect(S.gamesPlayed(s)).toEqual({ played: 0, total: ALL_GAMES.length });
+  const task = (game, id) => ({ id, game, difficulty: 0, seed: 1 });
+  S.completeTask(s, task('inbox', 'f1-1'), 1, 0, 0); // even a zero-star attempt counts
+  S.completeTask(s, task('inbox', 'f1-2'), 1, 1, 0);
+  S.completeTask(s, task('chart', 'f1-3'), 1, 0.9, 0);
+  S.completeTask(s, task('review', 'r'), 1, 0.9, 0); // the HR review is not a station game
+  expect(S.gamesPlayed(s).played).toBe(2);
+  expect(s.played.inbox).toBe(2);
+  const old = JSON.parse(S.serialize(s));
+  delete old.played;
+  const loaded = S.deserialize(JSON.stringify(old), 0);
+  expect(S.gamesPlayed(loaded).played).toBe(0);
+  S.completeTask(loaded, task('quiz', 'f1-4'), 1, 1, 0);
+  expect(S.gamesPlayed(loaded).played).toBe(1);
 });

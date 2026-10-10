@@ -74,6 +74,8 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
   upper part of the corridor wall, each centred in a wall section (`placePosters` in `floorgen.js`, `posterContent` in
   `floorWorld.js`). Interacting shows `SPONSOR_PITCH` / `adPitch` from `src/data/sponsors.js`, placeholders until the
   sponsorship contact form exists.
+- HUD stats are clickable: `Hud.hits` (rebuilt every render) opens `StatsDialog` (`src/scenes/statsDialog.js`) on the matching
+  tab. "Games played" = distinct station mini-games in `state.played` (any result counts; `S.gamesPlayed`).
 - Payments are **fake** (`FakeCheckout` in `src/scenes/overlays.js`, labelled DEMO). There is no real payment code.
 - Service worker (`public/sw.js`): page navigations are network-first (cache only when offline), so another app later
   run on the same localhost port isn't hijacked. Bump `CACHE` when changing caching behaviour.

@@ -1,5 +1,6 @@
 // Game state + all player actions as pure-ish functions (mutate the passed state, never touch the DOM).
 import * as E from './economy.js';
+import { ALL_GAMES } from './tasks.js';
 
 export const SAVE_VERSION = 1;
 
@@ -20,6 +21,7 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     reviews: {}, // floor → true once the HR performance review there is passed
     fired: {}, // NPC seed → true: colleagues the CEO has let go (they never come back)
     bestByTask: {},
+    played: {}, // mini-game id → times played with this character (any result)
     cooldowns: {},
     perks: {},
     stats: { tasksPlayed: 0, perfectTasks: 0, soPurchased: 0, promotions: 0, fired: 0, warps: 0 },
@@ -76,11 +78,17 @@ export function completeTask(s, task, floor, score, now, rng = Math.random) {
   const prevBest = s.bestByTask[task.id] ?? -1;
   if (stars > prevBest) s.bestByTask[task.id] = stars;
   s.cooldowns[task.id] = now + E.stationCooldownMs(floor, s.perks);
+  if (task.game) s.played[task.game] = (s.played[task.game] || 0) + 1;
   s.stats.tasksPlayed++;
   if (stars === 3) s.stats.perfectTasks++;
   const ceoUnlocked = floor === E.FLOORS && !s.flags.ceo && s.starsByFloor[floor] >= E.starQuota(floor);
   if (ceoUnlocked) s.flags.ceo = true;
   return { stars, sp: reward.sp, xp: reward.xp, levelsGained: lv.levelsGained, soGained, newBest: stars > prevBest, ceoUnlocked };
+}
+
+/** How many of the station mini-game types this character has played at least once. */
+export function gamesPlayed(s) {
+  return { played: ALL_GAMES.filter((g) => s.played?.[g]).length, total: ALL_GAMES.length };
 }
 
 export function promotionStatus(s) {

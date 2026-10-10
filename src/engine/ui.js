@@ -92,6 +92,7 @@ const ICONS = {
   clock: { map: '.kkkkk.|kwwkwwk|kwwkwwk|kwwkkwk|kwwwwwk|kwwwwwk|.kkkkk.', pal: { w: '#e8e8f0' } },
   lock: { map: '..kkk..|.k...k.|.k...k.|kkkkkkk|kyyyyyk|kyykyyk|kkkkkkk', pal: { y: '#f2c14e' } },
   check: { map: '.......|......k|.....kg|k...kg.|gk.kg..|.gkg...|..g....', pal: { g: '#5fd068' } },
+  pad: { map: '.........|.bbbbbbb.|bbdbbbrbb|bdddbrbrb|bbdbbbrbb|bbbb.bbbb|.bb...bb.', pal: { b: '#c8cdd8', d: '#3a3f55', r: '#e2504a' } },
   note: { map: '...kkkk|...k..k|...k..k|...k..k|.kkk.kk|kkkkkkk|.kk.kk.', pal: {} },
   mute: { map: '...k..k|..kk.k.|kkwk...|kkwk...|kkwk...|..kk.k.|...k..k', pal: { w: '#9aa0b8' } },
   cart: { map: 'k......|kkkkkkk|.kwwwwk|.kwwwk.|.kkkkk.|.......|..k..k.', pal: { w: '#7ee0c3' } },
