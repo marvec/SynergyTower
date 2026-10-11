@@ -47,7 +47,7 @@ export function msToNextCoffee(s, now) {
 export const cooldownLeft = (s, key, now) => Math.max(0, (s.cooldowns[key] || 0) - now);
 
 export function canStartTask(s, task, floor, now) {
-  const cost = E.coffeeCost(floor);
+  const cost = E.taskCoffeeCost(task.game);
   if (cooldownLeft(s, task.id, now) > 0) return { ok: false, reason: 'cooldown', cost };
   if (s.coffee.value < cost) return { ok: false, reason: 'coffee', cost };
   return { ok: true, cost };
@@ -77,7 +77,7 @@ export function completeTask(s, task, floor, score, now, rng = Math.random) {
   s.starsByFloor[floor] = (s.starsByFloor[floor] || 0) + stars;
   const prevBest = s.bestByTask[task.id] ?? -1;
   if (stars > prevBest) s.bestByTask[task.id] = stars;
-  s.cooldowns[task.id] = now + E.stationCooldownMs(floor, s.perks);
+  s.cooldowns[task.id] = now + E.stationCooldownMs(floor, s.perks, task.game);
   if (task.game) s.played[task.game] = (s.played[task.game] || 0) + 1;
   s.stats.tasksPlayed++;
   if (stars === 3) s.stats.perfectTasks++;
@@ -117,7 +117,7 @@ export const reviewKey = (floor) => `review-${floor}`;
  */
 export function reviewStatus(s, now) {
   const st = promotionStatus(s);
-  const cost = E.coffeeCost(s.maxFloor);
+  const cost = E.REVIEW_COFFEE;
   const base = { cost, st, left: 0 };
   if (st.top) return { ...base, state: 'top' };
   if (s.floor !== s.maxFloor) return { ...base, state: 'wrongFloor' };

@@ -3,20 +3,20 @@ import * as S from '../src/core/state.js';
 import * as E from '../src/core/economy.js';
 import { ALL_GAMES } from '../src/core/tasks.js';
 
-const task = { id: 'f1-3' };
+const task = { id: 'f1-3', game: 'quiz' };
 const fresh = () => S.newGame({ corpName: 'Acme', colorId: 'bigblue', playerName: 'Pat' }, 0);
 
 test('task costs coffee, sets cooldown and rewards', () => {
   const s = fresh();
   const start = s.coffee.value;
   expect(S.startTask(s, task, 1, 0).ok).toBe(true);
-  expect(s.coffee.value).toBe(start - E.coffeeCost(1));
+  expect(s.coffee.value).toBe(start - E.taskCoffeeCost('quiz'));
   const r = S.completeTask(s, task, 1, 0.9, 0, () => 1);
   expect(r.stars).toBe(3);
   expect(s.starsByFloor[1]).toBe(3);
   expect(s.sp).toBe(E.STARTING.sp + r.sp);
   expect(S.canStartTask(s, task, 1, 1000).reason).toBe('cooldown');
-  expect(S.canStartTask(s, task, 1, E.stationCooldownMs(1) + 1).ok).toBe(true);
+  expect(S.canStartTask(s, task, 1, E.stationCooldownMs(1, {}, 'quiz') + 1).ok).toBe(true);
 });
 
 test('no coffee blocks tasks; coffee regenerates over time', () => {
@@ -99,7 +99,7 @@ test('HR review: only when promotion-ready, costs coffee, failing locks it, pass
   expect(S.reviewStatus(s, 0).state).toBe('available');
   const coffee = s.coffee.value;
   expect(S.startReview(s, 0).ok).toBe(true);
-  expect(s.coffee.value).toBe(coffee - E.coffeeCost(1));
+  expect(s.coffee.value).toBe(coffee - E.REVIEW_COFFEE);
   const fail = S.completeReview(s, 0.4, 0);
   expect(fail.passed).toBe(false);
   expect(S.reviewStatus(s, 1000).state).toBe('cooldown');
@@ -152,4 +152,41 @@ test('games played counts distinct mini-game types per character, any result, an
   expect(S.gamesPlayed(loaded).played).toBe(0);
   S.completeTask(loaded, task('quiz', 'f1-4'), 1, 1, 0);
   expect(S.gamesPlayed(loaded).played).toBe(1);
+});
+
+test('complex games cost more coffee and cool down faster', () => {
+  const s = fresh();
+  const big = { id: 'f1-9', game: 'spreadsheet' };
+  expect(S.canStartTask(s, big, 1, 0).cost).toBe(3);
+  expect(S.startTask(s, big, 1, 0).ok).toBe(true);
+  expect(s.coffee.value).toBe(E.maxCoffee(1) - 3);
+  S.completeTask(s, big, 1, 0.7, 0, () => 1);
+  expect(S.cooldownLeft(s, big.id, 0)).toBe(E.stationCooldownMs(1, {}, 'spreadsheet'));
+  expect(S.canStartTask(s, { id: 'q', game: 'lostpw' }, 1, 0).cost).toBe(3); // floor quests are complex
+  expect(S.canStartTask(s, { id: 'x' }, 1, 0).cost).toBe(2); // no game: medium, never NaN
+});
+
+test('not enough coffee for a complex game, enough for a simple one', () => {
+  const s = fresh();
+  s.coffee = { value: 2, updatedAt: 0 };
+  expect(S.canStartTask(s, { id: 'a', game: 'cables' }, 1, 0).reason).toBe('coffee');
+  expect(S.canStartTask(s, { id: 'b', game: 'quiz' }, 1, 0).ok).toBe(true);
+});
+
+test('an old save above the new max keeps its coffee and can still play', () => {
+  const s = fresh();
+  s.coffee = { value: 13, updatedAt: 0 };
+  S.tick(s, 10 * E.coffeeRegenMs());
+  expect(s.coffee.value).toBe(13);
+  expect(S.startTask(s, task, 1, 10 * E.coffeeRegenMs()).ok).toBe(true);
+  expect(s.coffee.value).toBe(12);
+});
+
+test('Stock Options skip a long simple-game cooldown', () => {
+  const s = fresh();
+  S.startTask(s, task, 1, 0);
+  S.completeTask(s, task, 1, 0.7, 0, () => 1);
+  expect(S.cooldownLeft(s, task.id, 0)).toBe(240000);
+  expect(S.skipCooldown(s, task.id, 0).ok).toBe(true);
+  expect(S.canStartTask(s, task, 1, 0).ok).toBe(true);
 });
