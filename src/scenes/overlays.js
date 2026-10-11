@@ -8,6 +8,7 @@ import { MINIGAMES } from '../minigames/index.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
 import { openFeedback } from '../engine/feedback.js';
+import { remindersSupported, remindersOn, enableReminders, disableReminders } from '../engine/reminders.js';
 
 export class Modal {
   constructor(game, { w = 260, h = 160, title = '' } = {}) {
@@ -67,6 +68,7 @@ export class TaskCard extends Modal {
     const now = this.game.now();
     const floor = s.floor;
     const check = S.canStartTask(s, this.task, floor, now);
+    this.noCoffee = check.reason === 'coffee';
     const b = this.buttons;
     const keepFocus = b.focus;
     b.clear();
@@ -83,6 +85,10 @@ export class TaskCard extends Modal {
     }
     b.add({ x: this.x + this.w - 64, y: by, w: 54, h: 18, label: 'Back', color: C.panelLight, onClick: () => this.close() });
     b.focus = Math.min(keepFocus, b.items.length - 1);
+  }
+  close() {
+    super.close();
+    if (this.noCoffee) offerReminders(this.game);
   }
   start() {
     const s = this.game.state;
@@ -550,7 +556,7 @@ export class FateDialog extends Modal {
 // ------------------------------------------------------------------ pause menu
 export class PauseMenu extends Modal {
   constructor(game, { onQuit }) {
-    super(game, { w: 200, h: 220, title: 'Menu' });
+    super(game, { w: 200, h: remindersSupported() ? 242 : 220, title: 'Menu' });
     this.onQuit = onQuit;
     this.confirmReset = false;
   }
@@ -571,6 +577,7 @@ export class PauseMenu extends Modal {
       this.game.audio.setSfx(s.settings.sfx);
       this.game.markDirty();
     });
+    if (remindersSupported()) add(`Reminders: ${remindersOn(s) ? 'ON' : 'OFF'}`, () => toggleReminders(this.game));
     add('How to play', () => this.game.push(new Dialog(this.game, { title: 'How to play', w: 320, text: HOW_TO })));
     add('Send feedback', () => openFeedback(`floor ${s.floor}, level ${s.level}, ${s.player.name} @ ${s.corp.name}`));
     add('Buy author a coffee', openCoffee, C.goodBtn);
@@ -588,6 +595,30 @@ export class PauseMenu extends Modal {
     }, C.bad);
     b.focus = Math.min(f, b.items.length - 1);
   }
+}
+
+function toggleReminders(game) {
+  if (remindersOn(game.state)) {
+    disableReminders(game);
+    return game.toast('Reminders off');
+  }
+  enableReminders(game).then((r) =>
+    game.toast(r === 'on' ? 'Reminders on: at most 3 a day, never at night' : 'Notifications are blocked by the browser', r === 'on' ? C.text : C.bad),
+  );
+}
+
+/** Offered once per career, the first time the player runs out of coffee. */
+function offerReminders(game) {
+  const s = game.state;
+  if (s.flags.reminderOffered || !remindersSupported() || Notification.permission === 'denied' || remindersOn(s)) return;
+  s.flags.reminderOffered = true;
+  game.markDirty();
+  game.push(new Dialog(game, {
+    title: 'Out of coffee',
+    text: 'Coffee refills by itself, even while you are away. Want a browser reminder when the pot is full again? At most 3 a day, never at night. You can switch it off in the Menu.',
+    button: 'No thanks',
+    action: { label: 'Remind me', onClick: () => toggleReminders(game) },
+  }));
 }
 
 export const HOW_TO =

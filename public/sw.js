@@ -51,3 +51,11 @@ self.addEventListener('fetch', (e) => {
     }),
   );
 });
+
+// A tapped reminder brings the game back (or reopens it).
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => (list[0] ? list[0].focus() : self.clients.openWindow('./'))),
+  );
+});

@@ -6,6 +6,7 @@ import { createGame } from './game.js';
 import { TitleScene } from './scenes/title.js';
 import { MinigameScene } from './scenes/minigameScene.js';
 import { initAnalytics } from './engine/analytics.js';
+import { initReminders } from './engine/reminders.js';
 
 // Static public files (served from public/, not bundled).
 for (const [rel, href, type] of [['manifest', './manifest.webmanifest'], ['icon', './icon.svg', 'image/svg+xml']]) {
@@ -47,6 +48,7 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', () => game.saveNow());
 
+initReminders(game);
 game.set(new TitleScene(game));
 
 let last = performance.now();

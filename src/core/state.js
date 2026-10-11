@@ -25,8 +25,8 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     cooldowns: {},
     perks: {},
     stats: { tasksPlayed: 0, perfectTasks: 0, soPurchased: 0, promotions: 0, fired: 0, warps: 0 },
-    settings: { music: true, sfx: true },
-    flags: { introSeen: false, ceo: false },
+    settings: { music: true, sfx: true, reminders: false },
+    flags: { introSeen: false, ceo: false, reminderOffered: false },
   };
 }
 

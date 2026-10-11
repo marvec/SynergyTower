@@ -86,7 +86,12 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
   `public/og-image.png` (1200×630) is the title screen at 2.5× with the bottom 18 px cropped, captured from the dev server.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
-  coffee_click). `track` is a no-op elsewhere, so tests and the dev server send nothing.
+  coffee_click, reminders_on, reminder_sent). `track` is a no-op elsewhere, so tests and the dev server send nothing.
+- Reminders: opt-in browser notifications ("Reminders" in the ☰ menu, offered once via `offerReminders` when a task card
+  is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;
+  `src/engine/reminders.js` schedules the soonest one when the tab is hidden and fires only if the tab is still hidden.
+  Kept sparse on purpose: ≥5 min away, max 3/day (`localStorage['synergytower.reminders']`), quiet 22:00–08:00, each kind
+  once per absence. Closed tabs get nothing (that would need Web Push and a server).
 - Payments are **fake** (`FakeCheckout` in `src/scenes/overlays.js`, labelled DEMO). There is no real payment code.
 - Service worker (`public/sw.js`): page navigations are network-first (cache only when offline), so another app later
   run on the same localhost port isn't hijacked. Bump `CACHE` when changing caching behaviour.
