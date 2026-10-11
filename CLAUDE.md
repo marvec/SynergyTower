@@ -69,7 +69,8 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
   `tests/font.test.js` fails otherwise. Text is ~5 px per char at scale 1, so check that strings fit.
 - `input.down/pressed('ArrowUp')` also match WASD. Use `pressedExact` for letter hotkeys.
 - Economy numbers live only in `src/core/economy.js`. `tests/economy.test.js` checks that an average 2★ player can
-  always afford the next floor. Re-run it after tuning.
+  always afford the next floor, and `tests/pacing.test.js` simulates a 40-floor career for coffee pacing. Re-run both after
+  tuning. Coffee cost and cooldown come from the game's complexity tier (`GAME_TIER`); give every new mini-game a tier.
 - Hallway posters: every floor has a "YOUR LOGO HERE" sponsorship spot and a fake ad (`FAKE_ADS`, invented brands) on the
   upper part of the corridor wall, each centred in a wall section (`placePosters` in `floorgen.js`, `posterContent` in
   `floorWorld.js`). Interacting shows `SPONSOR_PITCH` / `adPitch` from `src/data/sponsors.js`, with an "Advertise here"

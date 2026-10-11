@@ -144,16 +144,18 @@ quest per floor. No game is held back for later floors; floor-specific specialit
 - **KPI Stars ★** — 0-3 per task play, counted per floor. Each floor's promotion needs a star quota. This is the main gate.
 - **Stock Options (SO)** — the premium "corporate standing" currency. Start with 5; +1 per promotion, +1 per level-up,
   5% chance on a 3-star play. Bought with (fake) real money. Used to skip cooldowns, refill coffee and buy premium perks.
-- **Coffee ☕** — energy. Each task costs coffee; it regenerates over real time (also while offline). The kitchen coffee
-  machine gives a free top-up on a long cooldown.
+- **Coffee ☕** — energy. Each task costs 1-3 cups by the game's complexity (`GAME_TIER`); it regenerates over real time
+  (also while offline). The coffee machine on every floor gives +3 cups on a 15-minute cooldown. Playing well never refunds coffee.
 
 **Formulas** (f = floor, L = level; all live in `src/core/economy.js` and are unit-tested)
 - Task reward: `SP = round(25·1.17^(f-1)·m)`, `XP = round(15·1.15^(f-1)·m)`, with m = [0.3, 1, 1.5, 2.2] for 0-3 stars.
 - Star quota: `8 + 2·(f-1)` (floor 1: 8 ★ … floor 40: 86 ★).
 - Level required for floor f: `f`. XP to next level: `round(18·1.15^(L-1)·(3+L))`.
 - Keycard fee to leave floor f: `round(25·1.17^(f-1)·(2+f))` SP.
-- Station cooldown: `round(60·1.08^(f-1))` s (1 min → ~20 min).
-- Coffee cost per task: `1 + floor((f-1)/13)` (1 → 4). Max coffee `12 + floor(f/5)` (+ perks). Regen 1 per 120 s (− perks).
+- Station cooldown: `round(60·1.08^(f-1))` s (1 min → ~20 min) × complexity: simple 4×, medium 1.5×, complex 0.75×.
+  The HR review retry waits 2× the base.
+- Coffee cost per task: 1 / 2 / 3 cups (simple / medium / complex game); HR review 2. Max coffee `6 + floor(f/5)` (+ perks).
+  Regen 1 per 180 s (− perks). `tests/pacing.test.js` simulates a career to keep this curve.
 - Training: 4 SP → 1 XP.
 - Skip a cooldown: 1 SO. Refill coffee: 3 SO.
 
