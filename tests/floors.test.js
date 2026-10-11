@@ -110,3 +110,10 @@ test('the ground floor lobby: Jargon Detector check-in at the front desk, a rece
     expect(buildFloor(f).tasks.some((it) => it.task.checkin)).toBe(false);
   }
 });
+
+test('turnstile posts are solid even when the gates are open; the lanes between them stay walkable', () => {
+  const fl = buildFloor(1);
+  const t = fl.turnstile;
+  expect(t.posts.length).toBeGreaterThan(0);
+  for (let k = 0; k < t.w; k++) expect([k, fl.walk[t.y * fl.w + t.x + k]]).toEqual([k, t.posts.includes(k) ? 0 : 1]);
+});

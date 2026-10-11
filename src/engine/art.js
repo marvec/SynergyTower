@@ -2,6 +2,7 @@
 // 2.5D convention (C-Dogs style): an object with ground footprint (x, y, w, d) and height h draws its top face
 // at (x, y - h) and its front face at (x, y + d - h, w, h). Everything is drawn in 1px units at 16px/tile.
 import { makeCanvas } from './screen.js';
+import { turnstilePosts } from '../core/floorgen.js';
 
 export const TILE = 16;
 export const WALL_H = 12;
@@ -165,15 +166,15 @@ function monitorOn(p, x, y, screen = '#7fc4ff') {
   p.r(x + 5, y + 9, 2, 2, '#1a1a22');
 }
 
-/** Lobby security gates: steel pedestals with glass flaps across 4 lanes (open = flaps folded away, green lights). */
+/** Lobby security gates: a steel post in its own tile (see turnstilePosts) between lanes of glass flaps (open = flaps folded away, green lights). */
 function turnstile(p, w, open) {
   const W = w * 16;
-  const n = 5;
-  const xs = Array.from({ length: n }, (_, i) => Math.round((i * (W - 6)) / (n - 1)));
-  for (let i = 0; i < n - 1; i++) {
-    const a = xs[i] + 6;
-    const gap = xs[i + 1] - a;
-    const glass = 'rgba(170,215,255,0.55)';
+  const posts = turnstilePosts(w).map((k) => k * 16 + 5);
+  const edges = [0, ...posts.flatMap((x) => [x, x + 6]), W];
+  const glass = 'rgba(170,215,255,0.55)';
+  for (let i = 0; i < edges.length; i += 2) {
+    const a = edges[i];
+    const gap = edges[i + 1] - a;
     if (open) {
       p.r(a, -5, 3, 7, glass);
       p.r(a + gap - 3, -5, 3, 7, glass);
@@ -183,7 +184,7 @@ function turnstile(p, w, open) {
       p.r(a + gap / 2 - 1, -5, 2, 7, 'rgba(226,80,74,0.6)');
     }
   }
-  for (const x of xs) {
+  for (const x of posts) {
     p.box(x, 2, 6, 10, 12, METAL, METAL_D);
     p.r(x + 2, -7, 2, 2, open ? '#5fd068' : '#e2504a');
   }

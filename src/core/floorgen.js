@@ -341,7 +341,7 @@ export function generateFloor(floor) {
   const lobby = rooms.find((r) => r.type === 'reception');
   if (lobby) {
     const d = lobby.doors[0];
-    turnstile = { id: items.length, type: 'turnstile', x: d.x, y: d.y, w: d.w, h: 1, room: lobby.id, solid: false, interact: 'turnstile' };
+    turnstile = { id: items.length, type: 'turnstile', x: d.x, y: d.y, w: d.w, h: 1, room: lobby.id, solid: false, interact: 'turnstile', posts: turnstilePosts(d.w) };
     items.push(turnstile);
   }
 
@@ -388,6 +388,13 @@ function placePosters(tiles, items) {
   return out.sort((p, q) => p.x0 - q.x0);
 }
 
+/** Tile offsets of the steel posts across a turnstile row: a post after every two lanes tiles (8 wide → [2, 5]). */
+export function turnstilePosts(w) {
+  const out = [];
+  for (let k = 2; k < w - 2; k += 3) out.push(k);
+  return out;
+}
+
 /** Boolean grid: true = walkable for characters. */
 export function buildWalkable(fl) {
   const walk = new Uint8Array(fl.w * fl.h);
@@ -397,6 +404,9 @@ export function buildWalkable(fl) {
     for (let y = it.y; y < it.y + it.h; y++) for (let x = it.x; x < it.x + it.w; x++) walk[y * fl.w + x] = 0;
   }
   if (fl.entrance) for (let i = 0; i < fl.entrance.w; i++) walk[fl.entrance.y * fl.w + fl.entrance.x + i] = 0;
+  // Turnstile posts are solid whether the gates are open or not.
+  const t = fl.items.find((it) => it.type === 'turnstile');
+  for (const k of t?.posts || []) walk[t.y * fl.w + t.x + k] = 0;
   return walk;
 }
 
