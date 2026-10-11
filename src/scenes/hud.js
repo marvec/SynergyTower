@@ -71,65 +71,58 @@ export class Hud {
     drawText(g, s.corp.name.slice(0, 18), 22, 3, { color: C.gold });
     drawText(g, `F${s.floor} · ${titleForFloor(s.maxFloor)}`, 22, 12, { color: C.dim });
 
-    // Right, row 1: paperclips, coffee, SO, games played. Every stat is clickable (see StatsDialog).
+    // Right, laid out right to left. Row 1: paperclips, KPI stars, level, Stock Options.
+    // Row 2: games played, coffee, coffee timer. Every stat is clickable (see StatsDialog).
     this.hits = [];
     const hit = (key, x0, x1, y) => this.hits.push({ key, x: x0 - 2, y: y - 2, w: x1 - x0 + 4, h: 11 });
     let x = W - 4;
+    let y = 3;
     const item = (key, ic, text, color = C.text, iw = 9) => {
       const end = x;
-      const w = measureText(text);
-      x -= w;
-      drawText(g, text, x, 3, { color });
-      x -= iw;
-      icon(g, ic, x, 3);
-      hit(key, x, end, 3);
+      x -= measureText(text);
+      drawText(g, text, x, y, { color });
+      if (ic) {
+        x -= iw;
+        icon(g, ic, x, y);
+      }
+      hit(key, x, end, y);
       x -= 8;
     };
-    item('so', 'so', formatNum(s.so), C.so);
-    const cmax = S.coffeeMax(s);
-    item('coffee', 'coffee', `${s.coffee.value}/${cmax}`, s.coffee.value < E.coffeeCost(s.floor) ? C.bad : C.text);
-    item('sp', 'sp', formatNum(s.sp), C.gold);
-    const gp = S.gamesPlayed(s);
-    item('games', 'pad', `${gp.played}/${gp.total}`, gp.played === gp.total ? C.good : C.text, 11);
 
-    // Row 2: stars on this floor, level + xp, coffee timer.
-    x = W - 4;
-    const next = S.msToNextCoffee(s, now);
-    if (next > 0) {
-      const t = `+1 ${formatTime(next)}`;
-      x -= measureText(t);
-      drawText(g, t, x, 12, { color: C.dim });
-      hit('coffee', x, x + measureText(t), 12);
-      x -= 8;
-    }
+    item('so', 'so', formatNum(s.so), C.so);
     const need = E.xpToNext(s.level);
     const lvEnd = x;
     x -= 34;
-    bar(g, x, 13, 34, 6, s.xp / need, C.xp);
+    bar(g, x, y + 1, 34, 6, s.xp / need, C.xp);
     x -= 3;
     const lv = `Lv${s.level}`;
     x -= measureText(lv);
-    drawText(g, lv, x, 12, { color: C.xp });
-    hit('level', x, lvEnd, 12);
-    x -= 10;
-    const st = s.floor === s.maxFloor ? S.promotionStatus(s) : null;
+    drawText(g, lv, x, y, { color: C.xp });
+    hit('level', x, lvEnd, y);
+    x -= 8;
     const stars = s.starsByFloor[s.floor] || 0;
     const quota = E.starQuota(s.floor);
-    const sText = `${stars}/${quota}`;
-    const done = stars >= quota;
-    const stEnd = x;
-    x -= measureText(sText);
-    drawText(g, sText, x, 12, { color: done ? C.good : C.text });
-    x -= 9;
-    icon(g, 'star', x, 12);
-    hit('stars', x, stEnd, 12);
+    item('stars', 'star', `${stars}/${quota}`, stars >= quota ? C.good : C.text);
+    item('sp', 'sp', formatNum(s.sp), C.gold);
+
+    x = W - 4;
+    y = 12;
+    const next = S.msToNextCoffee(s, now);
+    if (next > 0) item('coffee', null, `+1 ${formatTime(next)}`, C.dim);
+    const cmax = S.coffeeMax(s);
+    item('coffee', 'coffee', `${s.coffee.value}/${cmax}`, s.coffee.value < E.coffeeCost(s.floor) ? C.bad : C.text);
+    const gp = S.gamesPlayed(s);
+    item('games', 'pad', `${gp.played}/${gp.total}`, gp.played === gp.total ? C.good : C.text, 11);
+
+    // Blinking promotion hint at the left end of row 2 (explains the KPI stars when clicked).
+    const st = s.floor === s.maxFloor ? S.promotionStatus(s) : null;
     const promo = st?.can ? ['PROMOTION READY', C.good] : st?.ready ? ['SEE HR FOR REVIEW', C.so] : null;
-    if (promo && Math.floor(this.pulse * 2) % 2 === 0) {
-      x -= 6;
+    if (promo) {
+      const end = x;
       x -= measureText(promo[0]);
-      drawText(g, promo[0], x, 12, { color: promo[1] });
+      if (Math.floor(this.pulse * 2) % 2 === 0) drawText(g, promo[0], x, y, { color: promo[1] });
+      hit('stars', x, end, y);
     }
-    hit('stars', x, stEnd, 12); // includes the blinking promotion hint while it shows
     const hov = this.game.input.pointer.inside ? this.hitAt(this.game.input.pointer) : null;
     if (hov) for (const h of this.hits.filter((q) => q.key === hov.key)) rect(g, h.x + 2, h.y + 10, h.w - 4, 1, C.gold);
 
