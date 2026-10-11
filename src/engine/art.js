@@ -103,7 +103,7 @@ function drawCharFrame(g, L, dir, f) {
     r(5, y0 + 1, 6, 7, L.skin);
     if (dir === 'down') {
       r(5, y0 + 1, 6, 2, L.hair);
-      if (L.hairStyle === 1) r(5, y0 + 1, 2, 4, L.hair), r(9, y0 + 1, 2, 4, L.hair);
+      if (L.hairStyle === 1) r(5, y0 + 3, 3, 1, L.hair); // side-swept fringe, ending above the eyes
       if (L.hairStyle === 2) r(4, y0 + 1, 1, 6, L.hair), r(11, y0 + 1, 1, 6, L.hair), r(5, y0 + 1, 6, 1, L.hair);
       if (L.hairStyle === 3) r(5, y0, 6, 1, L.hair);
       px(6, y0 + 4, O);
