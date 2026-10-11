@@ -1,6 +1,6 @@
 // Game state + all player actions as pure-ish functions (mutate the passed state, never touch the DOM).
 import * as E from './economy.js';
-import { ALL_GAMES } from './tasks.js';
+import { ALL_GAMES, buildFloor } from './tasks.js';
 
 export const SAVE_VERSION = 1;
 
@@ -42,6 +42,13 @@ export function tick(s, now) {
 export function msToNextCoffee(s, now) {
   if (s.coffee.value >= coffeeMax(s)) return 0;
   return Math.max(0, s.coffee.updatedAt + E.coffeeRegenMs(s.perks) - now);
+}
+
+/** HUD warning: 'empty' = can't afford any task on this floor, 'low' = can't afford the priciest one, else 'ok'. */
+export function coffeeLevel(s) {
+  const costs = buildFloor(s.floor).tasks.map((it) => E.taskCoffeeCost(it.task.game));
+  if (s.coffee.value < Math.min(...costs)) return 'empty';
+  return s.coffee.value < Math.max(...costs) ? 'low' : 'ok';
 }
 
 export const cooldownLeft = (s, key, now) => Math.max(0, (s.cooldowns[key] || 0) - now);

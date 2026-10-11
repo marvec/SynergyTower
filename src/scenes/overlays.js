@@ -129,6 +129,9 @@ export class TaskCard extends Modal {
     drawWrapped(g, this.mg.help, x + 10, y + 20, this.w - 20, { color: C.text });
     const best = s.bestByTask[t.id];
     drawText(g, 'Best:', x + 10, y + 72, { color: C.dim });
+    const cost = E.taskCoffeeCost(t.game);
+    drawText(g, 'Coffee', x + this.w - 100, y + 72, { color: C.dim });
+    for (let i = 0; i < cost; i++) icon(g, 'coffee', x + this.w - 46 + i * 10, y + 72);
     if (best == null) drawText(g, 'not attempted', x + 40, y + 72, { color: C.dim });
     else stars(g, best, x + 40, y + 72);
     const r3 = E.taskReward(s.floor, 3, s.perks);
@@ -629,7 +632,7 @@ function offerReminders(game) {
   s.flags.reminderOffered = true;
   game.markDirty();
   game.push(new Dialog(game, {
-    title: 'Out of coffee',
+    title: 'Not enough coffee',
     text: 'Coffee refills by itself, even while you are away. Want a browser reminder when the pot is full again? At most 3 a day, never at night. You can switch it off in the Menu.',
     button: 'No thanks',
     action: { label: 'Remind me', onClick: () => toggleReminders(game) },

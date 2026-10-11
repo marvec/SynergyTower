@@ -1,6 +1,6 @@
 // Heads-up display: currencies + progress (top bar) and action buttons (bottom right).
 import { W, H } from '../engine/screen.js';
-import { C, rect, icon, bar, formatNum, formatTime, ButtonSet } from '../engine/ui.js';
+import { C, rect, icon, bar, formatNum, formatTime, ButtonSet, coffeeColor } from '../engine/ui.js';
 import { drawText, measureText } from '../engine/font.js';
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
@@ -110,7 +110,7 @@ export class Hud {
     const next = S.msToNextCoffee(s, now);
     if (next > 0) item('coffee', null, `+1 ${formatTime(next)}`, C.dim);
     const cmax = S.coffeeMax(s);
-    item('coffee', 'coffee', `${s.coffee.value}/${cmax}`, s.coffee.value < 1 ? C.bad : C.text);
+    item('coffee', 'coffee', `${s.coffee.value}/${cmax}`, coffeeColor(S.coffeeLevel(s)));
     const gp = S.gamesPlayed(s);
     item('games', 'pad', `${gp.played}/${gp.total}`, gp.played === gp.total ? C.good : C.text, 11);
 

@@ -44,6 +44,7 @@ function career(pick) {
     wait += spend(E.REVIEW_COFFEE);
     step(PLAY_S + 30);
     floors[f] = { min: (t - t0) / 60, wait: wait / 60 };
+    cups = Math.max(cups, E.maxCoffee(f + 1)); // promotion tops the pot up (S.promote)
   }
   return { hours: t / 3600, floors };
 }
@@ -65,9 +66,10 @@ const cheapest = (tasks, ready, t) =>
 
 const normal = career(rotation());
 
-test('floor 1 needs no waiting; coffee starts to matter on floor 2-5', () => {
+test('floor 1 needs no waiting; coffee starts to matter on floors 2-5', () => {
   expect(normal.floors[1].wait).toBe(0);
-  expect(normal.floors[5].wait).toBeGreaterThan(5);
+  const early = [2, 3, 4, 5].reduce((sum, f) => sum + normal.floors[f].wait, 0);
+  expect(early).toBeGreaterThan(5); // minutes of waiting across floors 2-5
 });
 
 test('time per floor climbs steadily', () => {

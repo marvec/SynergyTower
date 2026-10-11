@@ -25,6 +25,9 @@ export const C = {
   accentLight: '#7fb4ea',
 };
 
+/** Coffee count colour for S.coffeeLevel: red = no task affordable on this floor, amber = not the priciest ones. */
+export const coffeeColor = (level) => (level === 'empty' ? C.bad : level === 'low' ? C.warn : C.text);
+
 /** The player's corporation colour feeds the accent colours. */
 export function setAccent(colorDef) {
   if (!colorDef) return;

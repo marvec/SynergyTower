@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test';
 import * as S from '../src/core/state.js';
 import * as E from '../src/core/economy.js';
-import { ALL_GAMES } from '../src/core/tasks.js';
+import { ALL_GAMES, buildFloor } from '../src/core/tasks.js';
 
 const task = { id: 'f1-3', game: 'quiz' };
 const fresh = () => S.newGame({ corpName: 'Acme', colorId: 'bigblue', playerName: 'Pat' }, 0);
@@ -189,4 +189,18 @@ test('Stock Options skip a long simple-game cooldown', () => {
   expect(S.cooldownLeft(s, task.id, 0)).toBe(240000);
   expect(S.skipCooldown(s, task.id, 0).ok).toBe(true);
   expect(S.canStartTask(s, task, 1, 0).ok).toBe(true);
+});
+
+test('coffee warning: empty below the cheapest task on this floor, low below the priciest', () => {
+  const s = fresh();
+  const costs = buildFloor(1).tasks.map((it) => E.taskCoffeeCost(it.task.game));
+  const lo = Math.min(...costs);
+  const hi = Math.max(...costs);
+  expect(hi).toBeGreaterThan(lo); // floor 1 mixes cheap and pricey games
+  s.coffee.value = hi;
+  expect(S.coffeeLevel(s)).toBe('ok');
+  s.coffee.value = hi - 1;
+  expect(S.coffeeLevel(s)).toBe('low');
+  s.coffee.value = lo - 1;
+  expect(S.coffeeLevel(s)).toBe('empty');
 });

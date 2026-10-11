@@ -1,6 +1,6 @@
 // "What do these numbers mean?": opened by clicking a HUD stat. One tab per stat (←/→ or click the tabs), each with
 // the live numbers and what they are for.
-import { C, rect, frame, icon, bar, formatNum, formatTime } from '../engine/ui.js';
+import { C, rect, frame, icon, bar, formatNum, formatTime, coffeeColor } from '../engine/ui.js';
 import { drawText, drawWrapped, measureText } from '../engine/font.js';
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
@@ -41,7 +41,7 @@ function statInfo(key, s, now) {
     return {
       title: 'Coffee',
       value: `${s.coffee.value}/${max}`,
-      color: s.coffee.value < 1 ? C.bad : C.text,
+      color: coffeeColor(S.coffeeLevel(s)),
       text: `Tasks cost 1-3 coffee: quick games 1, bigger ones 2, the most complex 3. Quick ones take longer to be ready again. Coffee refills by itself over time, and the coffee machine on every floor pours ${E.COFFEE_MACHINE_AMOUNT} free cups now and then.`,
       rows: [
         ['Next cup', next === 0 ? true : null, next === 0 ? 'mug is full' : `in ${formatTime(next)} (one every ${formatTime(E.coffeeRegenMs(s.perks))})`],
