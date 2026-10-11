@@ -85,7 +85,7 @@ export class TaskCard extends Modal {
       b.add({ x: this.x + 10, y: by, w: 110, h: 18, label: `Need ${check.cost} coffee`, disabled: true });
       b.add({ x: this.x + 126, y: by, w: 84, h: 18, label: `Refill ${E.REFILL_COFFEE_SO}`, icon: 'so', color: '#2f7f6f', disabled: s.so < E.REFILL_COFFEE_SO, onClick: () => this.refill() });
     } else {
-      b.add({ x: this.x + 10, y: by, w: 200, h: 18, label: `Start  (-${check.cost} coffee)`, color: C.goodBtn, onClick: () => this.start() });
+      b.add({ x: this.x + 10, y: by, w: 200, h: 18, label: check.cost ? `Start  (-${check.cost} coffee)` : 'Start  (free)', color: C.goodBtn, onClick: () => this.start() });
     }
     b.add({ x: this.x + this.w - 64, y: by, w: 54, h: 18, label: 'Back', color: C.panelLight, onClick: () => this.close() });
     b.focus = Math.min(keepFocus, b.items.length - 1);
@@ -129,9 +129,10 @@ export class TaskCard extends Modal {
     drawWrapped(g, this.mg.help, x + 10, y + 20, this.w - 20, { color: C.text });
     const best = s.bestByTask[t.id];
     drawText(g, 'Best:', x + 10, y + 72, { color: C.dim });
-    const cost = E.taskCoffeeCost(t.game);
+    const cost = S.taskCost(s, t);
     drawText(g, 'Coffee', x + this.w - 100, y + 72, { color: C.dim });
     for (let i = 0; i < cost; i++) icon(g, 'coffee', x + this.w - 46 + i * 10, y + 72);
+    if (!cost) drawText(g, 'free', x + this.w - 46, y + 72, { color: C.good });
     if (best == null) drawText(g, 'not attempted', x + 40, y + 72, { color: C.dim });
     else stars(g, best, x + 40, y + 72);
     const r3 = E.taskReward(s.floor, 3, s.perks);
@@ -143,7 +144,8 @@ export class TaskCard extends Modal {
     drawText(g, `${formatNum(r1.xp)}-${formatNum(r3.xp)}`, x + 140, y + 86, { color: C.xp });
     icon(g, 'star', x + 200, y + 86);
     drawText(g, '0-3 KPI', x + 210, y + 86);
-    drawText(g, `Cooldown after play: ${formatTime(E.stationCooldownMs(s.floor, s.perks, t.game))}`, x + 10, y + 100, { color: C.dim });
+    if (t.checkin && s.lobby === 'checkin') drawText(g, `Check-in: any result loads your coffee card`, x + 10, y + 100, { color: C.coffee });
+    else drawText(g, `Cooldown after play: ${formatTime(E.stationCooldownMs(s.floor, s.perks, t.game))}`, x + 10, y + 100, { color: C.dim });
   }
 }
 

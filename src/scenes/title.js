@@ -48,7 +48,9 @@ export class TitleScene {
       const { ExteriorScene } = await import('./exterior.js');
       return this.game.set(new ExteriorScene(this.game));
     }
-    this.game.set(new FloorScene(this.game, s.floor, { arrival: 'elevator' }));
+    // A new hire who has not made it past the lobby turnstiles yet comes back in through the front door.
+    const arrival = s.lobby !== 'done' && s.floor === 1 ? 'entrance' : 'elevator';
+    this.game.set(new FloorScene(this.game, s.floor, { arrival }));
   }
   async newGame() {
     const { SetupScene } = await import('./setup.js');

@@ -4,7 +4,14 @@ import * as E from '../src/core/economy.js';
 import { ALL_GAMES, buildFloor } from '../src/core/tasks.js';
 
 const task = { id: 'f1-3', game: 'quiz' };
-const fresh = () => S.newGame({ corpName: 'Acme', colorId: 'bigblue', playerName: 'Pat' }, 0);
+const hire = () => S.newGame({ corpName: 'Acme', colorId: 'bigblue', playerName: 'Pat' }, 0);
+// A player past the lobby check-in with a full coffee pot.
+const fresh = () => {
+  const s = hire();
+  s.lobby = 'done';
+  s.coffee.value = S.coffeeMax(s);
+  return s;
+};
 
 test('task costs coffee, sets cooldown and rewards', () => {
   const s = fresh();
@@ -203,4 +210,63 @@ test('coffee warning: empty below the cheapest task on this floor, low below the
   expect(S.coffeeLevel(s)).toBe('low');
   s.coffee.value = lo - 1;
   expect(S.coffeeLevel(s)).toBe('empty');
+});
+
+// ---------------------------------------------------------------- lobby check-in
+const checkinTask = () => buildFloor(1).tasks.find((it) => it.task.checkin).task;
+
+test('a new hire starts with an empty coffee card that does not refill before check-in', () => {
+  const s = hire();
+  expect(s.lobby).toBe('checkin');
+  expect(s.coffee.value).toBe(0);
+  S.tick(s, 60 * E.coffeeRegenMs());
+  expect(s.coffee.value).toBe(0);
+  expect(S.msToNextCoffee(s, 60 * E.coffeeRegenMs())).toBe(0);
+  expect(S.canStartTask(s, task, 1, 0).reason).toBe('coffee'); // ordinary tasks still cost coffee
+});
+
+test('the front-desk check-in is free, fills the coffee card and starts the refill', () => {
+  const s = hire();
+  const t = checkinTask();
+  expect(S.taskCost(s, t)).toBe(0);
+  expect(S.startTask(s, t, 1, 1000).ok).toBe(true);
+  const r = S.completeTask(s, t, 1, 0, 5000); // any result counts, even a flop
+  expect(r.checkedIn).toBe(true);
+  expect(s.lobby).toBe('gate');
+  expect(s.coffee.value).toBe(S.coffeeMax(s));
+  s.coffee.value -= 1;
+  S.tick(s, 5000 + E.coffeeRegenMs());
+  expect(s.coffee.value).toBe(S.coffeeMax(s));
+  // Afterwards the front desk is an ordinary task with an ordinary price.
+  expect(S.taskCost(s, t)).toBe(E.taskCoffeeCost(t.game));
+  expect(S.completeTask(s, t, 1, 0, 9000).checkedIn).toBe(false);
+});
+
+test('the turnstiles take one coffee on the first entry only, and only after check-in', () => {
+  const s = hire();
+  expect(S.passTurnstile(s, 0)).toEqual({ ok: false, reason: 'checkin' });
+  const t = checkinTask();
+  S.startTask(s, t, 1, 0);
+  S.completeTask(s, t, 1, 0.9, 1000);
+  expect(S.passTurnstile(s, 2000)).toEqual({ ok: true, cost: E.TURNSTILE_COFFEE });
+  expect(s.lobby).toBe('done');
+  expect(s.coffee.value).toBe(S.coffeeMax(s) - E.TURNSTILE_COFFEE);
+  expect(s.coffee.updatedAt).toBe(2000); // the refill clock starts with the first cup taken
+  expect(S.passTurnstile(s, 3000)).toEqual({ ok: true, cost: 0 });
+  expect(s.coffee.value).toBe(S.coffeeMax(s) - E.TURNSTILE_COFFEE);
+});
+
+test('the turnstile waits for a cup if the card was emptied again', () => {
+  const s = hire();
+  s.lobby = 'gate';
+  s.coffee = { value: 0, updatedAt: 0 };
+  expect(S.passTurnstile(s, 0)).toEqual({ ok: false, reason: 'coffee' });
+  expect(S.passTurnstile(s, E.coffeeRegenMs()).ok).toBe(true);
+});
+
+test('saves from before the lobby check-in skip it; a new hire save keeps it', () => {
+  const old = JSON.parse(S.serialize(fresh()));
+  delete old.lobby;
+  expect(S.deserialize(JSON.stringify(old), 0).lobby).toBe('done');
+  expect(S.deserialize(S.serialize(hire()), 0).lobby).toBe('checkin');
 });

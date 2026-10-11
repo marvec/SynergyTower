@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test';
 import { FLOORS, stationCount } from '../src/core/economy.js';
-import { FLOOR_W, FLOOR_H, T_WALL, isItemReachable } from '../src/core/floorgen.js';
+import { FLOOR_W, FLOOR_H, T_WALL, isItemReachable, bfs, gatedWalk } from '../src/core/floorgen.js';
 import { buildFloor, ALL_GAMES } from '../src/core/tasks.js';
 import { measureText } from '../src/engine/font.js';
 import { POSTER_TEXT, FAKE_ADS } from '../src/data/sponsors.js';
@@ -87,4 +87,26 @@ test('every floor has a "your logo here" poster and a fake ad, each fitting an u
     }
   }
   expect(measureText(FAKE_ADS[0].name) + 16).toBeLessThanOrEqual(room(buildFloor(1).posters.find((p) => p.kind === 'ad')));
+});
+
+test('the ground floor lobby: Jargon Detector check-in at the front desk, a receptionist, turnstiles in the only way out', () => {
+  const fl = buildFloor(1);
+  const desk = fl.tasks.find((it) => it.task.checkin);
+  expect(desk.type).toBe('reception');
+  expect(desk.task.game).toBe('jargon');
+  expect(fl.tasks.filter((it) => it.task.checkin).length).toBe(1);
+  expect(fl.receptionist.y).toBe(desk.y - 1);
+  const lobby = fl.rooms.find((r) => r.type === 'reception');
+  const door = lobby.doors[0];
+  expect(fl.turnstile).toMatchObject({ x: door.x, y: door.y, w: door.w, interact: 'turnstile' });
+  // Closed, the turnstiles shut the lobby off from the rest of the floor; open, everything is reachable.
+  const closed = gatedWalk(fl);
+  const dist = bfs(fl, closed, Math.floor(fl.spawn.x), Math.floor(fl.spawn.y));
+  expect(isItemReachable(fl, closed, dist, desk)).toBe(true);
+  expect(isItemReachable(fl, closed, dist, fl.elevator)).toBe(false);
+  expect(fl.tasks.filter((it) => isItemReachable(fl, closed, dist, it))).toEqual([desk]);
+  for (let f = 2; f <= FLOORS; f++) {
+    expect(buildFloor(f).turnstile).toBeFalsy();
+    expect(buildFloor(f).tasks.some((it) => it.task.checkin)).toBe(false);
+  }
 });

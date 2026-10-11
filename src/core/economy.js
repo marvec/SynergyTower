@@ -44,6 +44,8 @@ export const GAME_TIER = {
 export const gameTier = (game) => GAME_TIER[game] || 2;
 export const taskCoffeeCost = (game) => gameTier(game);
 export const REVIEW_COFFEE = 2;
+/** The lobby turnstiles charge this once, on the new hire's first way in. */
+export const TURNSTILE_COFFEE = 1;
 export const COOLDOWN_TIER_MULT = { 1: 4, 2: 1.5, 3: 0.75 };
 export const stationCount = (floor) => Math.min(14, 8 + Math.floor((floor - 1) / 6));
 

@@ -4,7 +4,7 @@ import { TILE, CHAR_H } from '../engine/art.js';
 import { C, rect, panel, icon, stars, formatTime, openCoffee } from '../engine/ui.js';
 import { drawText, measureText } from '../engine/font.js';
 import { buildFloor } from '../core/tasks.js';
-import { itemNeighbors } from '../core/floorgen.js';
+import { itemNeighbors, gatedWalk } from '../core/floorgen.js';
 import { findPath } from '../core/pathfind.js';
 import { createRng } from '../core/rng.js';
 import * as S from '../core/state.js';
@@ -27,6 +27,14 @@ const SPEED = 4.4;
 const R = 0.3;
 const REACH = 1.05;
 const TOP_MARGIN = 36;
+const RECEPTIONIST_SEED = 4242;
+// The receptionist's nudges while the new hire has not checked in yet.
+const CHECKIN_NUDGES = [
+  'Over here! New starters check in at the front desk.',
+  'Front desk, please. I only bite on Mondays.',
+  'Your badge will not print itself, you know.',
+  'Check in with me and I will load your coffee card.',
+];
 
 export class FloorScene {
   constructor(game, floor, { arrival = 'elevator' } = {}) {
@@ -51,6 +59,12 @@ export class FloorScene {
     const rep = this.fl.hrRep;
     this.hrRep = rep ? new Actor({ ...npcLook(floor * 91 + 7, this.fl.dept), jacket: '#4a3a6a', tie: null, glasses: true }, rep.x + 0.5, rep.y + 0.75) : null;
     if (this.hrRep) this.hrRep.who = { name: npcIdentity(floor * 91 + 7, 'legalhr').name, role: 'HR Business Partner' };
+    // Ground floor: the receptionist behind the front desk runs the new hire's check-in (see S.passTurnstile).
+    const rc = this.fl.receptionist;
+    this.receptionist = rc ? new Actor({ ...npcLook(RECEPTIONIST_SEED, 'lobby'), jacket: game.corpColor().color, tie: null }, rc.x + rc.w / 2, rc.y + 0.75) : null;
+    if (this.receptionist) this.receptionist.who = { name: npcIdentity(RECEPTIONIST_SEED, 'lobby').name, role: 'Reception' };
+    this.nudgeT = 4;
+    this.gateNag = 0;
     // Sponsorship posters on the hallway wall, as interactable pseudo-items (top = the wall's front face).
     this.posters = (this.fl.posters || []).map((p) => {
       const c = posterContent(p, floor);
@@ -86,6 +100,8 @@ export class FloorScene {
     this.game.markDirty();
     this.game.audio.play(this.dept.music);
     const s = this.game.state;
+    const checkin = s.lobby === 'checkin' && this.receptionist;
+    if (checkin) this.receptionist.say(`Welcome, ${s.player.name}! Please check in at the front desk.`, 6);
     if (!s.flags.introSeen) {
       s.flags.introSeen = true;
       this.game.push(
@@ -95,7 +111,8 @@ export class FloorScene {
           text:
             `Congratulations, ${s.player.name}! You are our newest ${titleForFloor(1)}.\n` +
             'Complete tasks marked with ! to earn paperclips, XP and KPI stars. Hit the star quota, level up, save up for the keycard fee and pass your HR performance review - then the elevator takes you up.\n' +
-            '40 floors. One corner office. Good luck!',
+            '40 floors. One corner office. Good luck!' +
+            (checkin ? '\nFirst stop: the front desk, for your badge and your coffee card.' : ''),
           button: "Let's synergize",
         }),
       );
@@ -119,12 +136,20 @@ export class FloorScene {
   }
 
   // ------------------------------------------------------------ collision & movement
+  /** The lobby turnstiles stay shut until the new hire has checked in and paid their first cup. */
+  get gateClosed() {
+    return !!this.fl.turnstile && this.game.state.lobby !== 'done';
+  }
+  walkGrid() {
+    if (!this.gateClosed) return this.fl.walk;
+    return (this.gatedGrid ||= gatedWalk(this.fl));
+  }
   walkableAt(x, y) {
     const tx = Math.floor(x);
     const ty = Math.floor(y);
     const { fl } = this;
     if (tx < 0 || ty < 0 || tx >= fl.w || ty >= fl.h) return false;
-    return !!fl.walk[ty * fl.w + tx];
+    return !!this.walkGrid()[ty * fl.w + tx];
   }
   fits(x, y) {
     return this.walkableAt(x - R, y - 0.2) && this.walkableAt(x + R, y - 0.2) && this.walkableAt(x - R, y + 0.12) && this.walkableAt(x + R, y + 0.12);
@@ -157,6 +182,7 @@ export class FloorScene {
       else if (it.interact === 'elevator') list.push({ kind: 'elevator', it });
       else if (it.interact === 'coffee') list.push({ kind: 'coffee', it });
       else if (it.interact === 'hr') list.push({ kind: 'hr', it });
+      else if (it.interact === 'turnstile' && this.gateClosed) list.push({ kind: 'turnstile', it });
       else if (it.terminal) list.push({ kind: 'terminal', it });
     }
     for (const n of this.npcs) if (!n.brain.exit) list.push({ kind: 'npc', n });
@@ -231,7 +257,10 @@ export class FloorScene {
     p.faceTowards(it.x + it.w / 2 - p.x, it.y + it.h / 2 - p.y);
     if (t.kind === 'task') {
       game.sfx('click');
+      if (it.task.checkin && s.lobby === 'checkin') this.receptionist?.say('Quick test before your badge: spot the buzzwords!', 4);
       game.push(new TaskCard(game, it.task, (task) => this.startTask(task)));
+    } else if (t.kind === 'turnstile') {
+      this.useTurnstile();
     } else if (t.kind === 'elevator') {
       game.sfx('ding');
       game.push(new ElevatorPanel(game, { onPromote: () => this.promote(), onTravel: (f) => this.travel(f) }));
@@ -266,6 +295,27 @@ export class FloorScene {
     }
   }
 
+  /** The lobby turnstiles: closed before check-in, one cup for the first way in. */
+  useTurnstile() {
+    const game = this.game;
+    const s = game.state;
+    const r = S.passTurnstile(s, game.now());
+    this.gateNag = 2.5;
+    if (r.ok) {
+      game.sfx('coin');
+      track('turnstile');
+      game.toast(`Beep! -${r.cost} coffee. Welcome to ${s.corp.name}!`, C.coffee);
+      this.receptionist?.say('Have a synergistic day!', 3.5);
+      game.saveNow();
+      return;
+    }
+    game.sfx('bad');
+    if (r.reason === 'checkin') {
+      this.receptionist?.say('Not so fast! Check in at the front desk first.', 3.5);
+      game.toast('No badge yet: check in at the front desk.', C.warn);
+    } else game.toast(`The turnstile wants ${E.TURNSTILE_COFFEE} coffee. Next cup in ${formatTime(S.msToNextCoffee(s, game.now()))}.`, C.warn);
+  }
+
   /** A colleague one-liner: 40% department flavour, 60% common office life; avoids recent repeats. */
   nextLine() {
     this.recentLines ||= [];
@@ -286,6 +336,12 @@ export class FloorScene {
   }
 
   async taskDone(result) {
+    if (result?.checkedIn) {
+      const s = this.game.state;
+      track('checkin', { stars: result.stars });
+      this.receptionist?.say('Welcome aboard! The turnstiles behind me take one cup.', 6);
+      this.game.toast(`Coffee card loaded: ${s.coffee.value} cups. It refills by itself from now on.`, C.coffee);
+    }
     if (result?.ceoUnlocked) {
       const { EndingScene } = await import('./ending.js');
       this.game.push(new EndingScene(this.game));
@@ -392,9 +448,10 @@ export class FloorScene {
     let goals = [[tx, ty]];
     if (target && target.kind !== 'npc') goals = itemNeighbors(fl, target.it);
     let best = null;
+    const walk = this.walkGrid();
     for (const [gx, gy] of goals) {
-      if (!fl.walk[gy * fl.w + gx]) continue;
-      const path = findPath(fl.walk, fl.w, fl.h, sx, sy, gx, gy);
+      if (!walk[gy * fl.w + gx]) continue;
+      const path = findPath(walk, fl.w, fl.h, sx, sy, gx, gy);
       if (path && (!best || path.length < best.length)) best = path;
     }
     if (!best) return false;
@@ -432,6 +489,7 @@ export class FloorScene {
       this.moveBy((kx / len) * SPEED * dt, (ky / len) * SPEED * dt);
       p.faceTowards(kx, ky);
       p.moving = true;
+      if (ky < 0) this.bumpGate();
     } else if (p.path && p.path.length) {
       const n = p.path[0];
       const tx = n.x + 0.5;
@@ -493,6 +551,7 @@ export class FloorScene {
     this.npcs = this.npcs.filter((n) => !n.brain.gone);
     p.update(dt);
     this.hrRep?.update(dt);
+    this.updateReceptionist(dt);
 
     const t = this.camTarget();
     const k = Math.min(1, dt * 8);
@@ -500,12 +559,37 @@ export class FloorScene {
     this.cam.y += (t.y - this.cam.y) * k;
   }
 
+  /** Walking up into the closed turnstiles tries them, like a badge tap. */
+  bumpGate() {
+    const t = this.fl.turnstile;
+    const p = this.player;
+    if (!this.gateClosed || this.gateNag > 0 || this.quest) return;
+    if (p.x > t.x && p.x < t.x + t.w && p.y < t.y + 1 + R + 0.1 && p.y > t.y + 1) this.useTurnstile();
+  }
+
+  updateReceptionist(dt) {
+    const r = this.receptionist;
+    if (!r) return;
+    this.gateNag = Math.max(0, this.gateNag - dt);
+    r.update(dt);
+    const p = this.player;
+    r.faceTowards(p.x - r.x, Math.max(0.1, p.y - r.y));
+    // Until check-in, an occasional friendly nudge while the new hire looks lost.
+    if (this.game.state.lobby !== 'checkin' || r.bubble) return;
+    this.nudgeT -= dt;
+    if (this.nudgeT > 0) return;
+    this.nudgeT = 12;
+    this.nudgeI = ((this.nudgeI ?? -1) + 1) % CHECKIN_NUDGES.length;
+    r.say(CHECKIN_NUDGES[this.nudgeI], 4);
+  }
+
   render(g) {
     const s = this.game.state;
     const now = this.game.now();
     g.fillStyle = '#0d0f18';
     g.fillRect(0, 0, W, H);
-    const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : [])];
+    this.view.gateOpen = !this.gateClosed;
+    const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : []), ...(this.receptionist ? [this.receptionist] : [])];
     this.view.render(g, this.cam, [...actors, ...(this.quest?.props || [])]);
 
     g.save();
@@ -610,6 +694,10 @@ export class FloorScene {
       sub = t.b.checked ? 'look again' : 'take a look';
     }
     else if (t.kind === 'elevator') text = 'Elevator';
+    else if (t.kind === 'turnstile') {
+      text = 'Turnstiles';
+      sub = s.lobby === 'checkin' ? 'check in first' : `-${E.TURNSTILE_COFFEE} coffee`;
+    }
     else if (t.kind === 'coffee') text = 'Coffee machine';
     else if (t.kind === 'hr') {
       text = 'HR office';
@@ -619,7 +707,8 @@ export class FloorScene {
     else {
       text = t.it.task.title;
       const left = S.cooldownLeft(s, t.it.task.id, now);
-      sub = left > 0 ? `busy ${formatTime(left)}` : `-${E.taskCoffeeCost(t.it.task.game)} coffee`;
+      const cost = S.taskCost(s, t.it.task);
+      sub = left > 0 ? `busy ${formatTime(left)}` : cost ? `-${cost} coffee` : 'check-in, free';
       if (this.quest) sub = this.quest.isStation(t.it) ? this.quest.stationSub() : 'finish your task first';
     }
     const w = measureText(text) + measureText(sub) + 56;

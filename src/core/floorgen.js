@@ -29,7 +29,7 @@ export const STATION_GAMES = {
   filing: ['memory', 'spreadsheet', 'orgchart', 'expense'],
   serverrack: ['simon', 'whack', 'cables'],
   tradingdesk: ['stocks', 'math', 'expense', 'chart', 'lostpw'],
-  reception: ['memory', 'quiz', 'compose', 'tailgate', 'password', 'lostpw'],
+  reception: ['jargon', 'memory', 'quiz', 'compose', 'tailgate', 'password', 'lostpw'],
   mailshelf: ['inbox', 'memory', 'replyall'],
   headsetdesk: ['quiz', 'typing', 'inbox', 'replyall', 'whack', 'feedback', 'lostpw'],
   gong: ['timing', 'math'],
@@ -277,7 +277,11 @@ export function generateFloor(floor) {
       place(r, 'plant', r.x0, r.y1);
     },
     reception(r) {
-      station(r, 'reception', 'reception', 18, r.y0 + 2, 4, 1);
+      const desk = station(r, 'reception', 'reception', 18, r.y0 + 2, 4, 1);
+      // The receptionist stands behind the front desk, on the path the door keeps clear (the desk leaves room around her).
+      const rx = desk.x + 2; // beside the desk's task marker, not under it
+      items.push({ id: items.length, type: 'receptionist', x: rx, y: desk.y - 1, w: 2, h: 1, room: r.id, solid: true });
+      occupied[idx(rx, desk.y - 1)] = occupied[idx(rx + 1, desk.y - 1)] = 1;
       place(r, 'fountain', 15, r.y0 + 5, 2, 2);
       place(r, 'fountain', 23, r.y0 + 5, 2, 2);
       place(r, 'sofa', r.x0, r.y1 - 3, 1, 2);
@@ -331,14 +335,25 @@ export function generateFloor(floor) {
   };
   for (const room of rooms) fillers[room.type]?.(room);
 
+  // Ground floor: turnstiles fill the lobby door, the only way from the entrance into the building. They stay walkable in
+  // the static grid (so planning sees the whole floor); the floor scene closes them until the new hire has checked in.
+  let turnstile = null;
+  const lobby = rooms.find((r) => r.type === 'reception');
+  if (lobby) {
+    const d = lobby.doors[0];
+    turnstile = { id: items.length, type: 'turnstile', x: d.x, y: d.y, w: d.w, h: 1, room: lobby.id, solid: false, interact: 'turnstile' };
+    items.push(turnstile);
+  }
+
   const spawn = floor === 1 ? { x: 19.5, y: FLOOR_H - 2 } : { x: 19.5, y: TOP.y0 + 1.5 };
   const elevator = items.find((i) => i.interact === 'elevator');
   const hrDesk = items.find((i) => i.interact === 'hr');
   const hrRep = items.find((i) => i.type === 'hrrep');
+  const receptionist = items.find((i) => i.type === 'receptionist') || null;
 
   const posters = placePosters(tiles, items);
 
-  return { floor, dept: dept.id, w: FLOOR_W, h: FLOOR_H, tiles, roomOf, rooms, items, spawn, elevator, hrDesk, hrRep, entrance, elevatorRoom: elevatorRoom.id, posters };
+  return { floor, dept: dept.id, w: FLOOR_W, h: FLOOR_H, tiles, roomOf, rooms, items, spawn, elevator, hrDesk, hrRep, receptionist, turnstile, entrance, elevatorRoom: elevatorRoom.id, posters };
 }
 
 /** Minimum wall-section length (tiles) that can carry a poster; the poster itself is centred in the section. */
@@ -382,6 +397,15 @@ export function buildWalkable(fl) {
     for (let y = it.y; y < it.y + it.h; y++) for (let x = it.x; x < it.x + it.w; x++) walk[y * fl.w + x] = 0;
   }
   if (fl.entrance) for (let i = 0; i < fl.entrance.w; i++) walk[fl.entrance.y * fl.w + fl.entrance.x + i] = 0;
+  return walk;
+}
+
+/** The walkable grid with the lobby turnstiles closed (floors without turnstiles: the grid itself). */
+export function gatedWalk(fl) {
+  const t = fl.turnstile;
+  if (!t) return fl.walk;
+  const walk = fl.walk.slice();
+  for (let x = t.x; x < t.x + t.w; x++) walk[t.y * fl.w + x] = 0;
   return walk;
 }
 

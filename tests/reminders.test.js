@@ -3,7 +3,14 @@ import * as S from '../src/core/state.js';
 import * as E from '../src/core/economy.js';
 import { upcomingReminders } from '../src/core/reminders.js';
 
-const fresh = () => S.newGame({ corpName: 'Acme', colorId: 'bigblue', playerName: 'Pat' }, 0);
+const hire = () => S.newGame({ corpName: 'Acme', colorId: 'bigblue', playerName: 'Pat' }, 0);
+// A player past the lobby check-in with a full coffee pot.
+const fresh = () => {
+  const s = hire();
+  s.lobby = 'done';
+  s.coffee.value = S.coffeeMax(s);
+  return s;
+};
 
 test('a full coffee pot needs no reminder', () => {
   expect(upcomingReminders(fresh(), 0)).toEqual([]);
@@ -43,4 +50,8 @@ test('reminders are sorted soonest first', () => {
   s.sp = E.keycardFee(1);
   s.cooldowns[S.reviewKey(1)] = 60_000;
   expect(upcomingReminders(s, 0).map((r) => r.kind)).toEqual(['review', 'coffee']);
+});
+
+test('no coffee reminder before the lobby check-in: the empty card does not refill on its own', () => {
+  expect(upcomingReminders(hire(), 0)).toEqual([]);
 });

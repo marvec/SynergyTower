@@ -16,6 +16,7 @@ const TERMINAL_TYPES = ['desk', 'headsetdesk', 'tradingdesk', 'reception', 'boss
 
 /** Games played partly on the floor (src/scenes/floorQuest.js): at most one of them per floor. */
 const QUEST_GAMES = new Set(['feedback', 'lostpw']);
+export const CHECKIN_GAME = 'jargon';
 const FLOORS = 40;
 
 const cache = new Map();
@@ -49,6 +50,27 @@ function planFloor(floor, usage) {
   // copy on this floor or a second floor quest much more), then a station for it, preferring rooms that have no task yet.
   const roomPenalty = (it) => (chosen.some((c) => c.room === it.room) ? 0.5 : 0);
   const hasQuest = () => chosen.some((c) => QUEST_GAMES.has(c.task.game));
+  const assign = (it, game) => {
+    candidates.splice(candidates.indexOf(it), 1);
+    const variant = onFloor.get(game) || 0;
+    onFloor.set(game, variant + 1);
+    const u = usage.get(game) || { n: 0, last: -9 };
+    usage.set(game, { n: u.n + 1, last: floor });
+    const base = (floor - 1) / 39;
+    it.task = {
+      id: `f${floor}-${it.id}`,
+      game,
+      title: taskTitle(game, fl.dept, variant + floor),
+      difficulty: Math.min(1, Math.max(0, base * 0.85 + rng.float(0, 0.15))),
+      seed: floor * 1000 + it.id,
+    };
+    chosen.push(it);
+    return it.task;
+  };
+  // The ground-floor front desk is the new hire's check-in (state.js `lobby`): always Jargon Detector, a quick and fun
+  // first game.
+  const frontDesk = floor === 1 && candidates.find((it) => it.station === 'reception');
+  if (frontDesk) assign(frontDesk, CHECKIN_GAME).checkin = true;
   while (chosen.length < wanted && candidates.length) {
     const offers = new Map();
     candidates.forEach((it, i) => {
@@ -82,20 +104,7 @@ function planFloor(floor, usage) {
         best = i;
       }
     }
-    const it = candidates.splice(best, 1)[0];
-    const variant = onFloor.get(bestGame) || 0;
-    onFloor.set(bestGame, variant + 1);
-    const u = usage.get(bestGame) || { n: 0, last: -9 };
-    usage.set(bestGame, { n: u.n + 1, last: floor });
-    const base = (floor - 1) / 39;
-    it.task = {
-      id: `f${floor}-${it.id}`,
-      game: bestGame,
-      title: taskTitle(bestGame, fl.dept, variant + floor),
-      difficulty: Math.min(1, Math.max(0, base * 0.85 + rng.float(0, 0.15))),
-      seed: floor * 1000 + it.id,
-    };
-    chosen.push(it);
+    assign(candidates[best], bestGame);
   }
 
   // One computer without a task opens the workstation terminal (prefer plain desks, then any desk with a PC).

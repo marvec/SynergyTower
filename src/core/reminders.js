@@ -7,7 +7,7 @@ import * as S from './state.js';
 export function upcomingReminders(s, now) {
   const out = [];
   const max = S.coffeeMax(s);
-  if (s.coffee.value < max) {
+  if (S.coffeeRegenOn(s) && s.coffee.value < max) {
     const at = now + S.msToNextCoffee(s, now) + (Math.ceil(max - s.coffee.value) - 1) * E.coffeeRegenMs(s.perks);
     out.push({ kind: 'coffee', at, title: 'The coffee pot is full again', body: `${max} cups ready. Your desk misses you, ${s.player.name}.` });
   }

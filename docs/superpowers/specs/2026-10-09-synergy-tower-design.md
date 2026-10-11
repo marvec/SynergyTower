@@ -13,6 +13,9 @@ promoted floor by floor until they become CEO. Progression is deliberately slow 
 - Browser first, Node/JS with **bun**. A Flutter mobile port may come later.
 - Pixel art, 2.5D oblique top-down view like C-Dogs (walls show their front faces).
 - The player starts outside, enters the tower at the ground floor and walks the floor plan.
+- Check-in: a new hire starts with an empty coffee card that does not refill. The receptionist at the ground-floor front
+  desk asks for Jargon Decoder first (free); playing it, whatever the result, fills the card and starts the refill. Turnstiles
+  in the lobby door are the only way into the building: closed before check-in, 1 coffee on the first entry, free after.
 - Controls: cursor keys + Space for action; mouse (click to walk / interact) too.
 - Mini-games: attend a meeting, write an email, fix a spreadsheet, … "plenty", across **40 floors**, with all floors and challenges present in the first version.
 - Several score types: generic points that convert into bigger points (XP), plus something that represents corporate standing.

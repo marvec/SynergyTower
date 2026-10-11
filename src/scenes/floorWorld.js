@@ -235,8 +235,11 @@ export class FloorView {
 
     this.sprites = fl.items.map((it) => {
       const baked = bakeFurniture(it.type, it.w, it.h, this.kit);
-      return { it, baked, solid: it.solid, lift: furnitureDef(it.type)?.lift || 0 };
+      // Lobby turnstiles also bake their open state; `gateOpen` (set by the floor scene) picks one.
+      const open = it.type === 'turnstile' ? bakeFurniture('turnstileopen', it.w, it.h, this.kit) : null;
+      return { it, baked, open, solid: it.solid, lift: furnitureDef(it.type)?.lift || 0 };
     });
+    this.gateOpen = false;
   }
 
   /** A hallway poster on the upper part of the wall (row-canvas coordinates: the wall top spans y 0..16). */
@@ -299,7 +302,8 @@ export class FloorView {
   }
 
   drawItem(g, s) {
-    const { it, baked } = s;
+    const { it } = s;
+    const baked = this.gateOpen && s.open ? s.open : s.baked;
     if (!baked) return;
     const x = it.x * TILE + baked.ox;
     const y = it.y * TILE + baked.oy;

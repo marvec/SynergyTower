@@ -165,6 +165,30 @@ function monitorOn(p, x, y, screen = '#7fc4ff') {
   p.r(x + 5, y + 9, 2, 2, '#1a1a22');
 }
 
+/** Lobby security gates: steel pedestals with glass flaps across 4 lanes (open = flaps folded away, green lights). */
+function turnstile(p, w, open) {
+  const W = w * 16;
+  const n = 5;
+  const xs = Array.from({ length: n }, (_, i) => Math.round((i * (W - 6)) / (n - 1)));
+  for (let i = 0; i < n - 1; i++) {
+    const a = xs[i] + 6;
+    const gap = xs[i + 1] - a;
+    const glass = 'rgba(170,215,255,0.55)';
+    if (open) {
+      p.r(a, -5, 3, 7, glass);
+      p.r(a + gap - 3, -5, 3, 7, glass);
+    } else {
+      p.r(a, -5, gap, 7, glass);
+      p.r(a, -5, gap, 1, '#e8f4ff');
+      p.r(a + gap / 2 - 1, -5, 2, 7, 'rgba(226,80,74,0.6)');
+    }
+  }
+  for (const x of xs) {
+    p.box(x, 2, 6, 10, 12, METAL, METAL_D);
+    p.r(x + 2, -7, 2, 2, open ? '#5fd068' : '#e2504a');
+  }
+}
+
 /** Each entry: (p, w, h, ctx) draws with origin = top-left of the footprint; `lift` = extra pixels above. */
 const FURNITURE = {
   desk: { lift: 18, draw(p, w, h, k) {
@@ -334,6 +358,8 @@ const FURNITURE = {
     p.r(2, -19, 12, 16, k.accentDark);
     for (let i = 0; i < 6; i++) p.r(4, -17 + i * 2.5, 8, 1, '#f4f1e8');
   } },
+  turnstile: { lift: 12, solid: false, draw: (p, w) => turnstile(p, w, false) },
+  turnstileopen: { lift: 12, solid: false, draw: (p, w) => turnstile(p, w, true) },
   elevator: { lift: 26, draw(p, w, h, k) {
     const W = w * 16;
     p.r(0, -24, W, 36, '#1a1a22');

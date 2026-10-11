@@ -16,7 +16,9 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     xp: E.STARTING.xp,
     level: E.STARTING.level,
     so: E.STARTING.so,
-    coffee: { value: E.maxCoffee(1), updatedAt: now },
+    // The new hire's coffee card starts empty and does not refill until they check in at the front desk.
+    coffee: { value: 0, updatedAt: now },
+    lobby: 'checkin', // ground-floor onboarding: 'checkin' (front desk) → 'gate' (turnstiles cost a cup) → 'done'
     starsByFloor: {},
     reviews: {}, // floor → true once the HR performance review there is passed
     fired: {}, // NPC seed → true: colleagues the CEO has let go (they never come back)
@@ -32,15 +34,22 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
 
 export const coffeeMax = (s) => E.maxCoffee(s.maxFloor, s.perks);
 
+/** Coffee refills on its own once the new hire has checked in at the front desk. */
+export const coffeeRegenOn = (s) => s.lobby !== 'checkin';
+
 /** Applies offline/real-time coffee regeneration. */
 export function tick(s, now) {
+  if (!coffeeRegenOn(s)) {
+    s.coffee.updatedAt = now;
+    return;
+  }
   const r = E.regenCoffee(s.coffee.value, s.coffee.updatedAt, now, coffeeMax(s), E.coffeeRegenMs(s.perks));
   s.coffee.value = r.value;
   s.coffee.updatedAt = r.updatedAt;
 }
 
 export function msToNextCoffee(s, now) {
-  if (s.coffee.value >= coffeeMax(s)) return 0;
+  if (!coffeeRegenOn(s) || s.coffee.value >= coffeeMax(s)) return 0;
   return Math.max(0, s.coffee.updatedAt + E.coffeeRegenMs(s.perks) - now);
 }
 
@@ -53,8 +62,17 @@ export function coffeeLevel(s) {
 
 export const cooldownLeft = (s, key, now) => Math.max(0, (s.cooldowns[key] || 0) - now);
 
+/** Coffee a task costs right now: the front-desk check-in is free for a new hire (they have no coffee yet). */
+export const taskCost = (s, task) => (task.checkin && s.lobby === 'checkin' ? 0 : E.taskCoffeeCost(task.game));
+
+/** Takes coffee; a full pot starts its refill clock now. */
+function spendCoffee(s, n, now) {
+  if (s.coffee.value >= coffeeMax(s)) s.coffee.updatedAt = now;
+  s.coffee.value -= n;
+}
+
 export function canStartTask(s, task, floor, now) {
-  const cost = E.taskCoffeeCost(task.game);
+  const cost = taskCost(s, task);
   if (cooldownLeft(s, task.id, now) > 0) return { ok: false, reason: 'cooldown', cost };
   if (s.coffee.value < cost) return { ok: false, reason: 'coffee', cost };
   return { ok: true, cost };
@@ -65,9 +83,7 @@ export function startTask(s, task, floor, now) {
   tick(s, now);
   const c = canStartTask(s, task, floor, now);
   if (!c.ok) return c;
-  const wasFull = s.coffee.value >= coffeeMax(s);
-  s.coffee.value -= c.cost;
-  if (wasFull) s.coffee.updatedAt = now;
+  spendCoffee(s, c.cost, now);
   return c;
 }
 
@@ -90,7 +106,13 @@ export function completeTask(s, task, floor, score, now, rng = Math.random) {
   if (stars === 3) s.stats.perfectTasks++;
   const ceoUnlocked = floor === E.FLOORS && !s.flags.ceo && s.starsByFloor[floor] >= E.starQuota(floor);
   if (ceoUnlocked) s.flags.ceo = true;
-  return { stars, sp: reward.sp, xp: reward.xp, levelsGained: lv.levelsGained, soGained, newBest: stars > prevBest, ceoUnlocked };
+  // Playing the front-desk check-in (any result) loads the coffee card and starts its refill.
+  const checkedIn = !!task.checkin && s.lobby === 'checkin';
+  if (checkedIn) {
+    s.lobby = 'gate';
+    s.coffee = { value: Math.max(s.coffee.value, coffeeMax(s)), updatedAt: now };
+  }
+  return { stars, sp: reward.sp, xp: reward.xp, levelsGained: lv.levelsGained, soGained, newBest: stars > prevBest, ceoUnlocked, checkedIn };
 }
 
 /** How many of the station mini-game types this character has played at least once. */
@@ -141,10 +163,19 @@ export function startReview(s, now) {
   tick(s, now);
   const r = reviewStatus(s, now);
   if (r.state !== 'available') return { ok: false, reason: r.state };
-  const wasFull = s.coffee.value >= coffeeMax(s);
-  s.coffee.value -= r.cost;
-  if (wasFull) s.coffee.updatedAt = now;
+  spendCoffee(s, r.cost, now);
   return { ok: true, cost: r.cost };
+}
+
+/** The lobby turnstiles: closed until check-in, then one cup for the first way in, free ever after. */
+export function passTurnstile(s, now) {
+  if (s.lobby === 'checkin') return { ok: false, reason: 'checkin' };
+  if (s.lobby !== 'gate') return { ok: true, cost: 0 };
+  tick(s, now);
+  if (s.coffee.value < E.TURNSTILE_COFFEE) return { ok: false, reason: 'coffee' };
+  spendCoffee(s, E.TURNSTILE_COFFEE, now);
+  s.lobby = 'done';
+  return { ok: true, cost: E.TURNSTILE_COFFEE };
 }
 
 export function completeReview(s, score, now) {
@@ -281,6 +312,7 @@ export function deserialize(json, now) {
     // Shallow-merge so saves from older versions gain new fields.
     const merged = { ...base, ...s, settings: { ...base.settings, ...s.settings }, flags: { ...base.flags, ...s.flags }, stats: { ...base.stats, ...s.stats } };
     merged.version = SAVE_VERSION;
+    if (s.lobby === undefined) merged.lobby = 'done'; // careers from before the lobby check-in
     return merged;
   } catch {
     return null;
