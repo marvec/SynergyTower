@@ -8,6 +8,7 @@ import { MINIGAMES } from '../minigames/index.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
 import { openFeedback } from '../engine/feedback.js';
+import { track } from '../engine/analytics.js';
 import { remindersSupported, remindersOn, enableReminders, disableReminders } from '../engine/reminders.js';
 
 export class Modal {
@@ -52,6 +53,9 @@ export class Modal {
   }
   renderBody() {}
 }
+
+/** Analytics: Stock Options spent (`on` = what for), tagged with the career floor. */
+const trackSpend = (game, on, so) => track('so_spend', { on, so, floor: game.state.maxFloor });
 
 const inside = (p, x, y, w, h) => p.x >= x && p.y >= y && p.x < x + w && p.y < y + h;
 
@@ -101,6 +105,7 @@ export class TaskCard extends Modal {
   skip() {
     const r = S.skipCooldown(this.game.state, this.task.id, this.game.now());
     if (r.ok) {
+      trackSpend(this.game, 'skip_task', E.SKIP_COOLDOWN_SO);
       this.game.sfx('coin');
       this.game.markDirty();
     }
@@ -108,6 +113,7 @@ export class TaskCard extends Modal {
   refill() {
     const r = S.refillCoffee(this.game.state, this.game.now());
     if (r.ok) {
+      trackSpend(this.game, 'refill', E.REFILL_COFFEE_SO);
       this.game.sfx('coin');
       this.game.toast('Coffee refilled! Productivity intensifies.', C.coffee);
       this.game.markDirty();
@@ -155,6 +161,7 @@ export class ReviewCard extends Modal {
       b.add({ x: this.x + 10, y: by, w: 120, h: 18, label: `Retry in ${formatTime(r.left)}`, disabled: true });
       b.add({ x: this.x + 136, y: by, w: 84, h: 18, label: 'Skip', icon: 'so', color: '#2f7f6f', disabled: s.so < E.SKIP_COOLDOWN_SO, onClick: () => {
         if (S.skipCooldown(s, S.reviewKey(s.maxFloor), this.game.now()).ok) {
+          trackSpend(this.game, 'skip_review', E.SKIP_COOLDOWN_SO);
           this.game.sfx('coin');
           this.game.markDirty();
         }
@@ -163,6 +170,7 @@ export class ReviewCard extends Modal {
       b.add({ x: this.x + 10, y: by, w: 120, h: 18, label: `Need ${r.cost} coffee`, disabled: true });
       b.add({ x: this.x + 136, y: by, w: 84, h: 18, label: `Refill ${E.REFILL_COFFEE_SO}`, icon: 'so', color: '#2f7f6f', disabled: s.so < E.REFILL_COFFEE_SO, onClick: () => {
         if (S.refillCoffee(s, this.game.now()).ok) {
+          trackSpend(this.game, 'refill', E.REFILL_COFFEE_SO);
           this.game.sfx('coin');
           this.game.markDirty();
         }
@@ -290,6 +298,7 @@ function departmentColor(fl) {
 export class ShopOverlay extends Modal {
   constructor(game) {
     super(game, { w: 340, h: 200, title: 'Stock Option Shop' });
+    track('shop_open', { floor: game.state.maxFloor });
   }
   build() {
     const b = this.buttons;
@@ -299,12 +308,16 @@ export class ShopOverlay extends Modal {
     E.SO_PACKS.forEach((p, i) => {
       b.add({
         x: this.x + 10 + i * (cw + 4), y: this.y + 104, w: cw, h: 28, label: p.price, sub: null, color: '#2f7f6f',
-        onClick: () => this.game.push(new FakeCheckout(this.game, p)),
+        onClick: () => {
+          track('checkout_open', { pack: p.id, floor: this.game.state.maxFloor });
+          this.game.push(new FakeCheckout(this.game, p));
+        },
       });
     });
     const s = this.game.state;
     b.add({ x: this.x + 10, y: this.y + 160, w: 150, h: 18, label: `Refill coffee (${E.REFILL_COFFEE_SO})`, icon: 'coffee', color: C.coffee, disabled: s.so < E.REFILL_COFFEE_SO || s.coffee.value >= S.coffeeMax(s), onClick: () => {
       if (S.refillCoffee(s, this.game.now()).ok) {
+        trackSpend(this.game, 'refill', E.REFILL_COFFEE_SO);
         this.game.sfx('coin');
         this.game.markDirty();
         this.game.toast('Coffee refilled!', C.coffee);
@@ -358,7 +371,8 @@ export class FakeCheckout extends Modal {
       this.timer += dt;
       this.t += dt;
       if (this.timer > 1.2) {
-        S.purchasePack(this.game.state, this.pack.id);
+        // The checkout is fake, so this measures willingness to pay rather than revenue.
+        if (S.purchasePack(this.game.state, this.pack.id).ok) track('so_purchase', { pack: this.pack.id, so: this.pack.so, floor: this.game.state.maxFloor });
         this.game.markDirty();
         this.game.saveNow();
         this.game.sfx('cash');
@@ -414,6 +428,7 @@ export class PerksOverlay extends Modal {
         onClick: () => {
           const r = S.buyPerk(s, p.id);
           if (r.ok) {
+            if (p.currency === 'so') trackSpend(this.game, `perk:${p.id}`, r.cost);
             this.game.sfx('levelup');
             this.game.markDirty();
             this.game.toast(`${p.name} upgraded!`, C.good);

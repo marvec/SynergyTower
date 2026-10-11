@@ -86,7 +86,8 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
   `public/og-image.png` (1200×630) is the title screen at 2.5× with the bottom 18 px cropped, captured from the dev server.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
-  coffee_click, reminders_on, reminder_sent). `track` is a no-op elsewhere, so tests and the dev server send nothing.
+  coffee_click, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
+  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}; all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing.
 - Reminders: opt-in browser notifications ("Reminders" in the ☰ menu, offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;
   `src/engine/reminders.js` schedules the soonest one when the tab is hidden and fires only if the tab is still hidden.

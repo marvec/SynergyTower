@@ -39,7 +39,8 @@ The game is played at [synergytower.co.uk](https://synergytower.co.uk/). It sets
 - **Analytics** use two cookieless services: [Cloudflare Web Analytics](https://www.cloudflare.com/web-analytics/)
   counts page visits, and [Umami](https://umami.is/) counts visits plus a few anonymous gameplay events (career
   started, mini-game played with its stars, HR review passed or failed, promotion with the floor number, poster opened,
-  feedback form opened or sent, coffee link clicked, reminders switched on or shown). Neither stores anything in your browser or builds a profile of
+  feedback form opened or sent, coffee link clicked, reminders switched on or shown, shop and demo checkout opened,
+  pretend Stock Option purchases and what Stock Options were spent on). Neither stores anything in your browser or builds a profile of
   you; visitors are counted from a hash of the IP address and browser that changes daily. Analytics only run on
   synergytower.co.uk (never on localhost or in a self-hosted copy), and blocking them does not affect the game.
 - **The feedback form** sends your message, the topic, your email if you enter one, and a short note on where you are in
