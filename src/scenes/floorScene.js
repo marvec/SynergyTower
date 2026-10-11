@@ -619,7 +619,7 @@ export class FloorScene {
     else {
       text = t.it.task.title;
       const left = S.cooldownLeft(s, t.it.task.id, now);
-      sub = left > 0 ? `busy ${formatTime(left)}` : `-${E.coffeeCost(this.floorNo)} coffee`;
+      sub = left > 0 ? `busy ${formatTime(left)}` : `-${E.taskCoffeeCost(t.it.task.game)} coffee`;
       if (this.quest) sub = this.quest.isStation(t.it) ? this.quest.stationSub() : 'finish your task first';
     }
     const w = measureText(text) + measureText(sub) + 56;

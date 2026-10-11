@@ -140,7 +140,7 @@ export class TaskCard extends Modal {
     drawText(g, `${formatNum(r1.xp)}-${formatNum(r3.xp)}`, x + 140, y + 86, { color: C.xp });
     icon(g, 'star', x + 200, y + 86);
     drawText(g, '0-3 KPI', x + 210, y + 86);
-    drawText(g, `Cooldown after play: ${formatTime(E.stationCooldownMs(s.floor, s.perks))}`, x + 10, y + 100, { color: C.dim });
+    drawText(g, `Cooldown after play: ${formatTime(E.stationCooldownMs(s.floor, s.perks, t.game))}`, x + 10, y + 100, { color: C.dim });
   }
 }
 

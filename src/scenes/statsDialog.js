@@ -41,8 +41,8 @@ function statInfo(key, s, now) {
     return {
       title: 'Coffee',
       value: `${s.coffee.value}/${max}`,
-      color: s.coffee.value < E.coffeeCost(f) ? C.bad : C.text,
-      text: `Starting a task costs ${E.coffeeCost(f)} coffee on this floor. It refills by itself over time, and the coffee machine on every floor pours ${E.COFFEE_MACHINE_AMOUNT} free cups now and then.`,
+      color: s.coffee.value < 1 ? C.bad : C.text,
+      text: `Tasks cost 1-3 coffee: quick games 1, bigger ones 2, the most complex 3. Quick ones take longer to be ready again. Coffee refills by itself over time, and the coffee machine on every floor pours ${E.COFFEE_MACHINE_AMOUNT} free cups now and then.`,
       rows: [
         ['Next cup', next === 0 ? true : null, next === 0 ? 'mug is full' : `in ${formatTime(next)} (one every ${formatTime(E.coffeeRegenMs(s.perks))})`],
         ['Coffee machine', machine <= 0, machine <= 0 ? `ready: +${E.COFFEE_MACHINE_AMOUNT}` : `brewing, ${formatTime(machine)}`],

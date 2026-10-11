@@ -110,7 +110,7 @@ export class Hud {
     const next = S.msToNextCoffee(s, now);
     if (next > 0) item('coffee', null, `+1 ${formatTime(next)}`, C.dim);
     const cmax = S.coffeeMax(s);
-    item('coffee', 'coffee', `${s.coffee.value}/${cmax}`, s.coffee.value < E.coffeeCost(s.floor) ? C.bad : C.text);
+    item('coffee', 'coffee', `${s.coffee.value}/${cmax}`, s.coffee.value < 1 ? C.bad : C.text);
     const gp = S.gamesPlayed(s);
     item('games', 'pad', `${gp.played}/${gp.total}`, gp.played === gp.total ? C.good : C.text, 11);
 

@@ -113,9 +113,9 @@ export class ElevatorRide {
     const lines = [
       ['star', `New KPI quota: ${E.starQuota(this.to)} stars`],
       ['sp', `Tasks now pay ${E.taskReward(this.to, 2).sp} paperclips at 2 stars`],
-      ['coffee', `Max coffee ${12 + Math.floor(this.to / 5) + 2 * (s.perks.mug || 0)}, tasks cost ${E.coffeeCost(this.to)}`],
+      ['coffee', `Max coffee ${E.maxCoffee(this.to, s.perks)}, tasks cost 1-3`],
       this.warp ? ['lock', 'No keycard, no HR review. systemd said so.'] : ['so', '+1 Stock Option signing bonus'],
-      ['clock', `Task cooldowns: ${Math.round(E.stationCooldownMs(this.to, s.perks) / 60000)} min`],
+      ['clock', `Task cooldowns: ${Math.max(1, Math.round((E.baseCooldownMs(this.to, s.perks) * E.COOLDOWN_TIER_MULT[3]) / 60000))}-${Math.round((E.baseCooldownMs(this.to, s.perks) * E.COOLDOWN_TIER_MULT[1]) / 60000)} min`],
     ];
     lines.forEach(([ic, t], i) => {
       icon(g, ic, x + 30, y + 68 + i * 13);
