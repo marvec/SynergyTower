@@ -31,24 +31,41 @@ export const starQuota = (floor) => 8 + 2 * (floor - 1);
 export const levelRequiredForFloor = (floor) => floor;
 export const xpToNext = (level) => Math.round(18 * 1.15 ** (level - 1) * (3 + level));
 export const keycardFee = (floor) => Math.round(25 * 1.17 ** (floor - 1) * (2 + floor));
-export const coffeeCost = (floor) => 1 + Math.floor((floor - 1) / 13);
+/**
+ * Mini-game complexity: 1 simple (reflex / one choice per round), 2 medium, 3 complex (puzzles, multi-step, floor quests).
+ * It sets the coffee cost (1-3 cups) and the cooldown: simple games are cheap but come back slowly, complex ones the reverse.
+ */
+export const GAME_TIER = {
+  timing: 1, stealth: 1, whack: 1, quiz: 1, jargon: 1, bingo: 1, math: 1, pitch: 1, tailgate: 1, inbox: 1, calendar: 1,
+  typing: 2, compose: 2, memory: 2, simon: 2, order: 2, replyall: 2, meeting: 2, stocks: 2, frogger: 2, karaoke: 2, coffee: 2,
+  expense: 2, plant: 2,
+  spreadsheet: 3, cables: 3, orgchart: 3, fridge: 3, defender: 3, chart: 3, password: 3, feedback: 3, lostpw: 3,
+};
+export const gameTier = (game) => GAME_TIER[game] || 2;
+export const taskCoffeeCost = (game) => gameTier(game);
+export const REVIEW_COFFEE = 2;
+export const COOLDOWN_TIER_MULT = { 1: 4, 2: 1.5, 3: 0.75 };
 export const stationCount = (floor) => Math.min(14, 8 + Math.floor((floor - 1) / 6));
 
-export function stationCooldownMs(floor, perks = {}) {
+export function baseCooldownMs(floor, perks = {}) {
   const base = 60 * 1.08 ** (floor - 1);
   return Math.round(base * (perks.plant ? 0.85 : 1)) * 1000;
 }
 
+export function stationCooldownMs(floor, perks = {}, game) {
+  return Math.round((baseCooldownMs(floor, perks) * COOLDOWN_TIER_MULT[gameTier(game)]) / 1000) * 1000;
+}
+
 export function reviewCooldownMs(floor, perks = {}) {
-  return stationCooldownMs(floor, perks) * 2;
+  return baseCooldownMs(floor, perks) * 2;
 }
 
 export function maxCoffee(floor, perks = {}) {
-  return 12 + Math.floor(floor / 5) + 2 * (perks.mug || 0);
+  return 6 + Math.floor(floor / 5) + 2 * (perks.mug || 0);
 }
 
 export function coffeeRegenMs(perks = {}) {
-  return Math.round(120000 * (1 - 0.1 * (perks.espresso || 0)));
+  return Math.round(180000 * (1 - 0.1 * (perks.espresso || 0)));
 }
 
 /** Applies XP, returning the new level/xp and how many levels were gained. */
