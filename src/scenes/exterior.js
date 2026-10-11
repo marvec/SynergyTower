@@ -125,7 +125,6 @@ export class ExteriorScene {
     for (let x = 0; x < WORLD_W; x += 24) rect(g, x, streetY, 1, 14, '#8f8b82');
     rect(g, -20, streetY + 14, WORLD_W + 40, 40, '#3a3d46');
     for (let x = 0; x < WORLD_W; x += 40) rect(g, x, streetY + 30, 20, 2, '#e8e0a0');
-    for (const c of this.cars) this.drawCar(g, c, streetY + 18);
     // Trees and lamp posts.
     for (const tx of [60, 300, 470, 720, 860]) {
       rect(g, tx, streetY - 26, 3, 26, '#5a3a22');
@@ -139,6 +138,8 @@ export class ExteriorScene {
       a.draw(g);
       g.restore();
     }
+    // Cars drive on the road, in front of the sidewalk: draw them over the pedestrians.
+    for (const c of this.cars) this.drawCar(g, c, streetY + 18);
     g.restore();
     if (this.pan > 0.15) {
       panel(g, W / 2 - 150, H - 30, 300, 20, { fill: C.panelDark });
