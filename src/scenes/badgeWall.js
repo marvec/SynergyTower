@@ -2,6 +2,7 @@
 import { C, rect, frame, icon, ButtonSet } from '../engine/ui.js';
 import { drawText, drawWrapped } from '../engine/font.js';
 import { BADGES } from '../core/achievements.js';
+import { dayKey } from '../core/daily.js';
 import { Modal } from './overlays.js';
 
 const COLS = 7;
@@ -62,7 +63,7 @@ export class BadgeWall extends Modal {
     const ty = this.gy + 5 * CH + 4;
     rect(g, x + 10, ty - 2, this.w - 20, 34, C.panelDark);
     drawText(g, at ? b.name : `${b.name} (locked)`, x + 16, ty + 1, { color: at ? C.gold : C.dim });
-    if (at) drawText(g, new Date(at).toLocaleDateString(), x + this.w - 16, ty + 1, { align: 'right', color: C.dim });
+    if (at) drawText(g, dayKey(at), x + this.w - 16, ty + 1, { align: 'right', color: C.dim });
     drawWrapped(g, b.desc, x + 16, ty + 12, this.w - 32, { color: C.text });
   }
 }

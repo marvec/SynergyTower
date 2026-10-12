@@ -244,6 +244,8 @@ export class FloorScene {
     const p = this.player;
     this.pending = null;
     p.path = null;
+    // Someone walking out (fired, or the auditor leaving) may still be a stale click target: let them go.
+    if (t.kind === 'npc' && t.n.brain.exit) return;
     const ev = this.event;
     if (ev) {
       if (ev.onInteract(t)) {
@@ -410,7 +412,7 @@ export class FloorScene {
     if (D.standupStatus(game.state, now) !== 'pending') return;
     const day = D.dayKey(now);
     const f = this.floorNo;
-    const task = { id: `standup-${day}`, game: D.standupGame(day), title: 'Daily stand-up favour', difficulty: Math.min(1, ((f - 1) / 39) * 0.85 + 0.075), seed: f * 977 + day.length };
+    const task = { id: `standup-${day}`, day, game: D.standupGame(day), title: 'Daily stand-up favour', difficulty: Math.min(1, ((f - 1) / 39) * 0.85 + 0.075), seed: f * 977 + day.length };
     game.push(
       new MinigameScene(game, task, (r) => {
         if (!r?.standup) return;
@@ -826,7 +828,8 @@ export class FloorScene {
     let sub = '';
     if (t.kind === 'npc') {
       text = 'Talk';
-      sub = t.n === this.standupNpc && !this.quest ? `${t.n.id.name} - daily stand-up` : S.canFire(s) && !this.quest ? `${t.n.id.name} - decide their fate` : t.n.id.name;
+      if (t.n === this.event?.auditor) sub = `${t.n.id.name} - wrap up the audit`;
+      else sub = t.n === this.standupNpc && !this.quest ? `${t.n.id.name} - daily stand-up` : S.canFire(s) && !this.quest ? `${t.n.id.name} - decide their fate` : t.n.id.name;
     } else if (t.kind === 'terminal') {
       text = 'Workstation';
       sub = 'open terminal';

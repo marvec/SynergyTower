@@ -13,6 +13,7 @@ import { itemNeighbors } from '../core/floorgen.js';
 import * as V from '../core/events.js';
 import * as E from '../core/economy.js';
 import { Actor, NpcBrain, npcLook, npcIdentity } from './floorWorld.js';
+import { MINIGAMES } from '../minigames/index.js';
 import { HUD_H } from './hud.js';
 
 const SPEED = 4.4; // the player's walking speed (tiles/s), as in floorScene.js
@@ -123,7 +124,11 @@ export class OfficeEvent {
   }
   /** During a fire drill, nothing but the exit. Otherwise the floor works as usual (minus audited stations). */
   blocks(t) {
-    if (this.kind === 'drill' && ['task', 'elevator', 'hr', 'terminal'].includes(t.kind)) return 'Not now: fire drill! Get to the fire exit.';
+    const drill = 'Not now: fire drill! Get to the fire exit.';
+    if (this.kind === 'drill' && ['task', 'elevator', 'hr', 'terminal', 'mydesk'].includes(t.kind)) return drill;
+    if (this.kind === 'drill' && t.kind === 'npc' && t.n === this.scene.standupNpc) return drill;
+    // Floor quests run their own clock and HUD panel: not while an event is on (checked before the coffee is charged).
+    if (t.kind === 'task' && MINIGAMES[t.it.task.game].quest) return 'Better wait until the office event is over.';
     if (this.kind === 'audit' && t.kind === 'task' && this.locked.has(t.it)) return 'Locked for the audit. Talk to the auditor to speed it up.';
     return null;
   }
@@ -132,7 +137,7 @@ export class OfficeEvent {
   }
   /** Station markers this event draws its own marker over (locked stations, the melting printer). */
   hidesMarker(it) {
-    return !this.over && (this.isLocked(it) || (this.kind === 'printer' && it === this.target));
+    return !this.over && (this.isLocked(it) || ((this.kind === 'printer' || this.kind === 'cake') && it === this.target));
   }
   prompt() {
     if (this.kind === 'printer') return ['Kick it', `${3 - this.kicks} more`];
@@ -157,6 +162,15 @@ export class OfficeEvent {
       p.say('Mmm, cake!', 2);
       this.rival?.a.say('Aww, the last slice...', 3);
       this.finish(true, 'First to the cake!');
+      return true;
+    }
+    // Chatting must not stop colleagues on their way to the exit, or the cake rival mid-race.
+    if (t.kind === 'npc' && this.kind === 'drill') {
+      t.n.a.say('Fire drill! This way!', 2);
+      return true;
+    }
+    if (t.kind === 'npc' && t.n === this.rival) {
+      t.n.a.say('Out of my way! Cake waits for no one.', 2);
       return true;
     }
     if (t.kind === 'npc' && t.n === this.auditor) {

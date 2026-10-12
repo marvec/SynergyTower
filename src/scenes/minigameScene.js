@@ -122,7 +122,7 @@ export class MinigameScene {
   completeStandup(score) {
     const s = this.game.state;
     // Null if the stand-up was already done today (another tab): show the stars, pay nothing.
-    this.result = completeStandup(s, this.task.game, score, this.game.now()) || { standup: true, stars: E.starsFromScore(score), none: true };
+    this.result = completeStandup(s, this.task.game, score, this.game.now(), Math.random, this.task.day) || { standup: true, stars: E.starsFromScore(score), none: true };
     this.result.score = score;
     track('standup', { stars: this.result.stars, streak: this.result.streak || 0, floor: s.maxFloor });
     this.game.markDirty();
@@ -201,7 +201,7 @@ export class MinigameScene {
     } else if (this.phase === 'paused') {
       dim(g, 0.6);
       panel(g, W / 2 - 110, H / 2 - 30, 220, 66, { title: 'Paused' });
-      drawText(g, 'Give up? Coffee is not refunded.', W / 2, H / 2 - 10, { align: 'center' });
+      drawText(g, this.mode === 'standup' ? 'Give up? The favour still counts.' : 'Give up? Coffee is not refunded.', W / 2, H / 2 - 10, { align: 'center' });
       this.buttons.render(g);
     } else if (this.phase === 'result') {
       if (this.mode === 'review') this.renderReviewResult(g);

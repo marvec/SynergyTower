@@ -31,10 +31,12 @@ export function standupGame(day) {
   return STANDUP_GAMES[h % STANDUP_GAMES.length];
 }
 
-/** Pays the daily bonus for any result. Returns null if today's stand-up is not available. */
-export function completeStandup(s, game, score, now, rng = Math.random) {
-  if (standupStatus(s, now) !== 'pending') return null;
-  const day = dayKey(now);
+/**
+ * Pays the daily bonus for any result. `day` = the day the stand-up was started (it may end after midnight); it counts
+ * for that day. Returns null if that day's stand-up is already done.
+ */
+export function completeStandup(s, game, score, now, rng = Math.random, day = dayKey(now)) {
+  if (s.lobby !== 'done' || !(day > (s.daily?.day || ''))) return null;
   const stars = E.starsFromScore(score);
   const sp = 2 * E.taskReward(s.maxFloor, Math.max(1, stars), s.perks).sp;
   const xp = E.taskReward(s.maxFloor, stars, s.perks).xp;

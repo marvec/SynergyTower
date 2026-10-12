@@ -93,3 +93,12 @@ test('old saves gain the daily state', () => {
   expect(back.daily).toEqual({ day: null, streak: 0, best: 0 });
   expect(D.standupStatus(back, at(2026, 10, 12))).toBe('pending');
 });
+
+test('a stand-up started before midnight counts for the day it started', () => {
+  const s = player();
+  D.completeStandup(s, 'quiz', 0.5, at(2026, 10, 11, 9), () => 1);
+  const r = D.completeStandup(s, 'quiz', 0.5, at(2026, 10, 13, 0), () => 1, '2026-10-12');
+  expect(r.streak).toBe(2);
+  expect(s.daily.day).toBe('2026-10-12');
+  expect(D.standupStatus(s, at(2026, 10, 13, 1))).toBe('pending');
+});
