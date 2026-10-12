@@ -93,13 +93,26 @@ unless Martin explicitly asks for that. Rules in `c64/CLAUDE.md`.
   `public/og-image.png` (1200×630) is the title screen at 2.5× with the bottom 18 px cropped, captured from the dev server.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
-  coffee_click, checkin {stars}, turnstile, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
+  coffee_click, checkin {stars}, turnstile, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
   so_spend {on: skip_task|skip_review|refill|perk:<id>, so}; all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
   completing it fills the pot and starts the refill. The `turnstile` item fills the lobby door: walkable in `fl.walk` so floor
   planning sees everything, closed in the floor scene via `gatedWalk(fl)` until `S.passTurnstile` takes the first cup.
   The receptionist (`fl.receptionist`) stands behind the desk and nudges with speech bubbles.
+- Retention features (spec `docs/superpowers/specs/2026-10-12-retention-features-design.md`), each a pure core module
+  plus scene code:
+  - **Daily stand-up** (`src/core/daily.js`, `state.daily`): once per local day, after check-in, a colleague on the current
+    floor (picked by day + floor) has a blue bubble; the favour is a free tier-1 game in `MinigameScene` `mode: 'standup'`
+    (no KPI stars, no cooldown) paying double paperclips, +1 coffee and a Stock Option chance (sure on every 7th day in a row).
+  - **Office events** (`src/core/events.js` rules, `src/scenes/officeEvent.js` run by the FloorScene like a quest): fire
+    drill, printer meltdown, cake, surprise audit. `state.events.nextAt` spaces them 6-10 min apart, 40 s on a floor
+    first; timers use scene dt. Force one from the console: `__game.top.startEvent('cake')`.
+  - **Your desk** (`src/core/desk.js`, `state.desks`): `fl.myDesk` is picked in `planFloor` without the RNG (floors stay
+    unchanged); `DESK_DECOR` prices scale with the floor; `DeskOverlay` buys/shows; `drawDeskDecor` in art.js.
+  - **Badges** (`src/core/achievements.js`, `state.badges`): predicates over the state only; `game.checkBadges()` runs
+    every 0.5 s. `stats.soSpent` = -1 for saves from before it was counted (never earns "Bootstrapped"). `BadgeWall`
+    opens from the HUD medal button and the menu.
 - Reminders: opt-in browser notifications ("Reminders" in the ☰ menu, offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;
   `src/engine/reminders.js` schedules the soonest one when the tab is hidden and fires only if the tab is still hidden.
