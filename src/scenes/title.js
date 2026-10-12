@@ -1,7 +1,8 @@
 import { MINIGAMES } from '../minigames/index.js';
 // Title screen: animated tower at dusk, logo, continue / new career.
 import { W, H } from '../engine/screen.js';
-import { C, ButtonSet, rect, drawLink, openCoffee } from '../engine/ui.js';
+import { C, ButtonSet, rect, frame, drawLink, openCoffee } from '../engine/ui.js';
+import { track } from '../engine/analytics.js';
 import { openFeedback } from '../engine/feedback.js';
 import { drawText, measureText } from '../engine/font.js';
 import { CORP_COLORS } from '../data/corpColors.js';
@@ -24,7 +25,7 @@ export class TitleScene {
     const b = this.buttons;
     b.clear();
     const x = 40;
-    let y = 150;
+    let y = 136;
     if (this.saved) {
       const s = this.game.state;
       b.add({ x, y, w: 150, h: 20, label: 'Continue career', color: C.goodBtn, onClick: () => this.continue() });
@@ -34,6 +35,19 @@ export class TitleScene {
     b.add({ x, y, w: 150, h: 20, label: this.saved ? 'New career' : 'Start your career', onClick: () => this.newGame() });
     y += 26;
     b.add({ x, y, w: 150, h: 20, label: 'How to play', color: C.panelLight, onClick: () => this.game.push(new Dialog(this.game, { title: 'How to play', w: 320, text: HOW_TO })) });
+    y += 28;
+    // Other platforms: the C64 version's download page; the phone apps aren't out yet. Centred under the menu.
+    const widths = STORES.map((s) => 17 + Math.max(measureText(s.top), measureText(s.name)));
+    let bx = Math.max(4, Math.round(x + 75 - (widths.reduce((a, w) => a + w, 0) + 3 * (STORES.length - 1)) / 2));
+    STORES.forEach((s, i) => {
+      b.add({ x: bx, y, w: widths[i], h: 22, store: s, draw: drawStoreBadge, onClick: () => this.openStore(s) });
+      bx += widths[i] + 3;
+    });
+  }
+  openStore(s) {
+    track('store_click', { store: s.id });
+    if (s.url) window.open(s.url, '_blank', 'noopener');
+    else this.game.toast(`Coming soon to ${s.name}!`, C.gold);
   }
   enter() {
     this.game.audio.play('title');
@@ -75,11 +89,11 @@ export class TitleScene {
     rect(g, 0, groundY, W, 2, '#3a3f4e');
     // Logo.
     const wob = Math.round(Math.sin(this.t * 2) * 2);
-    drawText(g, 'SYNERGY', 40, 40 + wob, { scale: 4, color: C.gold, shadow: '#000' });
-    drawText(g, 'TOWER', 40, 76 - wob, { scale: 4, color: '#ffffff', shadow: '#000' });
-    drawText(g, 'Climb 40 floors of corporate absurdity.', 42, 112, { color: '#e8dff8', shadow: '#000' });
-    drawText(g, `Prove your skills in ${GAME_COUNT} challenging tasks!`, 42, 122, { color: C.gold, shadow: '#000' });
-    if (this.savedInfo) drawText(g, this.savedInfo, 42, 138, { color: C.so, shadow: '#000' });
+    drawText(g, 'SYNERGY', 40, 28 + wob, { scale: 4, color: C.gold, shadow: '#000' });
+    drawText(g, 'TOWER', 40, 64 - wob, { scale: 4, color: '#ffffff', shadow: '#000' });
+    drawText(g, 'Climb 40 floors of corporate absurdity.', 42, 100, { color: '#e8dff8', shadow: '#000' });
+    drawText(g, `Prove your skills in ${GAME_COUNT} challenging tasks!`, 42, 110, { color: C.gold, shadow: '#000' });
+    if (this.savedInfo) drawText(g, this.savedInfo, 42, 124, { color: C.so, shadow: '#000' });
     this.buttons.render(g);
     drawText(g, 'v1.0 · works offline · no cookies · M toggles music', 4, H - 11, { color: '#8890b0' });
     drawLink(g, this.game.input, 'Buy author a coffee', W - 4, H - 11, openCoffee);
@@ -88,3 +102,25 @@ export class TitleScene {
 }
 
 const sendFeedback = () => openFeedback('title screen');
+
+// Store badges below the menu: black with a grey outline like the real ones, a 9×9 pixel logo, two lines of text.
+const STORES = [
+  { id: 'c64', top: 'Download for', name: 'Commodore 64', url: '/c64/', art: [
+    '.........', '.........', '.........', 'MMMMMMMMM', 'MkkkkkkRM', 'MkkkkkkOM', 'MkkkkkkYM', 'MMMMMMMMM', '.........'] },
+  { id: 'appstore', top: 'Coming soon', name: 'App Store', art: [
+    '.....W...', '....W....', '.WWW.WWW.', 'WWWWWWWW.', 'WWWWWWW..', 'WWWWWWW..', 'WWWWWWWW.', '.WWWWWWW.', '..WW.WW..'] },
+  { id: 'googleplay', top: 'Coming soon', name: 'Google Play', art: [
+    'B........', 'BG.......', 'BGGG.....', 'BGGGG....', 'BYYYYY...', 'BRRRR....', 'BRRR.....', 'BR.......', 'B........'] },
+];
+const ART_COLORS = { M: '#c9b98f', k: '#5a5244', R: '#e2504a', O: '#f29c38', Y: '#f2c14e', W: '#ffffff', B: '#3b8bf0', G: '#34c759' };
+
+function drawStoreBadge(g, b, focused, hovered) {
+  const s = b.store;
+  rect(g, b.x, b.y, b.w, b.h, '#a8acbc');
+  rect(g, b.x + 1, b.y + 1, b.w - 2, b.h - 2, hovered ? '#24262e' : '#000');
+  if (focused) frame(g, b.x - 1, b.y - 1, b.w + 2, b.h + 2, C.gold);
+  s.art.forEach((row, r) => [...row].forEach((ch, c) => ch !== '.' && rect(g, b.x + 3 + c, b.y + 6 + r, 1, 1, ART_COLORS[ch])));
+  const soon = !s.url;
+  drawText(g, s.top, b.x + 14, b.y + 3, { color: soon ? C.gold : '#c8ccd8' });
+  drawText(g, s.name, b.x + 14, b.y + 12, { color: soon ? '#c8ccd8' : '#ffffff' });
+}

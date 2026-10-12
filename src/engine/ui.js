@@ -154,7 +154,7 @@ export const inRect = (p, x, y, w, h) => p.x >= x && p.y >= y && p.x < x + w && 
 
 /**
  * Retained button group with mouse hover/click, arrow-key focus and Space/Enter activation.
- * add({ x, y, w, h, label, onClick, hotkey, disabled, color, icon, sub }).
+ * add({ x, y, w, h, label, onClick, hotkey, disabled, color, icon, sub, draw }).
  */
 export class ButtonSet {
   constructor({ keyboard = true, columns = 0 } = {}) {
@@ -221,6 +221,7 @@ export class ButtonSet {
 }
 
 export function drawButton(g, b, focused, hovered) {
+  if (b.draw) return b.draw(g, b, focused, hovered); // a button with art of its own (the title screen's store badges)
   const base = b.disabled ? '#3a3d4d' : b.color || C.accent;
   rect(g, b.x, b.y, b.w, b.h, C.border);
   rect(g, b.x + 1, b.y + 1, b.w - 2, b.h - 2, base);
