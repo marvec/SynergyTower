@@ -28,7 +28,7 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 | Content | `src/data/` | Pure data: departments/titles/NPC lines, corp colours, task titles, music, `mg-*.js` mini-game content. |
 | Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit. |
 | Scenes | `src/scenes/` | title → setup → exterior → floor ⇄ (overlays, mini-game host, elevator ride) → ending. |
-| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review), registered in `src/minigames/index.js`. |
+| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review, + 8 holiday activities for the vacation hotel), registered in `src/minigames/index.js`. |
 
 - `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`),
   throttled autosave of the career being played (`game.slot`), toasts.
@@ -100,7 +100,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   The dev server serves `public/<dir>/index.html` for folder URLs, like GitHub Pages.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
-  coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
+  coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, vacation_start, vacation_activity {game, stars}, vacation_end {coffee, activities, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
   so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges),
   c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
@@ -151,6 +151,17 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   brewers use `T.BREWER_KEY` with a 2-minute cooldown; the lobby EXIT leaves at any time. Text in `src/data/trip.js`.
   Console on the dev server (repeatable, resets the one-time trip): `__trip()` on floor 10/30, `__trip(30)` rides there first,
   `__trip('client')` / `__trip(10, 'client')` skips the drive.
+- **Vacation** (spec `docs/superpowers/specs/2026-10-13-vacation-design.md`, a secret level): on floor 20 (`VACATION_FLOOR`)
+  the first colleague (`FloorScene.bossNpc`, "Your Manager") signs a leave request once per local day for `VACATION_COST`
+  (5000) paperclips (`src/core/vacation.js`, `state.vacations.day`; `state.vacation = { endsAt, done, coffee }` during the
+  15-minute stay). `HotelScene` (`src/scenes/hotel.js`, FloorScene subclass, `foreign`) runs on `buildHotel()`
+  (`src/core/hotel.js`, 48×42): the building at the top (suite, lobby with the EXIT front door in the top wall, restaurant),
+  garden with pool, tiki bar and spa cabana, beach, jetty. Water is tile `T_WATER` (not walkable), outdoor floor styles come
+  from `fl.ground`, outdoor walls are hedges (`fl.hedgeFrom`), `fl.arrive` is the spawn. Activities are items with
+  `it.activity` (not `it.task`) running MinigameScene mode `'vacation'`: free, no paperclips/XP/KPI, ≥1 star pays
+  `VACATION_COFFEE` once per activity per stay, on top of the pot. The 8 holiday games (`sleep`, `buffet`, `beachball`,
+  `swim`, `sunbathe`, `cocktail`, `massage`, `sandcastle`) are in `MINIGAMES` but not `STATION_GAMES`/`GAME_TIER`; each has
+  a `peek()` for the attentive/idle player tests in `tests/holiday.test.js`. Text in `src/data/vacation.js`, song `tropical`.
 - Reminders: opt-in browser notifications ("Reminders" in Menu > Settings (`SettingsMenu`), offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;
   `src/engine/reminders.js` schedules the soonest one when the tab is hidden and fires only if the tab is still hidden.
@@ -169,6 +180,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - `__step(frames)`: advance the loop manually (rAF pauses in background tabs).
 - `__mg('spreadsheet', 0.7)`: launch any mini-game at a given difficulty (needs a loaded career). Dev server only.
 - `__trip()` / `__trip(30)` / `__trip('client')`: the business trip again (resets it), or straight into the client's office.
+- `__vacation()`: floor 20 with enough paperclips and the leave request open; `__vacation('hotel')` goes straight to the hotel.
   Dev server only: it lives in `src/debug.js`, which `main.js` imports unless `__DEV__` is false; the production build
   defines it so (`scripts/buildConfig.js`, checked by `tests/devOnly.test.js`). Put new cheat-like helpers there too.
 - In game: the `>_` desk on every floor opens the terminal; `systemctl isolate levelXX.target` jumps to floor XX.

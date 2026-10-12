@@ -1,5 +1,7 @@
 // Dev-only console helpers. Loaded by main.js on the dev server only: the production build drops the import (__DEV__).
 import * as T from './core/trip.js';
+import * as V from './core/vacation.js';
+import * as E from './core/economy.js';
 import { MinigameScene } from './scenes/minigameScene.js';
 
 export function installDebug(game) {
@@ -36,5 +38,32 @@ export function installDebug(game) {
     game.set(fs);
     await fs.startTrip();
     return `drive from floor ${floor}`;
+  };
+
+  /**
+   * Debug: the vacation again. __vacation() rides to floor 20 with enough paperclips and opens your manager's leave
+   * request; __vacation('hotel') goes straight to the hotel (free).
+   */
+  window.__vacation = async (mode) => {
+    const s = game.state;
+    if (!s) return 'no career loaded';
+    V.resetVacation(s);
+    s.maxFloor = Math.max(s.maxFloor, E.VACATION_FLOOR);
+    s.floor = E.VACATION_FLOOR;
+    if (mode === 'hotel') {
+      s.sp += E.VACATION_COST;
+      V.requestVacation(s, E.VACATION_FLOOR, game.now());
+      game.saveNow();
+      const { HotelScene } = await import('./scenes/hotel.js');
+      game.set(new HotelScene(game));
+      return 'hotel';
+    }
+    s.sp = Math.max(s.sp, E.VACATION_COST);
+    game.saveNow();
+    const { FloorScene } = await import('./scenes/floorScene.js');
+    const fs = new FloorScene(game, E.VACATION_FLOOR);
+    game.set(fs);
+    if (fs.bossNpc) fs.askVacation(fs.bossNpc);
+    return 'floor 20: leave request';
   };
 }

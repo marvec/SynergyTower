@@ -100,6 +100,19 @@ export class TitleScene {
       this.game.set(new FloorScene(this.game, sum.floor));
       return this.game.toast(`The client visit is over: +${sum.sp} paperclips in ${sum.tasks} tasks.`, C.gold);
     }
+    // On vacation: back to the hotel while the stay lasts, else the holiday is over (back on the boss's floor).
+    if (s.vacation) {
+      const V = await import('../core/vacation.js');
+      if (V.vacationActive(s, this.game.now())) {
+        const { HotelScene } = await import('./hotel.js');
+        return this.game.set(new HotelScene(this.game));
+      }
+      const sum = V.endVacation(s);
+      this.game.saveNow();
+      const E = await import('../core/economy.js');
+      this.game.set(new FloorScene(this.game, E.VACATION_FLOOR));
+      return this.game.toast(`The holiday is over: ${sum.coffee} extra coffee to show for it.`, C.coffee);
+    }
     // A new hire who has not made it past the lobby turnstiles yet comes back in through the front door.
     const arrival = s.lobby !== 'done' && s.floor === 1 ? 'entrance' : 'elevator';
     this.game.set(new FloorScene(this.game, s.floor, { arrival }));

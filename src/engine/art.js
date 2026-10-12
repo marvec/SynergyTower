@@ -555,6 +555,208 @@ const FURNITURE = {
     for (let i = 0; i < W - 8; i++) p.px(4 + i, -10 - Math.round(Math.sin(i / 3) * 2 + i / 5), '#5fd068');
     p.r(4, -19, 10, 1, '#f4f1e8');
   } },
+  // ------------------------------------------------ the vacation hotel (core/hotel.js)
+  hotelbed: { lift: 16, draw(p, w, h) {
+    const W = w * 16;
+    const D = h * 16;
+    p.box(0, -2, W, 6, 14, '#8a5a3a', '#6e4529');
+    p.r(3, -12, W - 6, 2, '#a8744c');
+    p.box(1, 4, W - 2, D - 6, 7, '#f4f1e8', '#d8d2c4');
+    p.r(5, -2, 14, 6, '#1a1a22');
+    p.r(6, -1, 12, 4, '#ffffff');
+    p.r(W - 19, -2, 14, 6, '#1a1a22');
+    p.r(W - 18, -1, 12, 4, '#ffffff');
+    p.r(2, 7, W - 4, D - 16, '#2fa39a');
+    p.r(2, 7, W - 4, 2, '#5fd0c8');
+    p.r(2, D - 11, W - 4, 2, '#24857e');
+    // A towel swan on the duvet.
+    p.r(W / 2 - 5, 13, 10, 4, '#ffffff');
+    p.r(W / 2 + 2, 9, 2, 5, '#ffffff');
+    p.r(W / 2 + 3, 9, 2, 1, '#f29c38');
+  } },
+  nightstand: { lift: 14, draw(p) {
+    p.box(2, 5, 12, 9, 9, '#8a5a3a', '#6e4529');
+    p.r(4, 6, 8, 1, '#4a2f1c');
+    p.r(7, -9, 2, 5, '#4a2f1c');
+    p.r(4, -13, 8, 5, '#1a1a22');
+    p.r(5, -12, 6, 3, '#f6dc8a');
+  } },
+  wardrobe: { lift: 26, draw(p, w) {
+    const W = w * 16;
+    p.box(1, 3, W - 2, 10, 26, '#8a5a3a', '#6e4529');
+    p.r(W / 2, -13, 1, 22, '#4a2f1c');
+    p.r(W / 2 - 3, -3, 1, 4, '#d9b25c');
+    p.r(W / 2 + 3, -3, 1, 4, '#d9b25c');
+  } },
+  suitcase: { lift: 12, draw(p) {
+    p.box(3, 6, 10, 6, 11, '#c74634', '#9a3326');
+    p.r(6, -6, 4, 2, '#1a1a22');
+    p.r(4, 2, 8, 1, '#f2c14e');
+    p.r(9, 4, 3, 3, '#f4f1e8');
+  } },
+  rug: { lift: 0, solid: false, draw(p, w, h) {
+    const W = w * 16;
+    const D = h * 16;
+    p.r(2, 2, W - 4, D - 4, '#c9a14a');
+    p.r(4, 4, W - 8, D - 8, '#b5653a');
+    p.r(8, 8, W - 16, D - 16, '#e6c46a');
+    for (let x = 4; x < W - 4; x += 4) p.px(x, 2, '#f4f1e8'), p.px(x, D - 3, '#f4f1e8');
+  } },
+  pottedpalm: { lift: 22, draw(p) {
+    p.box(4, 6, 8, 6, 7, '#e6d3ad', '#c9b48a');
+    p.r(7, -10, 2, 10, '#8a6a3a');
+    for (const [x, y, w] of [[1, -16, 6], [9, -16, 6], [3, -19, 10], [0, -13, 4], [12, -13, 4]]) p.r(x, y, w, 3, '#2f8a3a');
+    p.r(4, -18, 8, 1, '#5fbf5a');
+  } },
+  palm: { lift: 42, draw(p) {
+    p.r(4, 10, 9, 3, 'rgba(0,0,0,0.18)');
+    for (let i = 0; i < 9; i++) p.r(6 + Math.round(Math.sin(i / 3) * 1.5), 10 - i * 4, 4, 4, i % 2 ? '#9a7442' : '#8a6a3a');
+    const cx = 8;
+    const cy = -26;
+    for (const [dx, dy, w, h] of [[-9, -4, 9, 3], [1, -4, 9, 3], [-8, -8, 7, 3], [2, -8, 7, 3], [-3, -11, 6, 4], [-11, 0, 5, 3], [7, 0, 5, 3]])
+      p.r(cx + dx, cy + dy, w, h, '#2f8a3a');
+    for (const [dx, dy, w] of [[-9, -4, 8], [2, -4, 8], [-3, -11, 6]]) p.r(cx + dx, cy + dy, w, 1, '#5fbf5a');
+    p.r(cx - 3, cy - 1, 3, 3, '#6b4a22');
+    p.r(cx + 1, cy, 3, 3, '#6b4a22');
+  } },
+  bellcart: { lift: 20, draw(p) {
+    p.box(1, 10, 14, 4, 2, '#d9b25c', '#a8862f');
+    p.r(2, -16, 1, 26, '#d9b25c');
+    p.r(13, -16, 1, 26, '#d9b25c');
+    p.r(2, -17, 12, 2, '#d9b25c');
+    p.r(4, -2, 8, 10, '#3b6fb6');
+    p.r(4, -9, 7, 7, '#c74634');
+    p.r(5, 9, 2, 2, '#1a1a22');
+    p.r(10, 9, 2, 2, '#1a1a22');
+  } },
+  buffet: { lift: 16, draw(p, w) {
+    const W = w * 16;
+    p.box(0, 2, W, 12, 10, '#f4f1e8', '#d8d2c4');
+    p.r(1, 6, W - 2, 2, '#2fa39a');
+    // Sneeze guard, then the dishes along the counter.
+    p.r(2, -14, W - 4, 1, 'rgba(200,235,255,0.7)');
+    const dishes = [['#e2504a', '#ffd0c8'], ['#5fd068', '#f2e14e'], ['#f2c14e', '#ffffff'], ['#f29c38', '#ffffff'], ['#8a4a2a', '#f29cd0'], ['#7fc4ff', '#ffffff']];
+    for (let i = 0; i < w; i++) {
+      const x = i * 16 + 2;
+      const [a, b] = dishes[i % dishes.length];
+      p.r(x, -6, 12, 6, '#c8ccd4');
+      p.r(x + 1, -7, 10, 4, a);
+      p.r(x + 3, -8, 3, 2, b);
+      p.r(x + 7, -6, 3, 2, b);
+    }
+    // The chef's tall hat on a stand in the middle.
+    p.r(W / 2 - 1, -15, 2, 6, '#c8ccd4');
+  } },
+  diningtable: { lift: 10, draw(p, w) {
+    const W = w * 16;
+    p.box(1, 3, W - 2, 11, 9, '#ffffff', '#e2ddd0');
+    p.r(5, -3, 6, 4, '#d8d2c4');
+    p.r(W - 11, -3, 6, 4, '#d8d2c4');
+    p.r(W / 2 - 1, -9, 2, 5, '#f4f1e8');
+    p.r(W / 2 - 1, -11, 2, 2, '#f2c14e');
+  } },
+  beachball: { lift: 10, draw(p) {
+    p.r(3, 9, 10, 3, 'rgba(0,0,0,0.2)');
+    p.r(4, -2, 8, 12, '#1a1a22');
+    p.r(2, 0, 12, 8, '#1a1a22');
+    p.r(5, -1, 3, 10, '#e2504a');
+    p.r(8, -1, 3, 10, '#3b6fb6');
+    p.r(3, 1, 2, 6, '#f2c14e');
+    p.r(11, 1, 2, 6, '#ffffff');
+    p.r(6, 0, 2, 2, '#ffffff');
+  } },
+  tikibar: { lift: 30, draw(p, w) {
+    const W = w * 16;
+    p.box(0, 3, W, 10, 12, '#d9b25c', '#a77b52');
+    for (let x = 2; x < W; x += 4) p.r(x, 4, 1, 8, '#8a5a3a');
+    p.r(1, -26, 2, 20, '#8a5a3a');
+    p.r(W - 3, -26, 2, 20, '#8a5a3a');
+    p.r(0, -30, W, 6, '#c9a14a');
+    for (let x = 0; x < W; x += 2) p.r(x, -24, 1, 2 + ((x / 2) % 2), '#a8862f');
+    p.r(0, -30, W, 1, '#e6c46a');
+    for (const [x, c] of [[8, '#5fd068'], [14, '#e2504a'], [20, '#7fc4ff'], [30, '#f29c38']]) p.r(x, -16, 3, 7, c), p.r(x + 1, -18, 1, 2, c);
+    p.r(36, -7, 5, 5, '#8a5a3a');
+    p.r(37, -9, 1, 3, '#e2504a');
+  } },
+  massage: { lift: 30, draw(p, w) {
+    const W = w * 16;
+    p.r(1, -28, 2, 38, '#f4f1e8');
+    p.r(W - 3, -28, 2, 38, '#f4f1e8');
+    p.r(0, -30, W, 4, '#ffffff');
+    p.r(0, -26, W, 2, '#d8d2c4');
+    p.r(0, -24, 3, 22, 'rgba(255,255,255,0.75)');
+    p.r(W - 3, -24, 3, 22, 'rgba(255,255,255,0.75)');
+    p.box(4, 3, W - 8, 8, 8, '#ffffff', '#c9b48a');
+    p.r(6, -4, 6, 3, '#2fa39a');
+    p.r(W - 10, -3, 3, 2, '#f29cd0');
+  } },
+  torch: { lift: 26, draw(p, w, h, k) {
+    p.r(7, -14, 2, 26, '#6b4a22');
+    p.r(5, -17, 6, 4, '#8a6a3a');
+    p.r(6, -22, 4, 5, '#f29c38');
+    p.r(7, -24, 2, 4, '#f2e14e');
+  } },
+  hammock: { lift: 18, draw(p, w) {
+    const W = w * 16;
+    p.r(1, -16, 2, 26, '#8a6a3a');
+    p.r(W - 3, -16, 2, 26, '#8a6a3a');
+    for (let x = 3; x < W - 3; x++) {
+      const sag = Math.round(Math.sin(((x - 3) / (W - 6)) * Math.PI) * 6);
+      p.r(x, -12 + sag, 1, 4, (x >> 2) % 2 ? '#e2504a' : '#f2c14e');
+    }
+  } },
+  flowers: { lift: 4, solid: false, draw(p) {
+    for (const [x, y, c] of [[3, 6, '#e2504a'], [8, 4, '#f29cd0'], [12, 8, '#f2c14e'], [5, 11, '#ffffff'], [10, 12, '#e2504a']]) {
+      p.r(x - 1, y + 1, 3, 2, '#2f8a3a');
+      p.r(x, y, 2, 2, c);
+    }
+  } },
+  lounger: { lift: 8, draw(p, w, h) {
+    const D = h * 16;
+    p.box(2, 4, 12, D - 6, 4, '#ffffff', '#c8ccd4');
+    for (let y = 6; y < D - 6; y += 4) p.r(3, y, 10, 2, '#3b9fd6');
+    p.box(2, 2, 12, 6, 8, '#ffffff', '#c8ccd4');
+  } },
+  sunbed: { lift: 30, draw(p, w, h) {
+    const D = h * 16;
+    p.box(2, 4, 12, D - 6, 4, '#f4f1e8', '#c9b48a');
+    p.r(3, 2, 10, D - 10, '#e2504a');
+    p.r(3, 2, 10, 3, '#ffffff');
+    p.r(7, -24, 1, 26, '#6b4a22');
+    p.r(0, -28, 16, 3, '#f2c14e');
+    p.r(2, -30, 12, 2, '#e2504a');
+    p.r(5, -31, 6, 1, '#f2c14e');
+  } },
+  lifeguard: { lift: 32, draw(p) {
+    p.r(2, -10, 2, 22, '#f4f1e8');
+    p.r(12, -10, 2, 22, '#f4f1e8');
+    for (let y = -6; y < 10; y += 5) p.r(3, y, 10, 1, '#f4f1e8');
+    p.box(1, -10, 14, 5, 4, '#e2504a', '#9a3326');
+    p.r(13, -30, 1, 18, '#6b4a22');
+    p.r(9, -30, 4, 4, '#e2504a');
+  } },
+  sandcastle: { lift: 14, draw(p) {
+    p.box(1, 6, 14, 8, 6, '#e6c47a', '#c9a45a');
+    p.r(3, -6, 4, 6, '#d9b56a');
+    p.r(9, -8, 4, 8, '#d9b56a');
+    p.r(9, -9, 1, 1, '#d9b56a');
+    p.r(12, -9, 1, 1, '#d9b56a');
+    p.r(11, -13, 1, 4, '#6b4a22');
+    p.r(12, -13, 3, 2, '#e2504a');
+    p.r(4, 8, 4, 4, '#3b6fb6');
+  } },
+  swimladder: { lift: 18, draw(p, w) {
+    const W = w * 16;
+    p.r(3, -4, 2, 20, '#c8ccd4');
+    p.r(9, -4, 2, 20, '#c8ccd4');
+    for (let y = 2; y < 16; y += 4) p.r(3, y, 8, 1, '#c8ccd4');
+    p.r(W - 6, -16, 2, 26, '#8a6a3a');
+    p.r(W - 14, -12, 12, 12, '#1a1a22');
+    p.r(W - 13, -11, 10, 10, '#e2504a');
+    p.r(W - 10, -8, 4, 4, '#2a86c7');
+    p.r(W - 13, -7, 2, 2, '#ffffff');
+    p.r(W - 5, -7, 2, 2, '#ffffff');
+  } },
 };
 
 /**
@@ -816,6 +1018,55 @@ export function drawFloorTile(g, style, x, y, tx, ty, carpet) {
       }
       break;
     }
+    // Outdoors at the vacation hotel (core/hotel.js, `fl.ground`).
+    case 'grass': {
+      r(x, y, 16, 16, (tx + ty) % 2 ? '#5fa04a' : '#5a9a45');
+      for (let i = 0; i < 5; i++) {
+        const n = noiseAt(tx * 5 + i, ty * 11 + i, 4);
+        r(x + Math.floor(n * 15), y + Math.floor(noiseAt(tx + i, ty, 5) * 14), 1, 2, n < 0.5 ? '#76b85c' : '#4d8a3c');
+      }
+      break;
+    }
+    case 'sand': {
+      r(x, y, 16, 16, (tx + ty) % 2 ? '#ecd9a0' : '#e8d498');
+      for (let i = 0; i < 6; i++) {
+        const n = noiseAt(tx * 3 + i, ty * 7 + i, 6);
+        r(x + Math.floor(n * 16), y + Math.floor(noiseAt(tx + i, ty, 7) * 16), 1, 1, n < 0.5 ? '#d9c283' : '#f6e8b8');
+      }
+      break;
+    }
+    case 'deck': {
+      r(x, y, 16, 16, '#b98a5a');
+      for (let i = 0; i < 4; i++) r(x, y + i * 4 + 3, 16, 1, '#8f6640');
+      r(x + ((tx * 5) % 12) + 2, y + 1, 1, 1, '#6e4a2a');
+      break;
+    }
+    case 'path': {
+      r(x, y, 16, 16, '#5a9a45');
+      r(x + 1, y + 1, 14, 14, '#d4cbb4');
+      r(x + 1, y + 8, 14, 1, '#b8ad92');
+      r(x + 8, y + 1, 1, 7, '#b8ad92');
+      break;
+    }
+    case 'pool': {
+      r(x, y, 16, 16, '#3ec1e0');
+      const n = noiseAt(tx, ty, 8);
+      r(x + Math.floor(n * 10), y + 4, 5, 1, '#8fe6f5');
+      r(x + Math.floor(noiseAt(tx, ty, 9) * 10), y + 11, 4, 1, '#8fe6f5');
+      break;
+    }
+    case 'sea':
+    case 'surf': {
+      r(x, y, 16, 16, ty % 3 === 0 ? '#2a86c7' : '#2a7fbf');
+      const n = noiseAt(tx, ty, 10);
+      if (n < 0.6) r(x + Math.floor(n * 20), y + 5 + Math.floor(n * 6), 4, 1, '#6fc0ec');
+      if (style === 'surf') {
+        r(x, y, 16, 3, '#e8f8ff');
+        r(x + Math.floor(noiseAt(tx, 1, 11) * 10), y + 3, 6, 1, '#e8f8ff');
+        r(x, y + 4, 16, 1, '#8fd0f0');
+      }
+      break;
+    }
     default: {
       // carpet
       r(x, y, 16, 16, carpet[(tx + ty) % 2]);
@@ -835,6 +1086,8 @@ export function floorStyleForRoom(roomType, deptId) {
     case 'atrium':
     case 'reception': return 'marble';
     case 'boardroom': return 'parquet';
+    case 'hotellobby': return 'marble';
+    case 'restaurant': return 'parquet';
     case 'copy': return 'tile';
     case 'manager': return deptId === 'exec' ? 'parquet' : 'carpet';
     case 'hr': return 'parquet';

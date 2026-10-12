@@ -39,6 +39,7 @@ export const BADGES = [
   { id: 'printer3', name: 'Printer Whisperer', desc: 'Fix 3 printer meltdowns.', icon: 'check', test: (s) => ev(s, 'printer') >= 3 },
   { id: 'audit', name: 'Compliance Champion', desc: 'Help a surprise audit along.', icon: 'book', test: (s) => ev(s, 'audit') >= 1 },
   { id: 'roadwarrior', name: 'Road Warrior', desc: 'Make it to a client on a business trip.', icon: 'up', test: (s) => Object.values(s.trips || {}).includes('done') },
+  { id: 'vacation', name: 'Out of Office', desc: 'Take a vacation.', icon: 'coffee', test: (s) => (s.vacations?.count || 0) >= 1 },
   { id: 'decorate', name: 'Home Office', desc: 'Put a decoration on your desk.', icon: 'sp', test: (s) => Object.values(desk(s).show).some(Boolean) },
   { id: 'designer', name: 'Interior Designer', desc: `Collect ${E.DESK_COLLECTOR} desk decorations.`, icon: 'sp', test: (s) => desk(s).owned.filter((id) => !isTrophy(id)).length >= E.DESK_COLLECTOR },
   { id: 'trophy', name: 'Best Employee', desc: "Put a floor's Best Employee trophy on your desk.", icon: 'star', test: (s) => isTrophy(desk(s).show.right) },

@@ -79,6 +79,6 @@ window.__step = (frames = 1, dt = 1 / 30) => {
   return game.top?.constructor.name;
 };
 
-// Dev-only helpers (src/debug.js: __trip, __mg): the production build defines __DEV__ = false (scripts/build.js), so this
+// Dev-only helpers (src/debug.js: __trip, __vacation, __mg): the production build defines __DEV__ = false (scripts/build.js), so this
 // import is dropped from the bundle and the helpers never ship. The dev server leaves __DEV__ undefined.
 if (typeof __DEV__ === 'undefined' || __DEV__) import('./debug.js').then((m) => m.installDebug(game));

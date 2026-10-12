@@ -8,6 +8,7 @@ import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import { completeStandup } from '../core/daily.js';
 import { completeTripTask, tripLeft } from '../core/trip.js';
+import { completeActivity, vacationLeft } from '../core/vacation.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { departmentForFloor, titleForFloor } from '../data/departments.js';
 import { drawStarsLarge } from './overlays.js';
@@ -16,7 +17,8 @@ export class MinigameScene {
   /**
    * opts.mode: 'task' (default, rewards + KPI stars), 'review' (HR performance review: pass/fail gate) or 'standup'
    * (the daily stand-up favour: a daily bonus, no KPI stars or cooldown) or 'trip' (a client's office on a business
-   * trip: double paperclips, no KPI stars).
+   * trip: double paperclips, no KPI stars) or 'vacation' (a holiday activity at the hotel: free, a coffee for 1 star or
+   * more, once per stay; no paperclips, XP or KPI stars).
    */
   constructor(game, task, onDone, opts = {}) {
     this.game = game;
@@ -44,7 +46,7 @@ export class MinigameScene {
     this.revealed = 0;
   }
   enter() {
-    this.game.audio.play('minigame');
+    this.game.audio.play(this.mode === 'vacation' ? 'tropical' : 'minigame');
     this.game.sfx('start');
   }
   update(dt) {
@@ -94,6 +96,7 @@ export class MinigameScene {
   complete(score) {
     if (this.mode === 'review') return this.completeReview(score);
     if (this.mode === 'standup') return this.completeStandup(score);
+    if (this.mode === 'vacation') return this.completeVacation(score);
     const s = this.game.state;
     const before = { level: s.level };
     const trip = this.mode === 'trip';
@@ -137,6 +140,43 @@ export class MinigameScene {
     if (this.result.levelsGained) setTimeout(() => this.game.sfx('levelup'), 900);
     this.buttons.clear();
     this.buttons.add({ x: W / 2 - 50, y: H / 2 + 72, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  completeVacation(score) {
+    const s = this.game.state;
+    this.result = completeActivity(s, this.task.game, score);
+    this.result.score = score;
+    track('vacation_activity', { game: this.task.game, stars: this.result.stars });
+    this.game.markDirty();
+    this.game.saveNow();
+    this.phase = 'result';
+    this.t = 0;
+    this.revealed = 0;
+    this.game.sfx(this.result.stars > 0 ? 'good' : 'fail');
+    this.buttons.clear();
+    this.buttons.add({ x: W / 2 - 50, y: H / 2 + 58, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  renderVacationResult(g) {
+    const r = this.result;
+    const s = this.game.state;
+    dim(g, 0.65);
+    const x = W / 2 - 120;
+    const y = H / 2 - 82;
+    const titles = ['Not very relaxing', 'Nice and easy', 'Bliss', 'Pure paradise!'];
+    panel(g, x, y, 240, 168, { title: titles[r.stars], titleColor: r.stars ? '#2fa39a' : '#7a2b2b' });
+    drawStarsLarge(g, this.revealed, W / 2, y + 18);
+    drawText(g, `Score ${Math.round(r.score * 100)}%`, W / 2, y + 44, { align: 'center', color: C.dim });
+    if (r.coffee) {
+      icon(g, 'coffee', W / 2 - 54, y + 62);
+      drawText(g, `+${r.coffee} coffee, yours to keep`, W / 2 - 42, y + 62, { color: C.coffee });
+    } else {
+      const line = r.stars ? 'Already enjoyed: its coffee is in your cup.' : 'Try it again for the coffee!';
+      drawText(g, line, W / 2, y + 62, { align: 'center', color: r.stars ? C.dim : C.warn });
+    }
+    const v = s.vacation;
+    if (v) drawText(g, `Holiday so far: +${v.coffee} coffee`, W / 2, y + 86, { align: 'center' });
+    const left = vacationLeft(s, this.game.now());
+    drawText(g, left > 0 ? `${formatTime(left)} left at the resort` : 'Check-out time!', W / 2, y + 100, { align: 'center', color: C.dim });
+    this.buttons.render(g);
   }
   renderStandupResult(g) {
     const r = this.result;
@@ -204,11 +244,13 @@ export class MinigameScene {
     } else if (this.phase === 'paused') {
       dim(g, 0.6);
       panel(g, W / 2 - 110, H / 2 - 30, 220, 66, { title: 'Paused' });
-      drawText(g, this.mode === 'standup' ? 'Give up? The favour still counts.' : 'Give up? Coffee is not refunded.', W / 2, H / 2 - 10, { align: 'center' });
+      const msg = { standup: 'Give up? The favour still counts.', vacation: 'Give up? You can try again later.' }[this.mode] || 'Give up? Coffee is not refunded.';
+      drawText(g, msg, W / 2, H / 2 - 10, { align: 'center' });
       this.buttons.render(g);
     } else if (this.phase === 'result') {
       if (this.mode === 'review') this.renderReviewResult(g);
       else if (this.mode === 'standup') this.renderStandupResult(g);
+      else if (this.mode === 'vacation') this.renderVacationResult(g);
       else this.renderResult(g);
     }
     drawText(g, 'Esc: pause', W - 4, H - 10, { align: 'right', color: 'rgba(255,255,255,0.4)' });

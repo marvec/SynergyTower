@@ -33,11 +33,20 @@ import chart from './chart.js';
 import feedback from './feedback.js'; // floor quest: find the colleague first
 import lostpw from './lostpw.js'; // floor quest: search the whiteboards first
 import review from './review.js'; // HR performance review: opened from the HR desk, never assigned to stations
+// Holiday activities at the vacation hotel (core/hotel.js): never assigned to office stations.
+import sleep from './sleep.js';
+import buffet from './buffet.js';
+import beachball from './beachball.js';
+import swim from './swim.js';
+import sunbathe from './sunbathe.js';
+import cocktail from './cocktail.js';
+import massage from './massage.js';
+import sandcastle from './sandcastle.js';
 
 export const MINIGAMES = Object.fromEntries(
   [
     inbox, compose, typing, spreadsheet, bingo, calendar, timing, memory, simon, math, quiz, order, whack, stealth, stocks, coffee, jargon,
     replyall, password, cables, orgchart, meeting, pitch, fridge, expense, frogger, karaoke, tailgate, defender, plant, chart, feedback, lostpw,
-    review,
+    review, sleep, buffet, beachball, swim, sunbathe, cocktail, massage, sandcastle,
   ].map((m) => [m.id, m]),
 );

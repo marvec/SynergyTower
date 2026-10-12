@@ -65,6 +65,14 @@ export const TRIP_SP_MULT = 2;
 export const TRIP_VISIT_S = 15 * 60;
 export const TRIP_BREWER_S = 2 * 60;
 export const TRIP_STATIONS = 20;
+/**
+ * Vacation (core/vacation.js, spec 2026-10-13-vacation): the boss on floor 20 signs a leave request once a day. The stay
+ * at the hotel lasts 15 minutes; each holiday activity (at least 1 star) gives a coffee on top of the pot, once per stay.
+ */
+export const VACATION_FLOOR = 20;
+export const VACATION_COST = 5000;
+export const VACATION_S = 15 * 60;
+export const VACATION_COFFEE = 1;
 export const COOLDOWN_TIER_MULT = { 1: 4, 2: 1.5, 3: 0.75 };
 export const stationCount = (floor) => Math.min(14, 8 + Math.floor((floor - 1) / 6));
 

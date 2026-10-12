@@ -512,7 +512,7 @@ export class TrainOverlay extends Modal {
 // ------------------------------------------------------------------ dialog
 export class Dialog extends Modal {
   /**
-   * action: optional second button { label, onClick, color }, shown left of the close button.
+   * action: optional second button { label, onClick, color, disabled }, shown left of the close button.
    * link: optional { text, url }, an external link at the bottom left (opened from the click itself, see drawLink).
    */
   constructor(game, { title = '', text = '', button = 'OK', w = 280, onClose = null, extra = null, action = null, link = null }) {
@@ -537,7 +537,7 @@ export class Dialog extends Modal {
     if (a) {
       const aw = measureText(a.label) + 20;
       const x = this.x + (this.w - aw - 86) / 2;
-      this.buttons.add({ x, y, w: aw, h: 18, label: a.label, color: a.color || C.goodBtn, onClick: () => (this.close(), a.onClick()) });
+      this.buttons.add({ x, y, w: aw, h: 18, label: a.label, color: a.color || C.goodBtn, disabled: !!a.disabled, onClick: () => (this.close(), a.onClick()) });
       this.buttons.add({ x: x + aw + 6, y, w: 80, h: 18, label: this.buttonLabel, color: C.panelLight, onClick: () => this.close() });
     } else this.buttons.add({ x: this.x + this.w / 2 - 40, y, w: 80, h: 18, label: this.buttonLabel, onClick: () => this.close() });
   }

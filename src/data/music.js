@@ -92,6 +92,20 @@ export const SONGS = {
       'D5 - G5 - B5 - D6 - - - C6 - B5 - A5 -', 'G#5 - - - E5 - - - B4 - - - G#4 - . .',
     ],
   },
+  // The vacation hotel: a lazy calypso with a steel-drum-ish lead.
+  tropical: {
+    bpm: 112, swing: 0.12, lead: 'triangle', leadVol: 0.2,
+    chords: ['C', 'F', 'G', 'C', 'Am', 'F', 'G7', 'C'],
+    bass: { steps: [0, 3, 6, 8, 11, 14], tones: [0, 2, 1, 0, 2, 1], len: 2 },
+    comp: { steps: [2, 6, 10, 14], len: 1, vol: 0.035 },
+    drums: 'k..r..k.k.r...r.',
+    melody: [
+      'E5 - G5 - C6 - - - A5 - G5 - E5 - - -', 'F5 - A5 - C6 - A5 - G5 - F5 - - - . .',
+      'D5 - G5 - B5 - - - A5 - G5 - D5 - . .', 'E5 - - - G5 - E5 - C5 - - - - - . .',
+      'C5 - E5 - A5 - - - G5 - E5 - A5 - - -', 'F5 - - - A5 - C6 - - - A5 - F5 - . .',
+      'G5 - B5 - D6 - - - B5 - G5 - F5 - D5 -', 'C5 - - - - - - - . . . . . . . .',
+    ],
+  },
   fanfare: {
     bpm: 132, swing: 0, lead: 'square', leadVol: 0.14, once: true,
     chords: ['C', 'G', 'C'],

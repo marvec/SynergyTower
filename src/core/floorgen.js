@@ -8,6 +8,8 @@ export const FLOOR_W = 40;
 export const FLOOR_H = 28;
 export const T_FLOOR = 0;
 export const T_WALL = 1;
+/** Pool and sea at the vacation hotel (core/hotel.js): open to the eye, not walkable. */
+export const T_WATER = 2;
 
 const TOP_WALL_Y = 12;
 const BOTTOM_WALL_Y = 15;

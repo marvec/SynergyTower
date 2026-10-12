@@ -211,19 +211,21 @@ export class FloorView {
         const i = y * fl.w + x;
         if (fl.tiles[i] === T_WALL) continue;
         const room = fl.roomOf[i] >= 0 ? fl.rooms[fl.roomOf[i]] : null;
-        const style = room ? floorStyleForRoom(room.type, fl.dept) : 'corridor';
+        // The vacation hotel paints its outdoors (grass, sand, decks, pool, sea) per tile.
+        const style = fl.ground?.[i] || (room ? floorStyleForRoom(room.type, fl.dept) : 'corridor');
         drawFloorTile(g, style, x * TILE, y * TILE, x, y, dept.carpet);
         if (this.isWall(x, y - 1)) {
           g.fillStyle = 'rgba(0,0,0,0.22)';
           g.fillRect(x * TILE, y * TILE, TILE, 3);
         }
       }
-    // Entrance mat on the ground floor.
+    // Entrance mat on the ground floor (inside the door: above a door in the bottom wall, below one in the top wall).
     if (fl.entrance) {
+      const my = fl.entrance.y === 0 ? TILE + 1 : (fl.entrance.y - 1) * TILE + 4;
       g.fillStyle = '#3a2b2b';
-      g.fillRect(fl.entrance.x * TILE - 4, (fl.entrance.y - 1) * TILE + 4, fl.entrance.w * TILE + 8, 12);
+      g.fillRect(fl.entrance.x * TILE - 4, my, fl.entrance.w * TILE + 8, 12);
       g.fillStyle = this.kit.accent;
-      g.fillRect(fl.entrance.x * TILE - 2, (fl.entrance.y - 1) * TILE + 6, fl.entrance.w * TILE + 4, 2);
+      g.fillRect(fl.entrance.x * TILE - 2, my + 2, fl.entrance.w * TILE + 4, 2);
     }
     this.floorCanvas = floorC;
 
@@ -238,9 +240,11 @@ export class FloorView {
         any = true;
         const isEntrance = fl.entrance && y === fl.entrance.y && x >= fl.entrance.x && x < fl.entrance.x + fl.entrance.w;
         if (isEntrance) continue;
+        // Outside the hotel building the boundary is a hedge.
+        const hedge = fl.hedgeFrom != null && y >= fl.hedgeFrom;
         drawWallTile(rg, x * TILE, WALL_H, {
-          top,
-          front,
+          top: hedge ? '#3f8f3f' : top,
+          front: hedge ? '#2f6f2f' : front,
           openBelow: !this.isWall(x, y + 1) && y + 1 < fl.h,
           openAbove: !this.isWall(x, y - 1),
           openLeft: !this.isWall(x - 1, y),
@@ -304,6 +308,7 @@ export class FloorView {
     g.save();
     g.translate(-Math.round(cam.x), -Math.round(cam.y));
     g.drawImage(this.floorCanvas, 0, 0);
+    this.afterFloor?.(g); // world-space overlay on the floor, under walls, furniture and people (the hotel's waves)
     const y0 = Math.max(0, Math.floor(cam.y / TILE) - 2);
     const y1 = Math.min(fl.h - 1, Math.ceil((cam.y + 270) / TILE) + 2);
     const list = [];

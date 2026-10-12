@@ -1,7 +1,7 @@
 // The main play scene: walk a floor, talk to colleagues, start tasks, use the elevator.
 import { W, H } from '../engine/screen.js';
 import { TILE, CHAR_H } from '../engine/art.js';
-import { C, rect, panel, icon, stars, formatTime, openCoffee } from '../engine/ui.js';
+import { C, rect, panel, icon, stars, formatTime, formatNum, openCoffee } from '../engine/ui.js';
 import { drawText, measureText } from '../engine/font.js';
 import { buildFloor } from '../core/tasks.js';
 import { itemNeighbors, gatedWalk } from '../core/floorgen.js';
@@ -34,6 +34,8 @@ import { FRIDGE_LINES, PLANT_LINES, QUIPS } from '../data/curios.js';
 import { FridgeCloseUp, PlantCloseUp, VendingCloseUp, FilesCloseUp } from './closeUp.js';
 import * as T from '../core/trip.js';
 import { CLIENTS, TRIP_TEASERS, TRIP_OFFER, TRIP_AFTER } from '../data/trip.js';
+import * as L from '../core/vacation.js'; // leave
+import { BOSS_TEASERS, BOSS_AFTER, VACATION_OFFER } from '../data/vacation.js';
 
 const SPEED = 4.4;
 const R = 0.3;
@@ -56,13 +58,14 @@ export class FloorScene {
     this.game = game;
     this.floorNo = floor;
     this.fl = fl || buildFloor(floor);
-    this.foreign = !!this.fl.client; // someone else's office: no firing, events, stand-ups or trips
+    this.foreign = !!(this.fl.client || this.fl.foreign); // a client's office or the hotel: no firing, events, stand-ups or trips
     this.dept = departmentForFloor(floor);
     this.view = new FloorView(this.fl, game.corpColor());
     const e = this.fl.entrance;
-    const spawn = arrival === 'entrance' && e ? { x: e.x + e.w / 2 - 0.1, y: this.fl.h - 2.2 } : { x: 19.9, y: 2.6 };
+    // fl.arrive: a floor whose way in is not in the bottom wall (the vacation hotel's front door is at the top).
+    const spawn = arrival === 'entrance' && e ? this.fl.arrive || { x: e.x + e.w / 2 - 0.1, y: this.fl.h - 2.2 } : { x: 19.9, y: 2.6 };
     this.player = new Actor(game.playerLook(), spawn.x, spawn.y);
-    this.player.dir = arrival === 'entrance' ? 'up' : 'down';
+    this.player.dir = arrival === 'entrance' && !this.fl.arrive ? 'up' : 'down';
     const fired = game.state.fired || {};
     this.npcs = this.fl.npcs
       .filter((n) => !fired[n.seed])
@@ -108,6 +111,9 @@ export class FloorScene {
     // Business trip (core/trip.js): on floors 10 and 30 the first colleague is the account manager with the offer.
     this.tripNpc = !this.foreign && T.isTripFloor(floor) ? this.npcs.find((n) => n.seed === this.fl.npcs[0]?.seed) || null : null;
     if (this.tripNpc) this.tripNpc.a.who.role = 'Account Manager';
+    // Vacation (core/vacation.js): on floor 20 the first colleague is your own manager, who signs leave requests.
+    this.bossNpc = !this.foreign && floor === E.VACATION_FLOOR ? this.npcs.find((n) => n.seed === this.fl.npcs[0]?.seed) || null : null;
+    if (this.bossNpc) this.bossNpc.a.who.role = 'Your Manager';
     this.teaseT = 5;
     this.hud = new Hud(game, {
       shop: () => game.push(new ShopOverlay(game)),
@@ -307,8 +313,11 @@ export class FloorScene {
       a.path = null;
       const trip = t.n === this.tripNpc ? T.tripStatus(s, this.floorNo) : null;
       if (trip === 'available' && !q && !ev) return this.askTrip(t.n);
+      const leave = t.n === this.bossNpc ? L.vacationStatus(s, this.floorNo, game.now()) : null;
+      if (leave === 'available' && !q && !ev) return this.askVacation(t.n);
       if (t.n === this.standupNpc && !q) return this.askStandup(t.n);
-      const after = trip && trip !== 'available' && this.rng.chance(0.5) ? this.rng.pick(TRIP_AFTER[trip]) : null;
+      const tripAfter = trip && trip !== 'available' && this.rng.chance(0.5) ? this.rng.pick(TRIP_AFTER[trip]) : null;
+      const after = tripAfter || (leave === 'today' && this.rng.chance(0.5) ? this.rng.pick(BOSS_AFTER) : null);
       const line = q?.hintLine(t.n) || after || this.nextLine();
       a.say(line);
       game.sfx('blip');
@@ -397,6 +406,48 @@ export class FloorScene {
     game.saveNow();
     const { DriveScene } = await import('./driveScene.js');
     game.set(new DriveScene(game, this.floorNo));
+  }
+
+  /** Your manager on floor 20 signs a leave request: a stay at the hotel for paperclips, once a day. */
+  askVacation(n) {
+    const game = this.game;
+    const s = game.state;
+    n.brain.talkPause = 6;
+    game.sfx('blip');
+    const missing = E.VACATION_COST - s.sp;
+    const text = VACATION_OFFER(formatNum(E.VACATION_COST)) + (missing > 0 ? `\nYou are ${formatNum(missing)} paperclips short.` : '');
+    game.push(
+      new Dialog(game, {
+        title: `${n.id.name} · Leave request`,
+        w: 330,
+        text,
+        button: 'Not now',
+        action: { label: `Go on vacation (${formatNum(E.VACATION_COST)})`, disabled: missing > 0, onClick: () => this.startVacation() },
+      }),
+    );
+  }
+
+  async startVacation() {
+    const game = this.game;
+    if (this.quest || this.event) return game.toast('Finish what you are doing first.', C.warn);
+    if (!L.requestVacation(game.state, this.floorNo, game.now()).ok) return;
+    track('vacation_start', { floor: this.floorNo });
+    game.sfx('cash');
+    game.saveNow();
+    const { HotelScene } = await import('./hotel.js');
+    game.set(new HotelScene(game));
+  }
+
+  /** Your manager hints at the unused holiday now and then while today's leave is still on offer. */
+  updateBossTease(dt) {
+    const n = this.bossNpc;
+    if (!n || n.brain.exit || n.a.bubble || this.quest || this.event) return;
+    if (L.vacationStatus(this.game.state, this.floorNo, this.game.now()) !== 'available') return;
+    if (Math.hypot(n.a.x - this.player.x, n.a.y - this.player.y) > 8) return;
+    this.teaseT -= dt;
+    if (this.teaseT > 0) return;
+    this.teaseT = 16;
+    n.a.say(Q.pickLine(BOSS_TEASERS, (this.teaseMemo ||= {})), 4);
   }
 
   /** Now and then the account manager calls out the trip while the player is around (it is a secret, not a hidden one). */
@@ -801,6 +852,7 @@ export class FloorScene {
     this.hrRep?.update(dt);
     this.updateReceptionist(dt);
     this.updateTripTease(dt);
+    this.updateBossTease(dt);
     this.standupT -= dt;
     if (this.standupT <= 0) {
       this.standupT = 1;
