@@ -30,8 +30,8 @@ import * as K from '../core/desk.js';
 import * as V from '../core/events.js';
 import { MINIGAMES } from '../minigames/index.js';
 import * as Q from '../core/curios.js';
-import { FRIDGE_LINES } from '../data/curios.js';
-import { FridgeCloseUp, PlantCloseUp, FilesCloseUp } from './closeUp.js';
+import { FRIDGE_LINES, PLANT_LINES, QUIPS } from '../data/curios.js';
+import { FridgeCloseUp, PlantCloseUp, VendingCloseUp, FilesCloseUp } from './closeUp.js';
 
 const SPEED = 4.4;
 const R = 0.3;
@@ -85,7 +85,7 @@ export class FloorScene {
     });
     // Curiosities: furniture that reacts when poked but is not gameplay (no focus brackets, no prompt). See core/curios.js.
     this.curios = this.fl.items.filter((it) => Q.curioOf(this.fl, it)).map((it) => ({ kind: 'curio', it }));
-    this.pokes = new Map(); // item → times poked, so the next quip is a new one
+    this.pokes = new Map(); // item → its line memo (core/curios pickLine), so lines come at random without repeats
     this.rng = createRng(floor * 17 + Date.now());
     this.cam = { x: 0, y: 0 };
     this.snapCamera();
@@ -529,19 +529,27 @@ export class FloorScene {
     const fl = this.fl;
     const seed = Q.itemSeed(fl, it);
     const kind = Q.closeUpOf(fl, it);
+    const memo = this.pokes.get(it) || {};
+    this.pokes.set(it, memo);
+    // What the player says about it: on leaving a close-up, or straight away.
+    const say = (list) => {
+      const line = Q.pickLine(list, memo);
+      if (line) this.player.say(line, 2.5 + line.length / 25);
+    };
     if (kind === 'fridge') {
       game.sfx('click');
-      game.push(new FridgeCloseUp(game, { seed, onClose: () => this.player.say(FRIDGE_LINES[seed % FRIDGE_LINES.length], 2.5) }));
+      game.push(new FridgeCloseUp(game, { seed, onClose: () => say(FRIDGE_LINES) }));
     } else if (kind === 'plant') {
       game.sfx('click');
-      game.push(new PlantCloseUp(game, { seed }));
+      game.push(new PlantCloseUp(game, { seed, onClose: () => say(PLANT_LINES) }));
+    } else if (kind === 'vending') {
+      game.sfx('click');
+      game.push(new VendingCloseUp(game, { seed, onClose: () => say(QUIPS.vending) }));
     } else if (kind === 'files') {
       game.sfx('click');
       game.push(new FilesCloseUp(game, { people: this.personnel(), floor: this.floorNo }));
     } else {
-      const n = this.pokes.get(it) || 0;
-      this.pokes.set(it, n + 1);
-      const line = Q.quipFor(fl, it, n);
+      const line = Q.quipFor(fl, it, memo);
       if (!line) return;
       game.sfx('blip');
       this.player.say(line, 2.5 + line.length / 25);

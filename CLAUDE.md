@@ -135,8 +135,10 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - **Office curiosities** (spec `docs/superpowers/specs/2026-10-12-office-curiosities-design.md`): non-gameplay furniture
   reacts to Space/click without focus brackets or prompt (gameplay targets always win; walk-through decor only answers a
   click within reach). `src/core/curios.js` decides (`curioOf`, `closeUpOf`, deterministic `fridgeContents`/`plantInfo`/
-  `personnelFile`/`playerFile`), text lives in `src/data/curios.js` (quips per furniture type, ASCII), and
-  `src/scenes/closeUp.js` draws the fridge, plant and HR filing-cabinet close-ups. Stations that are also a close-up get a
+  `vendingContents`/`personnelFile`/`playerFile`), text lives in `src/data/curios.js` (quips per furniture type, at least
+  20 each, ASCII), and `src/scenes/closeUp.js` draws the fridge, plant, vending machine and HR filing-cabinet close-ups.
+  Lines are picked at random with `pickLine` (a shuffle bag per object: all lines before a repeat, never twice in a row);
+  closing the fridge, a plant or the vending machine makes the player say one. Stations that are also a close-up get a
   Peek button on the TaskCard. Nothing is saved or paid. A new furniture type needs a `QUIPS` entry (`tests/curios.test.js`).
 - Reminders: opt-in browser notifications ("Reminders" in Menu > Settings (`SettingsMenu`), offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;

@@ -35,3 +35,14 @@ click the object.
 - **Code layout**: `src/data/curios.js` (all text), `src/core/curios.js` (pure: which objects are curios, line
   selection, fridge/plant/personnel-file generators), `src/scenes/closeUp.js` (the three overlays),
   FloorScene wiring. Tests in `tests/curios.test.js`.
+
+## Later additions
+
+- **Random lines**: every quip list has at least 20 lines and lines come at random (`pickLine`, a shuffle bag per
+  object: every line once before any repeats, never the same line twice in a row), replacing the fixed cycle.
+- **Vending machine close-up** (SNAX-O-MATIC 3000): 16 slots A1-D4 (`vendingContents`), one or two sold out (one is
+  always "Inspiration"), B3 holds the crisp packet stuck there for years (not for sale). Buying is free (imaginary
+  coins): the spiral turns, then the snack drops (55%), gets stuck (30%, nudge the "DO NOT SHAKE" panel: 45% per
+  nudge, sometimes the one below falls too, after four misses it stays for good), another snack drops (10%), or only
+  the coin return clinks (5%). The display, coin return and delivery tray answer too. Nothing is kept after closing.
+- Closing the fridge, a plant or the vending machine makes the player say a random line about it.

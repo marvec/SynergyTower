@@ -2,7 +2,7 @@ import { test, expect } from 'bun:test';
 import { buildFloor } from '../src/core/tasks.js';
 import { newGame } from '../src/core/state.js';
 import * as Q from '../src/core/curios.js';
-import { QUIPS } from '../src/data/curios.js';
+import { QUIPS, FRIDGE_LINES, PLANT_LINES, VENDING_LINES } from '../src/data/curios.js';
 import { measureText } from '../src/engine/font.js';
 
 const NOT_CURIOS = new Set(['hrrep', 'receptionist']);
@@ -24,29 +24,72 @@ test('most furniture is a curio; gameplay items are not', () => {
   expect(curios).toBe(total); // every non-gameplay piece of furniture reacts
 });
 
-test('close-ups: fridge, plant, and filing cabinets in the HR office only', () => {
+test('close-ups: fridge, plant, vending machine, and filing cabinets in the HR office only', () => {
   const fl = buildFloor(9);
   const hrRoom = fl.rooms.find((r) => r.type === 'hr');
   for (const it of fl.items) {
     const c = Q.closeUpOf(fl, it);
     if (it.type === 'fridge') expect(c).toBe('fridge');
     else if (it.type === 'plant') expect(c).toBe('plant');
+    else if (it.type === 'vending') expect(c).toBe('vending');
     else if (it.type === 'filing') expect(c).toBe(it.room === hrRoom.id ? 'files' : null);
     else expect(c).toBeNull();
   }
   expect(fl.items.some((it) => Q.closeUpOf(fl, it) === 'files')).toBe(true);
 });
 
-test('quips cycle through the list, starting at a per-object offset', () => {
+test('quips are random: every line once before any repeats, never the same line twice in a row', () => {
   const fl = buildFloor(5);
-  const chairs = fl.items.filter((it) => it.type === 'chair');
+  const chair = fl.items.find((it) => it.type === 'chair');
   const n = QUIPS.chair.length;
-  const seen = new Set();
-  for (let i = 0; i < n; i++) seen.add(Q.quipFor(fl, chairs[0], i));
-  expect(seen.size).toBe(n);
-  expect(Q.quipFor(fl, chairs[0], n)).toBe(Q.quipFor(fl, chairs[0], 0));
-  const firsts = new Set(chairs.map((c) => Q.quipFor(fl, c, 0)));
-  expect(firsts.size).toBeGreaterThan(1);
+  const memo = {};
+  const said = Array.from({ length: n * 5 }, () => Q.quipFor(fl, chair, memo));
+  for (let k = 0; k < 5; k++) expect(new Set(said.slice(k * n, (k + 1) * n)).size).toBe(n);
+  for (let i = 1; i < said.length; i++) expect(said[i]).not.toBe(said[i - 1]);
+  // Random, not a fixed order: two objects (or two visits) hear different sequences.
+  const other = Array.from({ length: n }, () => Q.quipFor(fl, chair, {}));
+  expect(other).not.toEqual(said.slice(0, n));
+});
+
+test('pickLine follows the random source it is given', () => {
+  const list = ['a', 'b', 'c', 'd'];
+  const seq = (r) => {
+    const memo = {};
+    return Array.from({ length: 4 }, () => Q.pickLine(list, memo, r));
+  };
+  expect(seq(() => 0).sort()).toEqual(list);
+  expect(seq(() => 0)).not.toEqual(seq(() => 0.99));
+  expect(Q.pickLine([], {})).toBe('');
+});
+
+test('every piece of furniture has at least 20 things to say', () => {
+  for (const [type, lines] of Object.entries(QUIPS)) if (lines.length) expect(lines.length, type).toBeGreaterThanOrEqual(20);
+  for (let f = 1; f <= 40; f++) {
+    const fl = buildFloor(f);
+    for (const it of fl.items) if (Q.curioOf(fl, it) === 'quip') expect(QUIPS[it === fl.myDesk ? 'mydesk' : it.type].length).toBeGreaterThanOrEqual(20);
+  }
+  expect(FRIDGE_LINES.length).toBeGreaterThanOrEqual(20);
+  expect(PLANT_LINES.length).toBeGreaterThanOrEqual(20);
+});
+
+test('vending machine: 16 slots A1-D4, one monument, a sold-out slot or two, deterministic', () => {
+  const v = Q.vendingContents(42);
+  expect(Q.vendingContents(42)).toEqual(v);
+  expect(v.slots.map((s) => s.code)).toEqual(['A', 'B', 'C', 'D'].flatMap((r) => [1, 2, 3, 4].map((c) => r + c)));
+  expect(v.slots.filter((s) => s.monument).length).toBe(1);
+  const sold = v.slots.filter((s) => s.soldOut).length;
+  expect(sold).toBeGreaterThanOrEqual(1);
+  expect(sold).toBeLessThanOrEqual(2);
+  for (const s of v.slots) expect(s.name.length && s.price.length).toBeTruthy();
+  expect(Q.vendingContents(43)).not.toEqual(v);
+  expect(['drop', 'stuck', 'wrong', 'refund'].map((k) => Q.vendOutcome({ drop: 0.1, stuck: 0.6, wrong: 0.88, refund: 0.97 }[k]))).toEqual(['drop', 'stuck', 'wrong', 'refund']);
+});
+
+test('the vending machine is a close-up curio, never a task', () => {
+  for (let f = 1; f <= 40; f++) {
+    const fl = buildFloor(f);
+    for (const it of fl.items) if (it.type === 'vending') expect(Q.curioOf(fl, it)).toBe('vending');
+  }
 });
 
 test('quips fit a small speech bubble', () => {
@@ -128,7 +171,7 @@ test('names that do not start with a letter still get a drawer', () => {
 import { installMockDocument, mockCanvas } from './mock-canvas.js';
 installMockDocument();
 const { createInput } = await import('../src/engine/input.js');
-const { FridgeCloseUp, PlantCloseUp, FilesCloseUp } = await import('../src/scenes/closeUp.js');
+const { FridgeCloseUp, PlantCloseUp, FilesCloseUp, VendingCloseUp } = await import('../src/scenes/closeUp.js');
 
 /** A minimal game context: a scene stack, an input, no sound. */
 function fakeGame() {
@@ -224,6 +267,69 @@ test('a drawer with many folders scrolls to keep the selection visible', () => {
   expect(fc.spots()[0].h).toBe(0);
   frame(game, [' ']);
   expect(fc.file.name).toBe(fc.drawers[0].files[19].name);
+});
+
+/** A random source that plays back the given numbers, then 0.5. */
+const rolls = (...xs) => () => (xs.length ? xs.shift() : 0.5);
+const selectSlot = (game, vm, code) => {
+  const i = vm.spots().findIndex((s) => s.code === code);
+  for (let k = 0; k < i; k++) frame(game, ['ArrowRight']);
+  expect(vm.spots()[vm.sel].code).toBe(code);
+};
+const runFor = (game, s) => {
+  for (let k = 0; k < s * 60; k++) frame(game);
+};
+
+test('vending close-up: buying drops the snack into the tray and empties the slot', () => {
+  const game = fakeGame();
+  const vm = new VendingCloseUp(game, { seed: 3, rand: rolls(0.1) });
+  game.push(vm);
+  const slot = vm.v.slots.find((s) => !s.soldOut && !s.monument);
+  selectSlot(game, vm, slot.code);
+  frame(game, [' ']);
+  runFor(game, 2);
+  expect(vm.tray).toEqual([slot.name]);
+  expect(slot.empty).toBe(true);
+  expect(vm.caption).toContain(slot.eat);
+  frame(game, [' ']); // the slot is empty now
+  expect(vm.caption).toContain('SOLD OUT');
+});
+
+test('vending close-up: a stuck snack needs nudging, sometimes more than once', () => {
+  const game = fakeGame();
+  // stuck, then a nudge that misses, then one that drops it
+  const vm = new VendingCloseUp(game, { seed: 3, rand: rolls(0.6, 0.9, 0.1, 0.9) });
+  game.push(vm);
+  const slot = vm.v.slots.find((s) => !s.soldOut && !s.monument);
+  selectSlot(game, vm, slot.code);
+  frame(game, [' ']);
+  runFor(game, 2);
+  expect(vm.stuck).toBe(slot);
+  expect(vm.caption).toBe(VENDING_LINES.stuck);
+  const nudge = vm.spots().findIndex((s) => s.id === 'nudge');
+  vm.poke(nudge);
+  runFor(game, 1);
+  expect(vm.stuck).toBe(slot);
+  vm.poke(nudge);
+  runFor(game, 2);
+  expect(vm.stuck).toBeNull();
+  expect(vm.tray).toContain(slot.name);
+});
+
+test('vending close-up: the monument, the display, the coin return and the tray all answer', () => {
+  const game = fakeGame();
+  const vm = new VendingCloseUp(game, { seed: 8 });
+  game.push(vm);
+  for (let i = 0; i < vm.spots().length; i++) {
+    vm.caption = null;
+    vm.poke(i);
+    runFor(game, 2);
+    expect(typeof vm.caption, vm.spots()[i].id || vm.spots()[i].code).toBe('string');
+  }
+  let said = false;
+  vm.onClose = () => (said = true);
+  frame(game, ['Escape']);
+  expect(said).toBe(true);
 });
 
 test('a station that is also a curio gets a Peek button on its task card', async () => {

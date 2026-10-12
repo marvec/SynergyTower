@@ -1,10 +1,11 @@
-// Close-ups of office curiosities (spec 2026-10-12-office-curiosities): the fridge, a plant, the HR filing cabinet.
+// Close-ups of office curiosities (spec 2026-10-12-office-curiosities): the fridge, a plant, the vending machine, the HR
+// filing cabinet.
 // Pure flavour: nothing here touches the economy or the save. Content comes from core/curios.js.
 import { W, H } from '../engine/screen.js';
 import { C, rect, panel, dim, stars, inRect } from '../engine/ui.js';
 import { drawText, drawWrapped, measureText, wrapText } from '../engine/font.js';
 import * as Q from '../core/curios.js';
-import { PLANT_LOOKS, PLASTIC_LINE } from '../data/curios.js';
+import { PLANT_LOOKS, PLASTIC_LINE, VENDING_LINES as VL, VENDING_DISPLAY, VENDING_RETURN } from '../data/curios.js';
 
 /** Gold corner brackets around a rect (the selection inside a close-up). */
 function brackets(g, x, y, w, h, t) {
@@ -418,6 +419,330 @@ export class PlantCloseUp extends CloseUp {
     ty += 9;
     if (this.caption) drawWrapped(g, this.caption, cxR, ty, cw, { color: C.text });
     else drawText(g, 'Look closer...', cxR, ty, { color: C.dim });
+  }
+}
+
+// ---------------------------------------------------------------- vending machine
+/** Product sizes on the spirals, by shape. */
+const SNACK = { bag: [18, 20], bar: [22, 9], can: [11, 16], bottle: [9, 20], box: [16, 14], cup: [14, 14] };
+const TURN_S = 0.9; // the spiral turning before anything happens
+const COL_W = 36;
+const VROW_H = 34;
+
+/**
+ * The SNAX-O-MATIC: pick a slot and buy with an imaginary coin. Mostly the snack drops, often it gets stuck on the
+ * spiral and needs a polite nudge or two, now and then you get something else, or only the coin return clinks.
+ * Free and unsaved; `rand` is injectable for tests.
+ */
+export class VendingCloseUp extends CloseUp {
+  constructor(game, { seed, onClose, rand = Math.random }) {
+    super(game, { title: 'Vending machine', onClose });
+    this.v = Q.vendingContents(seed);
+    this.rand = rand;
+    this.hint = 'Arrows: choose   Space: buy / poke   Esc: close';
+    this.caption = null;
+    this.display = 'INSERT COIN';
+    this.turning = null; // { slot, t } while a spiral turns
+    this.falling = []; // { slot, x, y, vy, line } on the way to the tray
+    this.stuck = null; // the slot whose snack hangs over the edge
+    this.nudges = 0;
+    this.shake = 0;
+    this.tray = []; // names of what dropped
+    this.memo = { display: {}, ret: {} };
+  }
+  get mx() {
+    return this.x + 12 + (this.shake > 0 ? Math.round(Math.sin(this.t * 70) * 2) : 0);
+  }
+  get my() {
+    return this.y + 18;
+  }
+  /** Glass window origin (not shaken, so hotspots stay put). */
+  get gx() {
+    return this.x + 20;
+  }
+  get gy() {
+    return this.y + 38;
+  }
+  slotRect(i) {
+    return { x: this.gx + 2 + (i % 4) * COL_W, y: this.gy + 2 + Math.floor(i / 4) * VROW_H, w: COL_W - 2, h: VROW_H - 4 };
+  }
+  spots() {
+    const bx = this.x + 12;
+    return [
+      ...this.v.slots.map((s, i) => ({ ...this.slotRect(i), code: s.code, slot: s })),
+      { id: 'display', x: bx + 166, y: this.my + 22, w: 40, h: 40 },
+      { id: 'return', x: bx + 176, y: this.my + 94, w: 20, h: 12 },
+      { id: 'nudge', x: bx + 164, y: this.my + 116, w: 44, h: 34 },
+      { id: 'tray', x: this.gx + 10, y: this.my + 166, w: 128, h: 22 },
+    ];
+  }
+  get busy() {
+    return !!this.turning || this.falling.length > 0;
+  }
+  available(s) {
+    return !s.monument && !s.soldOut && !s.empty && !s.forever;
+  }
+  poke(i) {
+    if (this.busy) return;
+    const spot = this.spots()[i];
+    if (spot.slot) return this.choose(spot.slot);
+    if (spot.id === 'display') {
+      this.display = Q.pickLine(VENDING_DISPLAY, this.memo.display, this.rand);
+      this.caption = `The display says "${this.display}".`;
+      this.game.sfx('blip');
+    } else if (spot.id === 'return') {
+      this.caption = `Coin return: ${Q.pickLine(VENDING_RETURN, this.memo.ret, this.rand)}`;
+      this.game.sfx('coin');
+    } else if (spot.id === 'nudge') this.nudge();
+    else if (spot.id === 'tray') {
+      if (!this.tray.length) this.caption = VL.emptyTray;
+      else {
+        this.caption = `You take the ${this.tray.join(' and the ')} out of the tray. Snack acquired.`;
+        this.tray = [];
+        this.game.sfx('good');
+      }
+    }
+  }
+  choose(s) {
+    if (s.monument) return void (this.caption = s.eat);
+    if (s.forever) return void (this.caption = 'It hangs there for good now. It has a name tag already.');
+    if (s.soldOut || s.empty) {
+      this.game.sfx('bad');
+      return void (this.caption = VL.soldOut);
+    }
+    if (this.stuck) return void (this.caption = 'The machine is still holding on to the last one. Nudge it first.');
+    this.display = `${s.code} ${s.price}`;
+    this.caption = VL.pay;
+    this.turning = { slot: s, t: 0 };
+    this.game.sfx('click');
+  }
+  /** The spiral has turned: what happens now. */
+  resolve(s) {
+    const out = Q.vendOutcome(this.rand());
+    if (out === 'drop') this.drop(s, 'Thunk.');
+    else if (out === 'stuck') {
+      this.stuck = s;
+      this.nudges = 0;
+      this.display = 'ENJOY!';
+      this.caption = VL.stuck;
+      this.game.sfx('bad');
+    } else if (out === 'wrong') {
+      const others = this.v.slots.filter((o) => o !== s && this.available(o));
+      const o = others.length ? others[Math.floor(this.rand() * others.length)] : s;
+      this.drop(o, o === s ? 'Thunk.' : VL.wrong);
+    } else {
+      this.display = 'NO CHANGE';
+      this.caption = `${VL.refund} ${Q.pickLine(VENDING_RETURN, this.memo.ret, this.rand)}`;
+      this.game.sfx('coin');
+    }
+  }
+  drop(s, line) {
+    const i = this.v.slots.indexOf(s);
+    const r = this.slotRect(i);
+    this.falling.push({ slot: s, x: r.x, y: r.y, vy: 0, line });
+    s.empty = true;
+    this.display = 'THANK YOU';
+  }
+  nudge() {
+    this.shake = 0.35;
+    this.game.sfx('door');
+    const s = this.stuck;
+    if (!s) return void (this.caption = VL.nudgeIdle);
+    if (this.rand() < 0.45) {
+      this.stuck = null;
+      const below = this.v.slots[this.v.slots.indexOf(s) + 4];
+      if (below && this.available(below) && this.rand() < 0.25) {
+        this.drop(s, VL.nudgeBonus);
+        this.drop(below, '');
+      } else this.drop(s, VL.nudgeDrop);
+      return;
+    }
+    this.nudges++;
+    if (this.nudges >= 4) {
+      s.forever = true;
+      this.stuck = null;
+      this.caption = VL.giveUp;
+    } else this.caption = VL.nudgeMiss[(this.nudges - 1) % VL.nudgeMiss.length];
+  }
+  update(dt) {
+    super.update(dt);
+    this.shake = Math.max(0, this.shake - dt);
+    if (this.turning && (this.turning.t += dt) >= TURN_S) {
+      const s = this.turning.slot;
+      this.turning = null;
+      this.resolve(s);
+    }
+    const floor = this.my + 172;
+    for (const f of this.falling) {
+      f.vy += 600 * dt;
+      f.y += f.vy * dt;
+      if (f.y >= floor) f.landed = true;
+    }
+    const landed = this.falling.filter((f) => f.landed);
+    if (landed.length) {
+      this.falling = this.falling.filter((f) => !f.landed);
+      for (const f of landed) {
+        this.tray.push(f.slot.name);
+        if (f.line) this.caption = `${f.line} ${f.slot.name}! ${f.slot.eat}`;
+      }
+      this.game.sfx('door');
+    }
+  }
+  renderBody(g) {
+    const mx = this.mx;
+    const my = this.my;
+    const mw = 212;
+    const mh = 200;
+    // Cabinet: red body, darker side, the brand on top.
+    rect(g, mx - 2, my - 2, mw + 4, mh + 4, '#151821');
+    rect(g, mx, my, mw, mh, '#a33b3b');
+    rect(g, mx, my, mw, 3, '#c94a4a');
+    rect(g, mx + mw - 6, my, 6, mh, '#7e2c2c');
+    drawText(g, 'SNAX-O-MATIC 3000', mx + 8, my + 6, { color: C.gold, shadow: '#5a1c1c' });
+    // Glass window with the spirals.
+    const gx = this.gx + (mx - this.x - 12);
+    const gy = this.gy;
+    rect(g, gx - 2, gy - 2, 4 * COL_W + 4, 4 * VROW_H + 4, '#2a2e3a');
+    rect(g, gx, gy, 4 * COL_W, 4 * VROW_H, '#1c2030');
+    this.v.slots.forEach((s, i) => this.drawSlot(g, s, i, gx - this.gx));
+    for (const f of this.falling) this.drawSnack(g, f.slot, f.x + (gx - this.gx) + (COL_W - 2 - SNACK[f.slot.shape][0]) / 2, Math.min(f.y, my + 172) - SNACK[f.slot.shape][1] + 20);
+    // Reflections on the glass.
+    for (let k = 0; k < 3; k++) for (let d = 0; d < 26; d++) rect(g, gx + 20 + k * 46 + d, gy + 8 + d * 4, 1, 3, 'rgba(255,255,255,0.06)');
+    // Control panel: display (scrolls when the text is long), keypad, coin slot, coin return, the "do not shake" panel.
+    const px = mx + 166;
+    rect(g, px, my + 22, 40, 12, '#14301e');
+    const txt = this.display;
+    const tw = measureText(txt);
+    const off = tw > 36 ? Math.floor((this.t * 20) % (tw + 40)) - 20 : 0;
+    g.save();
+    g.beginPath();
+    g.rect(px + 2, my + 22, 36, 12);
+    g.clip();
+    drawText(g, txt, px + 2 - Math.max(0, off), my + 25, { color: '#7ef0a0' });
+    g.restore();
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) rect(g, px + 3 + c * 12, my + 40 + r * 9, 10, 7, r === 3 && c === 2 ? '#5fd068' : '#d8d8de');
+    rect(g, px + 14, my + 82, 12, 3, '#151821');
+    rect(g, px + 10, my + 94, 20, 12, '#2a2e3a');
+    rect(g, px + 12, my + 100, 16, 4, '#151821');
+    drawText(g, 'COINS', px + 6, my + 108, { color: '#f0d0d0' });
+    rect(g, px, my + 118, 40, 30, '#f2c14e');
+    rect(g, px + 2, my + 120, 36, 26, '#e8b030');
+    drawText(g, 'DO NOT', px + 5, my + 124, { color: C.ink });
+    drawText(g, 'SHAKE', px + 7, my + 134, { color: C.ink });
+    // Delivery tray.
+    rect(g, gx + 8, my + 164, 132, 26, '#151821');
+    rect(g, gx + 10, my + 166, 128, 22, '#2a2e3a');
+    rect(g, gx + 10, my + 166, 128, 3, '#40465a');
+    drawText(g, 'PUSH', gx + 64, my + 176, { color: '#8890b0' });
+    this.tray.slice(-3).forEach((name, k) => {
+      const s = this.v.slots.find((o) => o.name === name) || this.v.slots[0];
+      this.drawSnack(g, s, gx + 16 + k * 26, my + 186 - SNACK[s.shape][1] * 0.6, 0.6);
+    });
+    rect(g, mx + 4, my + mh - 6, mw - 8, 4, '#7e2c2c');
+    const sel = this.spots()[this.sel];
+    if (sel) brackets(g, sel.x - 2, sel.y - 2, sel.w + 3, sel.h + 3, this.t);
+    this.renderInfo(g, sel);
+  }
+  drawSlot(g, s, i, dx) {
+    const r = this.slotRect(i);
+    const x = r.x + dx;
+    const shelf = r.y + r.h - 4;
+    // The spiral: a coil of slanted wires, turning while this slot vends.
+    const phase = this.turning?.slot === s ? this.turning.t / TURN_S : 0;
+    for (let k = 0; k < 6; k++) {
+      const cx = x + 2 + ((k * 6 + Math.floor(phase * 6)) % 32);
+      rect(g, cx, shelf - 3, 1, 3, '#b8bcc4');
+      rect(g, cx + 1, shelf - 1, 2, 1, '#8a8e98');
+    }
+    rect(g, x, shelf, COL_W - 2, 2, '#4a4e5a');
+    // Price tag.
+    rect(g, x + 1, shelf + 2, 14, 9, '#f4f1e8');
+    drawText(g, s.code, x + 3, shelf + 3, { color: C.ink });
+    if (s.soldOut || s.empty) {
+      if (s.soldOut) {
+        rect(g, x + 4, r.y + 8, COL_W - 10, 9, '#e2504a');
+        drawText(g, 'SOLD', x + 7, r.y + 9, { color: '#ffffff' });
+      }
+      return;
+    }
+    const [w, h] = SNACK[s.shape];
+    let sx = x + Math.round((COL_W - 2 - w) / 2);
+    let sy = shelf - 3 - h;
+    if (this.turning?.slot === s) sy += Math.round(phase * 3);
+    const hanging = s === this.stuck || s.forever || s.monument;
+    if (hanging) {
+      // Hanging over the front edge of the spiral, half in the air; the freshly stuck one sways.
+      sy += 9;
+      sx += s === this.stuck ? Math.round(Math.sin(this.t * 5) * 1.5) : 0;
+    }
+    this.drawSnack(g, s, sx, sy);
+    if (hanging) rect(g, sx + Math.round(w / 2) - 4, sy - 2, 8, 2, '#b8bcc4'); // the wire it hangs on
+    if (s.monument || s.forever) rect(g, sx - 1, sy - 4, w + 2, 2, '#9aa0b866'); // dust
+  }
+  drawSnack(g, s, x, y, scale = 1) {
+    const [w0, h0] = SNACK[s.shape];
+    const w = Math.round(w0 * scale);
+    const h = Math.round(h0 * scale);
+    x = Math.round(x);
+    y = Math.round(y);
+    const c = s.color;
+    switch (s.shape) {
+      case 'bag':
+        rect(g, x, y + 2, w, h - 4, c);
+        for (let k = 0; k < w; k += 3) rect(g, x + k, y, 2, 2, c);
+        for (let k = 0; k < w; k += 3) rect(g, x + k + 1, y + h - 2, 2, 2, c);
+        rect(g, x + 3, y + Math.round(h / 2) - 2, w - 6, 4, '#ffffffaa');
+        break;
+      case 'bar':
+        rect(g, x, y, w, h, c);
+        rect(g, x, y, 3, h, '#ffffff55');
+        rect(g, x + w - 3, y, 3, h, '#ffffff55');
+        rect(g, x + 5, y + Math.floor(h / 2), w - 10, 1, C.gold);
+        break;
+      case 'can':
+        rect(g, x, y + 2, w, h - 2, c);
+        rect(g, x + 1, y, w - 2, 2, '#d8d8de');
+        rect(g, x, y + Math.round(h / 2), w, 2, '#ffffffaa');
+        break;
+      case 'bottle':
+        rect(g, x + Math.round(w / 2) - 2, y, 4, Math.round(h / 4), c);
+        rect(g, x + Math.round(w / 2) - 2, y - 1, 4, 1, '#ffffff');
+        rect(g, x, y + Math.round(h / 4), w, h - Math.round(h / 4), c);
+        rect(g, x + 1, y + Math.round(h / 4) + 1, 2, h - Math.round(h / 4) - 2, '#ffffff55');
+        break;
+      case 'cup':
+        rect(g, x, y, w, 2, '#f4f1e8');
+        rect(g, x + 1, y + 2, w - 2, h - 2, c);
+        rect(g, x + 3, y + 5, w - 6, 3, '#ffffffaa');
+        break;
+      default:
+        rect(g, x, y, w, h, c);
+        rect(g, x, y, w, 2, '#ffffff55');
+        rect(g, x + 2, y + Math.round(h / 2) - 1, w - 4, 3, '#ffffffaa');
+    }
+  }
+  /** Right column: what is under the cursor, then what just happened. */
+  renderInfo(g, sel) {
+    const cx = this.x + 12 + 212 + 14;
+    const cw = this.x + this.w - 12 - cx;
+    let ty = this.my;
+    drawText(g, 'SNAX-O-MATIC 3000', cx, ty, { color: C.gold });
+    drawText(g, 'Accepts imaginary coins', cx, ty + 10, { color: C.dim });
+    ty += 24;
+    const s = sel?.slot;
+    if (s) {
+      drawText(g, `${s.code}  ${s.price}`, cx, ty, { color: C.so });
+      ty += 10;
+      ty += drawWrapped(g, s.name, cx, ty, cw, { color: C.text });
+      const state = s.monument || s.forever ? 'Not for sale. A monument.' : s.soldOut || s.empty ? 'Sold out.' : 'Space: buy it';
+      drawText(g, state, cx, ty + 2, { color: C.dim });
+    } else if (sel) {
+      const what = { display: 'The display', return: 'Coin return', nudge: this.stuck ? 'Nudge the machine (gently)' : 'The side panel: DO NOT SHAKE', tray: 'Delivery tray' }[sel.id];
+      drawText(g, what, cx, ty, { color: C.text });
+    }
+    ty = this.my + 70;
+    rect(g, cx, ty, cw, 1, C.panelLight);
+    if (this.caption) drawWrapped(g, this.caption, cx, ty + 6, cw, { color: C.text });
   }
 }
 

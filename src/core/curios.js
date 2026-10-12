@@ -11,6 +11,7 @@ const NOT_FURNITURE = new Set(['hrrep', 'receptionist']);
 export function closeUpOf(fl, it) {
   if (it.type === 'fridge') return 'fridge';
   if (it.type === 'plant') return 'plant';
+  if (it.type === 'vending') return 'vending';
   if (it.type === 'filing' && fl.rooms[it.room]?.type === 'hr') return 'files';
   return null;
 }
@@ -27,12 +28,29 @@ export function curioOf(fl, it) {
 
 export const itemSeed = (fl, it) => fl.floor * 1009 + it.id * 31 + 7;
 
-/** The n-th thing the player says about an item (cycles; each object starts somewhere else in the list). */
-export function quipFor(fl, it, n) {
-  const list = D.QUIPS[quipKey(fl, it)] || [];
+/**
+ * A random line from a list, shuffle-bag style: every line once before any repeats, and never the same line twice in
+ * a row. `memo` ({}) is kept by the caller, one per object.
+ */
+export function pickLine(list, memo = {}, rand = Math.random) {
   if (!list.length) return '';
-  return list[(itemSeed(fl, it) + n) % list.length];
+  if (!memo.bag?.length || memo.n !== list.length) {
+    const bag = list.map((_, i) => i);
+    for (let i = bag.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [bag[i], bag[j]] = [bag[j], bag[i]];
+    }
+    // The bag is used from the end; across refills the first line must not repeat the last one said.
+    if (bag.length > 1 && bag[bag.length - 1] === memo.last) [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
+    memo.bag = bag;
+    memo.n = list.length;
+  }
+  memo.last = memo.bag.pop();
+  return list[memo.last];
 }
+
+/** Something the player says about an item, at random (see pickLine; `memo` is per item). */
+export const quipFor = (fl, it, memo, rand) => pickLine(D.QUIPS[quipKey(fl, it)] || [], memo, rand);
 
 const LABEL_COLORS = ['#e8d36a', '#f2f2f2', '#9fd3f0', '#f0a8c0', '#b8e09a'];
 const BOX_COLORS = { box: ['#c94a3b', '#3b7bc9', '#e0e0e0', '#4caf50', '#d9902b'], jar: ['#c9a227', '#e8e0c8', '#b6573b'], bottle: ['#2f8f7f', '#a33b3b', '#6aa8d8'], carton: ['#f2f2f2'], cake: ['#f0c8d8'], bag: ['#c94a3b'] };
@@ -166,3 +184,38 @@ export function playerFile(s) {
   ];
   return { name, role: 'You', you: true, no: '00001-Y', lines, doodle: 'sun', ring: { x: 60, y: 30 }, stamp: 'TOP SECRET', stars: Math.min(5, 1 + Math.floor(s.maxFloor / 8)) };
 }
+
+// ---------------------------------------------------------------- vending machine
+const VEND_ROWS = ['A', 'B', 'C', 'D'];
+const MONUMENT_AT = 6; // B3, as the quips say
+
+/**
+ * A vending machine: 16 slots A1-D4 { code, name, eat, price, shape, color, soldOut, monument }. One or two are sold
+ * out (the first one is always Inspiration), and B3 holds the crisp packet that has been stuck there for years.
+ */
+export function vendingContents(seed) {
+  const r = createRng(seed * 17 + 11);
+  const pool = D.VENDING_ITEMS.filter(([name]) => name !== 'Inspiration');
+  const picked = r.sample(pool, 15);
+  const slots = [];
+  for (let i = 0; i < 16; i++) {
+    const code = VEND_ROWS[Math.floor(i / 4)] + ((i % 4) + 1);
+    if (i === MONUMENT_AT) {
+      const [name, eat] = D.VENDING_MONUMENT;
+      slots.push({ code, name, eat, price: '--', shape: 'bag', color: '#c94a3b', soldOut: false, monument: true });
+      continue;
+    }
+    const [name, eat, price, shape, color] = picked.pop();
+    slots.push({ code, name, eat, price, shape, color, soldOut: false, monument: false });
+  }
+  const open = slots.filter((s) => !s.monument);
+  const sold = r.sample(open, r.int(1, 2));
+  sold.forEach((s, i) => {
+    s.soldOut = true;
+    if (i === 0) [s.name, s.eat, s.price, s.shape, s.color] = D.VENDING_ITEMS.find(([n]) => n === 'Inspiration');
+  });
+  return { slots };
+}
+
+/** What a purchase does, from a roll in [0, 1): mostly it drops, often it gets stuck, now and then something odd. */
+export const vendOutcome = (roll) => (roll < 0.55 ? 'drop' : roll < 0.85 ? 'stuck' : roll < 0.95 ? 'wrong' : 'refund');
