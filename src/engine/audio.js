@@ -214,6 +214,7 @@ export function createAudio() {
         case 'star': osc('pulse12', 1568, t, 0.08, 0.1, S); osc('pulse12', 2093, t + 0.06, 0.14, 0.1, S); break;
         case 'cash': [1319, 1568, 2093].forEach((f, i) => osc('square', f, t + i * 0.05, 0.08, 0.09, S)); noise(t + 0.15, 0.2, 0.08, S, 'highpass', 5000); break;
         case 'start': [392, 523, 659].forEach((f, i) => osc('square', f, t + i * 0.08, 0.1, 0.1, S)); break;
+        case 'alarm': [0, 0.22, 0.44, 0.66].forEach((d, i) => osc('square', i % 2 ? 660 : 880, t + d, 0.2, 0.1, S)); break;
         case 'fail': [392, 330, 262].forEach((f, i) => osc('square', f, t + i * 0.12, 0.14, 0.1, S)); break;
         default: break;
       }

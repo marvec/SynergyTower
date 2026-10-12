@@ -23,6 +23,8 @@ import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, Pause
 import { TerminalScene } from './terminal.js';
 import { MinigameScene } from './minigameScene.js';
 import { FloorQuest } from './floorQuest.js';
+import { OfficeEvent } from './officeEvent.js';
+import * as V from '../core/events.js';
 import { MINIGAMES } from '../minigames/index.js';
 
 const SPEED = 4.4;
@@ -83,6 +85,8 @@ export class FloorScene {
     this.focus = null;
     this.quest = null; // active floor quest (360 Feedback, Lost Password)
     this.standupNpc = null; // the colleague with today's stand-up favour (core/daily.js)
+    this.event = null; // a running random office event (officeEvent.js)
+    this.onFloorS = 0;
     this.standupT = 0;
     this.hud = new Hud(game, {
       shop: () => game.push(new ShopOverlay(game)),
@@ -185,7 +189,7 @@ export class FloorScene {
 
   // ------------------------------------------------------------ interactables
   interactables() {
-    const list = [];
+    const list = [...(this.event?.interactables() || [])];
     for (const it of this.fl.items) {
       if (it.task) list.push({ kind: 'task', it });
       else if (it.interact === 'elevator') list.push({ kind: 'elevator', it });
@@ -229,6 +233,19 @@ export class FloorScene {
     const p = this.player;
     this.pending = null;
     p.path = null;
+    const ev = this.event;
+    if (ev) {
+      if (ev.onInteract(t)) {
+        if (t.kind !== 'npc') p.faceTowards(t.it.x + t.it.w / 2 - p.x, t.it.y + t.it.h / 2 - p.y);
+        return;
+      }
+      const msg = ev.blocks(t);
+      if (msg) {
+        game.sfx('bad');
+        game.toast(msg, C.warn);
+        return;
+      }
+    }
     const q = this.quest;
     if (q) {
       if (t.kind === 'board') {
@@ -389,8 +406,22 @@ export class FloorScene {
     );
   }
 
+  /** Starts a random office event now (or the given kind, e.g. from the console: `__game.top.startEvent('cake')`). */
+  startEvent(kind) {
+    const game = this.game;
+    const list = V.availableEvents(this.fl);
+    const k = kind && list.includes(kind) ? kind : V.pickEvent(this.rng, list);
+    V.scheduleNext(game.state, game.now(), this.rng);
+    game.markDirty();
+    this.event = new OfficeEvent(this, k);
+  }
+
   startTask(task) {
     if (MINIGAMES[task.game].quest) {
+      if (this.event) {
+        this.game.toast('Better wait until the office event is over.', C.warn);
+        return;
+      }
       this.quest = new FloorQuest(this, task);
       return;
     }
@@ -540,6 +571,11 @@ export class FloorScene {
       if (input.pressedExact('g')) this.quest.giveUp();
       else this.quest.update(dt);
     }
+    this.onFloorS += dt;
+    if (this.event) {
+      this.event.update(dt);
+      if (this.event.over) this.event = null;
+    } else if (!this.quest && V.canStartEvent(game.state, game.now(), { onFloorS: this.onFloorS, busy: false })) this.startEvent();
 
     // Keyboard movement.
     let kx = (input.down('ArrowRight') ? 1 : 0) - (input.down('ArrowLeft') ? 1 : 0);
@@ -656,7 +692,7 @@ export class FloorScene {
     g.fillStyle = '#0d0f18';
     g.fillRect(0, 0, W, H);
     this.view.gateOpen = !this.gateClosed;
-    const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : []), ...(this.receptionist ? [this.receptionist] : [])];
+    const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : []), ...(this.receptionist ? [this.receptionist] : []), ...(this.event?.actors || [])];
     this.view.render(g, this.cam, [...actors, ...(this.quest?.props || [])]);
 
     g.save();
@@ -665,12 +701,14 @@ export class FloorScene {
     this.drawMarkers(g, s, now);
     this.drawStandupMarker(g);
     this.quest?.renderWorld(g);
+    this.event?.renderWorld(g);
     for (const a of actors) a.drawBubble(g);
     g.restore();
 
     this.drawPrompt(g, s, now);
     this.hud.render(g);
     this.quest?.renderHud(g);
+    this.event?.renderHud(g);
     if (this.banner > 0) this.drawBanner(g);
   }
 
@@ -692,6 +730,7 @@ export class FloorScene {
       const cx = Math.round((it.x + it.w / 2) * TILE);
       const top = this.view.itemTop(it) - 3;
       if (it.task) {
+        if (this.event?.hidesMarker(it)) continue;
         const left = S.cooldownLeft(s, it.task.id, now);
         if (left > 0) {
           const t = formatTime(left);
@@ -771,6 +810,8 @@ export class FloorScene {
     } else if (t.kind === 'poster') {
       text = t.it.ad ? t.it.ad.name : 'Ad space';
       sub = t.it.ad ? 'advertisement' : 'sponsor this wall';
+    } else if (t.kind === 'event') {
+      [text, sub] = this.event.prompt();
     } else if (t.kind === 'board') {
       text = 'Whiteboard';
       sub = t.b.checked ? 'look again' : 'take a look';
@@ -792,6 +833,7 @@ export class FloorScene {
       const cost = S.taskCost(s, t.it.task);
       sub = left > 0 ? `busy ${formatTime(left)}` : cost ? `-${cost} coffee` : 'check-in, free';
       if (this.quest) sub = this.quest.isStation(t.it) ? this.quest.stationSub() : 'finish your task first';
+      if (this.event?.isLocked(t.it)) sub = 'locked for the audit';
     }
     const w = measureText(text) + measureText(sub) + 56;
     const x = 4;
