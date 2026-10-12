@@ -200,6 +200,17 @@ const FURNITURE = {
     p.r(26, -5, 3, 4, k.mug);
     p.r(3, -4, 4, 3, '#efe9d9');
   } },
+  // Your own desk (core/desk.js): tidy, with a nameplate; decorations are drawn on top by drawDeskDecor.
+  mydesk: { lift: 18, draw(p, w, h, k) {
+    const W = w * 16;
+    deskBase(p, W, k.wood, k.woodD);
+    monitorOn(p, W / 2 - 6, -14);
+    p.r(W / 2 - 7, -1, 14, 3, '#d8dce4');
+    p.r(W / 2 - 7, -1, 14, 1, '#ffffff');
+    p.r(W / 2 - 7, 9, 14, 4, '#1a1a22');
+    p.r(W / 2 - 6, 10, 12, 2, '#d9b45a');
+    p.r(W / 2 - 4, 10, 8, 1, '#7a5a1e');
+  } },
   headsetdesk: { lift: 18, draw(p, w, h, k) {
     deskBase(p, w * 16, k.wood, k.woodD);
     monitorOn(p, 6, -14, '#9fe8b0');
@@ -545,6 +556,80 @@ const FURNITURE = {
     p.r(4, -19, 10, 1, '#f4f1e8');
   } },
 };
+
+/**
+ * A decoration on your desk (see DESK_DECOR in economy.js). (x, y) = the desk's footprint top-left in px, w = its width
+ * in tiles. Slots: left and right of the monitor on the desktop, top = on the monitor.
+ */
+export function drawDeskDecor(g, id, x, y, w) {
+  const { r } = P(g);
+  const W = w * 16;
+  const L = x + 1;
+  const R = x + W - 9;
+  const M = x + W / 2 - 6; // the monitor's left edge; its top is at y - 14
+  switch (id) {
+    case 'notes':
+      r(M, y - 14, 3, 3, '#f2e14e');
+      r(M + 9, y - 13, 3, 3, '#f29cd0');
+      r(M + 1, y - 9, 3, 3, '#8ad0f2');
+      break;
+    case 'duck':
+      r(M + 3, y - 17, 6, 3, '#f2d22e');
+      r(M + 7, y - 20, 3, 3, '#f2d22e');
+      r(M + 10, y - 19, 2, 1, '#f29c38');
+      r(M + 8, y - 19, 1, 1, '#1a1a22');
+      break;
+    case 'bobble':
+      r(M + 5, y - 16, 3, 2, '#22242e');
+      r(M + 4, y - 22, 5, 5, '#e8b88a');
+      r(M + 4, y - 23, 5, 2, '#5a3a22');
+      r(M + 5, y - 20, 1, 1, '#1a1a22');
+      r(M + 7, y - 20, 1, 1, '#1a1a22');
+      break;
+    case 'plant':
+      r(L + 1, y - 3, 5, 4, '#b5653a');
+      r(L + 1, y - 3, 5, 1, '#d07a48');
+      r(L, y - 9, 7, 6, '#3f9a4a');
+      r(L + 2, y - 11, 3, 2, '#5fc06a');
+      break;
+    case 'cactus':
+      r(L + 2, y - 3, 4, 4, '#c97a4a');
+      r(L + 3, y - 11, 2, 8, '#4caf50');
+      r(L + 1, y - 9, 2, 1, '#4caf50');
+      r(L + 1, y - 10, 1, 2, '#4caf50');
+      r(L + 5, y - 7, 2, 1, '#4caf50');
+      r(L + 6, y - 9, 1, 2, '#4caf50');
+      r(L + 3, y - 12, 2, 1, '#f29cd0');
+      break;
+    case 'lamp':
+      r(L, y, 6, 1, '#1a1a22');
+      r(L + 2, y - 10, 1, 10, '#3a3f55');
+      r(L + 2, y - 12, 6, 3, '#e2504a');
+      r(L + 3, y - 9, 4, 1, '#fff6c8');
+      break;
+    case 'mug':
+      r(R + 2, y - 4, 4, 5, '#f4f1e8');
+      r(R + 6, y - 3, 1, 3, '#f4f1e8');
+      r(R + 2, y - 4, 4, 1, '#6a3a1e');
+      r(R + 3, y - 2, 2, 1, '#e2504a');
+      break;
+    case 'photo':
+      r(R + 1, y - 9, 7, 9, '#5a3d22');
+      r(R + 2, y - 8, 5, 6, '#8ad0f2');
+      r(R + 3, y - 5, 1, 3, '#e8b88a');
+      r(R + 5, y - 6, 1, 4, '#e8b88a');
+      break;
+    case 'trophy':
+      r(R + 1, y, 7, 1, '#3a2b1a');
+      r(R + 2, y - 2, 5, 2, '#7a5a1e');
+      r(R + 4, y - 5, 1, 3, '#c9a227');
+      r(R + 1, y - 11, 7, 6, '#f2c14e');
+      r(R + 2, y - 11, 2, 4, '#fff6c8');
+      r(R, y - 10, 1, 3, '#c9a227');
+      r(R + 8, y - 10, 1, 3, '#c9a227');
+      break;
+  }
+}
 
 export function furnitureDef(type) {
   return FURNITURE[type];

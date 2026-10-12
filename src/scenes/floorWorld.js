@@ -1,5 +1,5 @@
 // Floor visuals + actors: bakes static layers once per floor and draws a depth-sorted 2.5D scene.
-import { TILE, WALL_H, CHAR_W, CHAR_H, bakeCharacter, bakeFurniture, furnitureDef, drawFloorTile, drawWallTile, floorStyleForRoom, shade } from '../engine/art.js';
+import { TILE, WALL_H, CHAR_W, CHAR_H, bakeCharacter, bakeFurniture, furnitureDef, drawFloorTile, drawWallTile, floorStyleForRoom, shade, drawDeskDecor } from '../engine/art.js';
 import { makeCanvas } from '../engine/screen.js';
 import { T_WALL } from '../core/floorgen.js';
 import { findPath } from '../core/pathfind.js';
@@ -237,9 +237,12 @@ export class FloorView {
       const baked = bakeFurniture(it.type, it.w, it.h, this.kit);
       // Lobby turnstiles also bake their open state; `gateOpen` (set by the floor scene) picks one.
       const open = it.type === 'turnstile' ? bakeFurniture('turnstileopen', it.w, it.h, this.kit) : null;
-      return { it, baked, open, solid: it.solid, lift: furnitureDef(it.type)?.lift || 0 };
+      // Your desk also bakes its tidy look; `desk` (set by the floor scene once it is yours) picks it.
+      const mine = it === fl.myDesk ? bakeFurniture('mydesk', it.w, it.h, this.kit) : null;
+      return { it, baked, open, mine, solid: it.solid, lift: furnitureDef(it.type)?.lift || 0 };
     });
     this.gateOpen = false;
+    this.desk = null; // { owned, show } of your desk on this floor, or null while it is not yours
   }
 
   /** A hallway poster on the upper part of the wall (row-canvas coordinates: the wall top spans y 0..16). */
@@ -303,11 +306,13 @@ export class FloorView {
 
   drawItem(g, s) {
     const { it } = s;
-    const baked = this.gateOpen && s.open ? s.open : s.baked;
+    const mine = s.mine && this.desk;
+    const baked = mine ? s.mine : this.gateOpen && s.open ? s.open : s.baked;
     if (!baked) return;
     const x = it.x * TILE + baked.ox;
     const y = it.y * TILE + baked.oy;
     g.drawImage(baked.canvas, x, y);
+    if (mine) for (const id of Object.values(this.desk.show || {})) if (id) drawDeskDecor(g, id, it.x * TILE, it.y * TILE, it.w);
     if (it.type === 'serverrack') {
       const t = Math.floor(this.time * 6 + it.id * 3);
       for (let i = 0; i < 6; i++) {

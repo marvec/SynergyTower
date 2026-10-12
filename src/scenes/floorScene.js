@@ -24,6 +24,8 @@ import { TerminalScene } from './terminal.js';
 import { MinigameScene } from './minigameScene.js';
 import { FloorQuest } from './floorQuest.js';
 import { OfficeEvent } from './officeEvent.js';
+import { DeskOverlay } from './deskOverlay.js';
+import * as K from '../core/desk.js';
 import * as V from '../core/events.js';
 import { MINIGAMES } from '../minigames/index.js';
 
@@ -149,6 +151,11 @@ export class FloorScene {
   }
 
   // ------------------------------------------------------------ collision & movement
+  /** Your desk on this floor (core/desk.js): every floor you have reached, floor 1 once checked in. */
+  get hasDesk() {
+    return !!this.fl.myDesk && K.hasDesk(this.game.state, this.floorNo);
+  }
+
   /** The lobby turnstiles stay shut until the new hire has checked in and paid their first cup. */
   get gateClosed() {
     return !!this.fl.turnstile && this.game.state.lobby !== 'done';
@@ -197,6 +204,7 @@ export class FloorScene {
       else if (it.interact === 'hr') list.push({ kind: 'hr', it });
       else if (it.interact === 'turnstile' && this.gateClosed) list.push({ kind: 'turnstile', it });
       else if (it.terminal) list.push({ kind: 'terminal', it });
+      else if (it === this.fl.myDesk && this.hasDesk) list.push({ kind: 'mydesk', it });
     }
     for (const n of this.npcs) if (!n.brain.exit) list.push({ kind: 'npc', n });
     for (const b of this.quest?.props || []) list.push({ kind: 'board', it: b.it, b });
@@ -288,6 +296,9 @@ export class FloorScene {
       game.push(new TaskCard(game, it.task, (task) => this.startTask(task)));
     } else if (t.kind === 'turnstile') {
       this.useTurnstile();
+    } else if (t.kind === 'mydesk') {
+      game.sfx('click');
+      game.push(new DeskOverlay(game, this.floorNo, this.view));
     } else if (t.kind === 'elevator') {
       game.sfx('ding');
       game.push(new ElevatorPanel(game, { onPromote: () => this.promote(), onTravel: (f) => this.travel(f) }));
@@ -692,6 +703,7 @@ export class FloorScene {
     g.fillStyle = '#0d0f18';
     g.fillRect(0, 0, W, H);
     this.view.gateOpen = !this.gateClosed;
+    this.view.desk = this.hasDesk ? K.deskOf(s, this.floorNo) : null;
     const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : []), ...(this.receptionist ? [this.receptionist] : []), ...(this.event?.actors || [])];
     this.view.render(g, this.cam, [...actors, ...(this.quest?.props || [])]);
 
@@ -776,6 +788,14 @@ export class FloorScene {
         rect(g, cx - 7, y + 1, 14, 8, '#070b08');
         drawText(g, '>', cx - 5, y + 1, { color: '#5fd068' });
         if (Math.floor(this.time * 2) % 2 === 0) rect(g, cx, y + 7, 4, 1, '#5fd068');
+      } else if (it === this.fl.myDesk && this.hasDesk) {
+        // "MY DESK" tag until something is on show.
+        if (Object.values(K.deskOf(s, this.floorNo).show).some(Boolean)) continue;
+        const y = top - 12 + bob;
+        const w = measureText('MY DESK') + 6;
+        rect(g, cx - w / 2, y, w, 10, C.border);
+        rect(g, cx - w / 2 + 1, y + 1, w - 2, 8, C.gold);
+        drawText(g, 'MY DESK', cx, y + 1, { align: 'center', color: C.ink });
       } else if (it.interact === 'coffee') {
         if (S.cooldownLeft(s, `coffee-machine-${this.floorNo}`, now) <= 0) icon(g, 'coffee', cx - 3, top - 10 + bob);
       }
@@ -817,6 +837,10 @@ export class FloorScene {
       sub = t.b.checked ? 'look again' : 'take a look';
     }
     else if (t.kind === 'elevator') text = 'Elevator';
+    else if (t.kind === 'mydesk') {
+      text = 'Your desk';
+      sub = 'decorate';
+    }
     else if (t.kind === 'turnstile') {
       text = 'Turnstiles';
       sub = s.lobby === 'checkin' ? 'check in first' : `-${E.TURNSTILE_COFFEE} coffee`;
