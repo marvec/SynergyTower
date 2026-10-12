@@ -86,3 +86,32 @@ export function unpack(src) {
     }
   }
 }
+
+/**
+ * Unpacking in place: the packed data sits higher up in the same memory and the output grows from below. Returns
+ * the smallest distance (input start - output start) at which no output byte overwrites input not read yet.
+ */
+export function inPlaceGap(src) {
+  let gap = 1;
+  let w = 0;
+  let p = 0;
+  for (;;) {
+    const t = src[p++];
+    if (t === 0) return gap;
+    if (t < 0x80) {
+      for (let k = 0; k < t; k++) {
+        p++; // this literal is read, then written at w
+        gap = Math.max(gap, w - p + 1);
+        w++;
+      }
+    } else {
+      const long = t >= 0xc0;
+      const len = (t & 0x3f) + (long ? LONG_MIN : SHORT_MIN);
+      p += long ? 2 : 1;
+      for (let k = 0; k < len; k++) {
+        gap = Math.max(gap, w - p + 1);
+        w++;
+      }
+    }
+  }
+}

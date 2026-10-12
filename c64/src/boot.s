@@ -1,12 +1,13 @@
 ; Boot file: the only file the KERNAL loads (LOAD"*",8,1). It uploads the fast loader's drive code, copies
-; the C64 side of the loader to $c400 and fast-loads the packed main program over itself.
+; the C64 side of the loader to $c400 and fast-loads the packed main program: part 2 to $9400, then part 1
+; over itself.
 
 .include "zp.inc"
-.include "gen/boot.inc"         ; MAIN_T, MAIN_S: first block of the main program
+.include "gen/boot.inc"         ; MAIN_T/S, MAIN2_T/S, FAR_T/S: first blocks of the main program's parts
 
 .import __LOADER_LOAD__, __LOADER_RUN__, __LOADER_SIZE__
 
-LOADBUF    = $6000
+PACKBUF    = $4000              ; up to 16 KB of packed data ($4000-$7fff)
 MAIN_START = $080d              ; main.s: the jmp after its BASIC stub
 DRIVE_ADDR = $0500
 CHROUT = $ffd2
@@ -146,24 +147,61 @@ DRIVE_BYTES = * - drive_code
 
 ; ---- runs at $c400 ----------------------------------------------------------------------------------
 .segment "LOADER"
-boot2:  lda #<LOADBUF
-        sta DST
-        lda #>LOADBUF
-        sta DST+1
-        lda #MAIN_T
+boot2:  lda #$36                    ; BASIC ROM out: part 2 unpacks to $9500-$bfff and reads back what it wrote
+        sta $01
+        lda #CHARS_T                ; the charset to $c800
+        ldx #CHARS_S
+        ldy #>$c800
+        jsr load_unpack
+        lda #FAR_T                  ; part 3 (sprites + texts) to $e000, under the KERNAL
+        ldx #FAR_S
+        ldy #>$e000
+        jsr load_prep
+        sei
+        lda #$35                    ; KERNAL out while unpacking (it reads back what it wrote)
+        sta $01
+        jsr lz_unpack
+        lda #$36
+        sta $01
+        cli
+        lda #MAIN2_T                ; part 2 to $9500
+        ldx #MAIN2_S
+        ldy #>$9500
+        jsr load_unpack
+        lda #MAIN_T                 ; part 1 over this boot file
         ldx #MAIN_S
+        ldy #>$0801
+        jsr load_unpack
+        jmp MAIN_START
+
+; A = track, X = sector, Y = page to unpack to ($xx00 or $0801): load the packed file to $4000 and unpack it.
+load_unpack:
+        jsr load_prep
+        jmp lz_unpack
+
+; ... load it and set SRC / DST for lz_unpack.
+load_prep:
+        sty MP                      ; (lz_unpack's match pointer is free until the unpack)
+        pha
+        lda #<PACKBUF
+        sta DST
+        lda #>PACKBUF
+        sta DST+1
+        pla
         jsr fl_load
         bcs @err
-        lda #<LOADBUF
+        lda #<PACKBUF
         sta SRC
-        lda #>LOADBUF
+        lda #>PACKBUF
         sta SRC+1
-        lda #<$0801
-        sta DST
-        lda #>$0801
+        lda MP
         sta DST+1
-        jsr lz_unpack           ; over this boot file
-        jmp MAIN_START
+        ldy #0
+        cmp #>$0801
+        bne :+
+        ldy #<$0801
+:       sty DST
+        rts
 @err:   inc $d020
         jmp @err
 

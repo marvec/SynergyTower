@@ -45,3 +45,4 @@ PEND_C   = $85
 PEND_Y   = $86
 NEXT_S   = $87   ; fine scroll (YSCROLL) for the playfield, set by the split IRQ
 NEXT_D018 = $88  ; screen for the playfield, set by the split IRQ
+SB       = $89   ; word, text builder output (src/text.s)

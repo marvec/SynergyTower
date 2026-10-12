@@ -57,6 +57,10 @@ export class D64 {
   finish(order = this.files.map((f) => f.name)) {
     const bam = offsetOf(18, 0);
     const img = this.img;
+    // Directory sectors 18/1, 18/4, 18/7, ... (8 entries each, linked), as the DOS lays them out.
+    const dirSectors = Array.from({ length: Math.max(1, Math.ceil(order.length / 8)) }, (_, i) => 1 + 3 * i);
+    if (dirSectors.length > 6) throw new Error('more than 48 files');
+    for (const d of dirSectors) this.used[18][d] = true;
     img.set([18, 1, 0x41, 0x00], bam);
     for (let t = 1; t <= TRACKS; t++) {
       const free = this.used[t].map((u) => !u);
@@ -68,12 +72,13 @@ export class D64 {
     img.set(petscii(this.name).slice(0, 16), bam + 0x90);
     img.set(petscii(this.id).slice(0, 2), bam + 0xa2);
     img.set([0x32, 0x41], bam + 0xa5); // "2A"
-    const dir = offsetOf(18, 1);
-    if (order.length > 8) throw new Error('more than 8 files: needs a second directory sector');
-    img.set([0, 0xff], dir);
+    dirSectors.forEach((d, k) => {
+      const next = dirSectors[k + 1];
+      img.set(next ? [18, next] : [0, 0xff], offsetOf(18, d));
+    });
     order.forEach((name, i) => {
       const f = this.files.find((x) => x.name === name);
-      const e = dir + i * 32;
+      const e = offsetOf(18, dirSectors[i >> 3]) + (i & 7) * 32;
       img[e + 2] = 0x82; // PRG, closed
       img[e + 3] = f.track;
       img[e + 4] = f.sector;

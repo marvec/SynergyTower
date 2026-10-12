@@ -4,6 +4,39 @@
 
 ; A = track, X = sector of the file's first block. Loads it to DST. C=1 on a read error.
 fl_load:
+        jsr fl_cmd
+@block: jsr w64
+        jsr w64
+:       bit $dd00
+        bpl :-                  ; drive reading the sector: interrupts (music) keep running here
+        jsr fl_get              ; count
+        bne :+
+        clc                     ; 0 = end of file
+        bcc @end
+:       cmp #$ff
+        beq @end                ; read error, C=1
+        sta T2
+        ldy #0
+:       jsr fl_get
+        sta (DST),y
+        iny
+        cpy T2
+        bne :-
+        tya
+        clc
+        adc DST
+        sta DST
+        bcc :+
+        inc DST+1
+:       jsr fl_ack              ; block received
+        jmp @block
+@end:   php
+        jsr fl_ack
+        plp
+        rts
+
+; Get the drive's attention and send it A = track, X = sector.
+fl_cmd:
         sta T0
         stx T1
         lda $dd00
@@ -25,46 +58,6 @@ fl_load:
         jsr fl_send
         lda ATNOFF
         sta $dd00               ; release DATA
-.ifdef AUTOPLAY
-        lda #0
-        sta blk_n
-        lda FRAME
-        sta blk_t
-.endif
-@block: jsr w64
-        jsr w64
-:       bit $dd00
-        bpl :-                  ; drive reading the sector: interrupts (music) keep running here
-.ifdef AUTOPLAY
-        jsr blk_mark            ; timing log for the test build
-.endif
-        jsr fl_get              ; count
-        bne :+
-        clc                     ; 0 = end of file
-        bcc @end
-:       cmp #$ff
-        beq @end                ; read error, C=1
-        sta T2
-        ldy #0
-:       jsr fl_get
-        sta (DST),y
-        iny
-        cpy T2
-        bne :-
-        tya
-        clc
-        adc DST
-        sta DST
-        bcc :+
-        inc DST+1
-:       jsr fl_ack              ; block received
-.ifdef AUTOPLAY
-        jsr blk_mark
-.endif
-        jmp @block
-@end:   php
-        jsr fl_ack
-        plp
         rts
 
 ; Receive a byte: 4 ATN edges, 2 bits each (DATA = even bit, CLK = odd bit, released = 1), LSB first.

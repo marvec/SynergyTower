@@ -1,17 +1,39 @@
-# SynergyTower for the Commodore 64 (proof of concept)
+# SynergyTower for the Commodore 64
 
-Floor 1 of the real game on a `.d64`. The layout comes from the JS floor generator, and the playfield scrolls
-smoothly under a fixed HUD while colleagues wander. Four of the floor's eight stations are playable: Name Badge
-Memory, Jargon Decoder, Meeting Buzzword Bingo and Boss Alert, each loaded from disk when you start it. A
-custom fast loader keeps the SID playing during loads.
+Floors 1 and 2 of the real game on one `.d64`, with the same career as the browser version: title screen and
+career setup, the street intro, the lobby check-in, every station's mini-game on both floors, the HR performance
+review and the promotion to floor 2, the elevator, the workstation terminal, colleagues to talk to, posters,
+coffee, perks, training, the (demo) Stock Option shop and a save game on the disk. Everything is converted from
+the game's own modules at build time. Web links (the contact form, the tip jar) are shown as addresses.
 
 ```bash
 brew install cc65 vice
 bun c64/build.js --run                 # build c64/build/synergy.d64 and start VICE
-bun c64/build.js --autoplay=stealth --shots=30,45   # test disk: walks to that station and plays it perfectly
+bun c64/build.js --autoplay=bingo --shots=45,60   # test disk: skips the title, plays that station perfectly
+bun c64/build.js --autoplay=promote    # test disk: promotion-ready, takes the HR review, rides up to floor 2
 ```
 
-Controls: joystick in port 2, or WASD / cursor keys + SPACE or RETURN. Jargon Decoder also takes keys 1-3.
+Controls: joystick in port 2, or WASD / cursor keys, FIRE / SPACE / RETURN. On the floor: RUN/STOP menu, B shop,
+P perks, T training, S your numbers, M music, H how to play, G give up a floor quest. Mini-games also take their
+number keys. The terminal: type, RETURN runs, cursor up/down history, F1 completes, the pound key types "|".
+
+## The mini-games
+
+| Floor 1 (Grand Lobby) | Floor 2 (Mailroom) |
+|---|---|
+| Jargon Decoder (the check-in at the front desk) | Schedule the Meeting |
+| Meeting Buzzword Bingo | Elevator Pitch |
+| Cable Spaghetti | Reply-All Apocalypse |
+| Coffee Run | Desk Plant Survival |
+| Name Badge Memory | Magic Chart |
+| Badge Tailgate | Fridge Tetris |
+| Coffee Crossing | Lost Password (a floor quest: find your pet's photo on the whiteboards, then log in) |
+| Expense Fraud Detective | Whack-a-Bug |
+
+Plus the HR Performance Review on both floors. Each is a port of the JS game at the difficulty floors 1-2 use,
+with its rules, timings, scoring and content; the differences (40 columns, 16 colours, 8 sprites, no mouse) are
+listed in each overlay's header comment. Every overlay has a test bot (`--autoplay=<id>`) that plays it by reading its
+state; all reach 3 stars in our runs except the Fridge Tetris bot, which sometimes overfills the fridge.
 
 ## What the build does
 
@@ -19,87 +41,88 @@ Controls: joystick in port 2, or WASD / cursor keys + SPACE or RETURN. Jargon De
 
 | From the JS game | To |
 |---|---|
-| `buildFloor(1)`: tiles, rooms, furniture, stations, NPCs, posters | char map + colour map + walk/interact grid + header (`tools/floor.js`) |
+| `buildFloor(1)`, `buildFloor(2)`: tiles, rooms, furniture, stations, colleagues, posters, turnstiles | char map + colour map + walk/interact grid + header with names and strings (`tools/floor.js`) |
 | furniture drawn as fat-pixel rectangles (`tools/art.js`) | multicolour chars, composited onto the floor under them, deduplicated |
-| the bitmap font (`src/engine/font.js`) | chars 32-126 of the charset (ASCII = screen code) |
-| tracker songs (`src/data/music.js`, `compileSong`) | 3-voice SID streams: lead, bass, drums + effects (`tools/music.js`) |
-| economy (`taskReward`, `taskCoffeeCost`, `starQuota`, ...) | constants in `gen/floor.inc` |
-| mini-game content (`src/data/mg-jargon.js`, `mg-bingo.js`) | string tables, wrapped to the C64's 40 columns (`tools/mgdata.js`) |
+| the bitmap font (`src/engine/font.js`) | chars 32-126 of the charset (ASCII = screen code); the title logo in quarter blocks |
+| tracker songs (`src/data/music.js`) | 3-voice SID streams: lead, bass, drums + effects (`tools/music.js`) |
+| economy (`taskReward`, `xpToNext`, `keycardFee`, cooldowns, perks...) | tables in `gen/econ.s` |
+| colleague lines, help texts, dialog texts | byte-pair compressed strings (`tools/bpe.js`) |
+| mini-game content (`src/data/mg-*.js`), terminal (`src/core/terminal.js`) | data tables per overlay (`tools/mgdata.js`, `tools/mg/*.js`, `tools/termdata.js`) |
 
-It then assembles everything with ca65/ld65 and packs the data files with its own LZ packer (`tools/lz.js`). It
-also writes the disk image itself (`tools/d64.js`), so it controls sector placement and knows where every file
-starts.
+It assembles everything with ca65/ld65, packs it with its own LZ packer (`tools/lz.js`) and writes the disk image
+itself (`tools/d64.js`), so it controls sector placement and knows where every file starts.
 
 ## Disk and boot
 
 | File | Loaded by | Contents |
 |---|---|---|
-| `synergy` | KERNAL (`LOAD"*",8,1`), 5 blocks | boot: uploads the drive code, fast-loads `main` |
-| `main` | fast loader | the resident program, LZ-packed, unpacked to `$0801` |
-| `floor01` | fast loader | floor 1 |
-| `mg.memory`, `mg.jargon`, `mg.bingo`, `mg.stealth` | fast loader | mini-game overlays for `$4000` |
-
-The boot file runs its copy of the loader from `$c400`, then unpacks `main` over itself.
+| `synergy` | KERNAL (`LOAD"*",8,1`), 5 blocks | boot: uploads the drive code, fast-loads the rest |
+| `chars`, `far`, `main2`, `main` | fast loader, at boot | charset; sprites + long texts under the KERNAL; the resident program's parts |
+| `floor01`, `floor02` | fast loader | the floors |
+| `sys.title`, `sys.term` | fast loader | title / setup / intro overlay; the terminal |
+| `mg.*` | fast loader | one overlay per mini-game, loaded when you start it (kept while you stay with it) |
+| `save` | the drive code writes it in place | the career: one block |
 
 ## Memory map ($01 = $36: BASIC ROM out, KERNAL + I/O in)
 
 | Address | Contents |
 |---|---|
 | `$0002-$003f`, `$0080-$008f` | zero page (`$02-$13` shared with overlays, see `src/api.inc`; resident part in `src/zp.inc`) |
-| `$0801-$3fff` | resident: engine, API jump table at `$0810`, charset/sprites/music data (~9 KB) |
-| `$4000-$5fff` | mini-game overlay slot (`mg.*` files) |
+| `$02a7-$02ff`, `$033c-$03fb` | context for overlays (HR review, floor quest), button labels |
+| `$0801-$3fff` | resident part 1: engine, API jump table at `$0810`, multiplexer, HUD, host, economy, save, music |
+| `$4000-$5fff` | overlay slot (`mg.*`, `sys.title`) |
 | `$6000-$7fff` | load buffer for packed files |
-| `$8000-$8fff` | current floor (`floor01`, unpacked) |
-| `$c000` / `$c400` | the two screens (VIC bank 3); the playfield alternates between them, mini-games use `$c000` |
+| `$8000-$93ff` | the current floor |
+| `$9400-$94ff` | the career state (`src/state.inc`) = the save block |
+| `$9500-$bfff` | resident part 2: dialogs, menus, elevator, game table, economy tables, strings |
+| `$c000` / `$c400` | the two screens (VIC bank 3); the playfield alternates between them |
 | `$c800` | charset |
-| `$e000` | sprites, in RAM under the KERNAL: 12 person frames, plus the boss frames Boss Alert copies to `$e300` |
+| `$e000-$fff9` | RAM under the KERNAL: 12 person frames, overlay sprites at `$e300`, long texts (read with the KERNAL banked out) |
+
+The terminal is bigger than the overlay slot: it is unpacked in place over `$4000-$93ff` (slot, load buffer and
+floor) from a packed copy loaded to the top of that area, and the floor is loaded again when you leave it.
 
 ## Tricks in use
 
-- **Fast loader with a 2-bit transfer** (`src/drive.s`, `src/loader.s`):
-  - The drive code is uploaded with `M-W`. Files are fetched by the track and sector known at build time, so
-    there is no directory search.
-  - The C64 toggles ATN and the drive puts two bits on CLK and DATA, answering within 13 µs. The C64 sets the
-    pace of every step, so raster IRQs and bad lines can't break a transfer, and the music keeps playing (the
-    KERNAL's `ACPTR` waits with interrupts off).
-  - The drive sets the ATN-acknowledge bit with every value, so the 1541's hardware auto-acknowledge never
-    pulls DATA by itself.
-  - Fast-loaded files use a sector interleave of 13, measured so the drive is ready just as the next sector
-    arrives.
-- **Smooth vertical scrolling under a fixed HUD**:
-  - A second raster IRQ, just below the HUD, sets YSCROLL. This delays the playfield's first bad line by 0-7
-    lines, so the map moves by single pixels and the gap stays black (the VIC's idle byte `$ffff` is 0).
-    YSCROLL = 2 would start a bad line on the HUD's last line, so that case goes 1, then 2 one line later.
-  - When the camera crosses a char row, the new rows' chars are drawn into the hidden screen by an unrolled,
-    self-modified loop. Next frame the screens swap, and the colour RAM is copied in 4-row groups right after
-    the beam leaves the playfield, staying ahead of it all the way down.
-  - Worst frame measured in VICE: done by raster line 217 of the 250 available.
-- **Load timing from the CIA time-of-day clock**, which runs on mains ticks and stays right while interrupts
-  are off.
-- **Overlays with a fixed ABI**:
-  - A jump table in the resident part (`API_*`: print, centred print, box, timer bar, random, ...) and a
-    3-entry header at `$4000`, so each mini-game links on its own.
-  - `src/mgkit.s` is the overlays' shared kit, like `src/engine/mgkit.js`.
-  - An overlay that is still in memory is not loaded again.
-- **Multicolour and hires chars on one screen**: colour RAM bit 3 picks the mode per cell, so text and icons stay
-  sharp next to multicolour furniture.
+- **Fast loader with a 2-bit transfer** (`src/drive.s`, `src/loader.s`): the C64 toggles ATN and the drive puts two
+  bits on CLK and DATA, answering within 13 µs. The C64 sets the pace, so raster IRQs can't break a transfer and
+  the music keeps playing. Files are fetched by track and sector (no directory search), with an interleave of 13.
+  The drive code also has a write command: the save game is a block the build reserves, written through the
+  DOS's job queue.
+- **Sprite multiplexer**: up to 16 actors (colleagues, the receptionist, the HR rep, quest whiteboards) share the 8
+  sprites. Each frame they are sorted by height; sprites lower down reuse a hardware sprite from a raster IRQ on
+  the line where its previous occupant ends, and lower actors get the higher priority (they stand in front).
+- **Smooth vertical scrolling under a fixed 3-row HUD**: a raster IRQ below the HUD sets YSCROLL; new map rows are
+  drawn into the hidden screen, the screens swap, and the colour RAM is copied ahead of the beam.
+- **Byte-pair text compression**: bytes 128-255 stand for pairs of symbols, expanded on the way to the screen
+  (~38% smaller for this game's text). The terminal has its own table.
+- **A seconds clock in the raster IRQ** for coffee refills and cooldowns (deadlines in the save game).
+- **Overlays with a fixed ABI**: a jump table in the resident part (`API_*`) and a header at `$4000`, so each
+  mini-game links on its own. `src/mgkit.s` is their shared kit, like `src/engine/mgkit.js`.
+- **Multicolour and hires chars on one screen**: colour RAM bit 3 picks the mode per cell.
 - **Oblique walls**: a wall's cap is drawn into the floor cell above it, as in the browser version.
-- **Expanded multicolour sprites** for Boss Alert's walkers. The boss's dark suit is the shared outline colour
-  and his tie is the sprite's own colour.
+
+## Differences from the browser version
+
+- Floors 3-40 are not on the disk: the elevator and the terminal say so and point to synergytower.co.uk.
+  Firing colleagues (floor 40) and the CEO ending are out of reach for the same reason.
+- Web links can't be opened: the feedback form (synergytower.co.uk/feedback) and the tip jar are shown as addresses.
+- No real-time clock: coffee and cooldowns run while the C64 runs (the browser counts time away too).
+- Skin, hair colour and hair style show on the badge, not on the walking sprite (all people share two of the
+  sprites' colours).
+- The C64 has no mouse: everything is joystick or keys.
 
 ## Measured in VICE (true drive emulation)
 
 | | |
 |---|---|
-| boot file | 1.1 KB, 5 blocks: the only KERNAL load |
-| boot to floor 1 | ~7 s after the boot file starts: drive code upload + `main` (26 blocks) + `floor01` |
-| main program | 9.2 KB, 6.2 KB packed |
-| overlays (packed) | Memory 1.5 KB, Jargon 2.8 KB (16 of the 60 buzzwords), Bingo 1.9 KB, Boss Alert 1.8 KB |
-| overlay load | 0.9-1.5 s for 6-8 blocks, music playing: a block takes ~50 ms to send and ~60 ms of DOS work. The same 7 blocks took 1.3-1.5 s with the first 1-bit loader and ~5 s with the KERNAL (music frozen) |
-| disk | ~600 of 664 blocks free |
+| boot to the title | ~33 s after the boot file starts (its 5 blocks via the KERNAL, then ~120 blocks fast) |
+| mini-game load | 1-3 s for 6-25 blocks, music playing |
+| terminal | ~6.5 s to load (60 blocks), the floor reloads in ~1 s after |
+| save | ~0.5 s (one block written in place) |
+| disk | 210 of 664 blocks free |
 
 ## Next steps
 
 - Read GCR in the drive instead of going through the DOS job queue (most of the remaining ~60 ms per block).
-- A sprite multiplexer for busier floors, the HR review, the elevator and all 40 floors (~1.3 KB each).
-- The other floor-1 games (Write the Email, Lost Password, Tailgate, Defender) and saving to disk.
+- More floors: each floor file is ~1.5 KB packed; the departments' music and mini-games fill the rest of the disk.

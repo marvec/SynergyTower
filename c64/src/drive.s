@@ -4,6 +4,8 @@
 ; 13 cycles, so the C64 may be interrupted (music IRQ, bad lines) at any time without breaking a transfer.
 ;   attention   C64 pulls CLK -> drive pulls DATA (ack) -> C64 releases CLK -> drive releases DATA
 ;   command     track, sector: 1 bit per CLK edge, the C64 puts the bit on DATA (pulled = 0), LSB first
+;   write       track | $80, sector, then 254 bytes the same way; the drive writes them to that block (the
+;               block of a file the build reserved) and answers with a count: 0 = fine, $ff = error.
 ;   per block   drive holds DATA low while it reads the sector and releases it when ready. Then it sends
 ;               count (1..254, 0 = end of file, $ff = read error) and the bytes, 2 bits per ATN edge:
 ;               DATA carries the even bit, CLK the odd one (released = 1), LSB first, 4 edges per byte.
@@ -90,20 +92,26 @@ idle:   lda #0
         sta trk
         jsr recv
         sta sector
-
-block:  lda #DATA_OUT
-        sta VIA1                ; busy
         lda trk
-        sta HDR0
-        lda sector
-        sta HDR0+1
-        lda #$80                ; READ
-        sta JOB0
-        cli
-@job:   lda JOB0
-        bmi @job
-        sei
-        cmp #$01
+        bpl block
+        and #$7f                ; write: 254 data bytes follow, for the block at track/sector
+        sta trk
+        ldy #2
+:       jsr recv
+        sta BUF,y
+        iny
+        bne :-
+        sty BUF                 ; link: last block of its file, 254 bytes
+        dey
+        sty BUF+1
+        lda #$90                ; WRITE
+        jsr job
+        bne :+
+        jmp eof
+:       jmp fail
+
+block:  lda #$80                ; READ
+        jsr job
         beq :+
         jmp fail
 :       ldy #254
@@ -115,7 +123,7 @@ block:  lda #DATA_OUT
         lda #0
         sta VIA1                ; ready
         tya
-        send_byte
+        jsr send_one
         ldy #2
 byteloop: lda BUF,y
         send_byte
@@ -135,9 +143,29 @@ eof:    lda #0
 fail:   lda #$ff
         ldx #0
         stx VIA1                ; ready
-        send_byte
+        jsr send_one
         jsr ack
         jmp idle
+
+; A = job code for buffer 0 at trk/sector. Says busy while the DOS runs it (its job loop is in the IRQ).
+; Z=1 if it went fine.
+job:    ldx #DATA_OUT
+        stx VIA1                ; busy
+        ldx trk
+        stx HDR0
+        ldx sector
+        stx HDR0+1
+        sta JOB0
+        cli
+:       lda JOB0
+        bmi :-
+        sei
+        cmp #$01
+        rts
+
+send_one:
+        send_byte
+        rts
 
 ; Two ATN edges, both answered with "busy" (DATA pulled).
 ack:    lda #DATA_OUT | ATNA
