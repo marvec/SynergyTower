@@ -80,7 +80,8 @@ export class Actor {
     g.drawImage(this.sheet, this.frame * CHAR_W, DIR_ROW[this.dir] * CHAR_H, CHAR_W, CHAR_H, px - CHAR_W / 2, py - CHAR_H + 1, CHAR_W, CHAR_H);
     if (this.carry && this.dir !== 'up') box();
   }
-  drawBubble(g) {
+  /** view: the visible world rect { x, y, w, h, top } (top = HUD bar height); the bubble stays inside it. */
+  drawBubble(g, view) {
     if (!this.bubble) return;
     const lines = wrapText(this.bubble.text, 120);
     const who = this.who;
@@ -88,12 +89,17 @@ export class Actor {
     const textW = Math.max(...lines.map((l) => measureText(l)), who ? measureText(who.name) : 0, who ? measureText(who.role) : 0);
     const bw = Math.min(150, textW + 10);
     const bh = lines.length * 10 + 6 + head;
-    const bx = Math.round(this.x * TILE - bw / 2);
-    const by = Math.round(this.y * TILE - CHAR_H - bh - 6);
+    const ax = Math.round(this.x * TILE);
+    const { x: bx, y: by, below, tail } = view ? placeBubble(ax, Math.round(this.y * TILE), bw, bh, view) : { x: ax - bw / 2, y: this.y * TILE - CHAR_H - bh - 6, below: false, tail: ax };
     rect(g, bx, by, bw, bh, C.border);
     rect(g, bx + 1, by + 1, bw - 2, bh - 2, '#fbf8ef');
-    rect(g, bx + bw / 2 - 2, by + bh - 1, 5, 2, '#fbf8ef');
-    rect(g, bx + bw / 2 - 1, by + bh + 1, 3, 2, C.border);
+    if (below) {
+      rect(g, tail - 2, by - 1, 5, 2, '#fbf8ef');
+      rect(g, tail - 1, by - 3, 3, 2, C.border);
+    } else {
+      rect(g, tail - 2, by + bh - 1, 5, 2, '#fbf8ef');
+      rect(g, tail - 1, by + bh + 1, 3, 2, C.border);
+    }
     if (who) {
       rect(g, bx + 1, by + 1, bw - 2, head - 1, '#e9e3d2');
       drawText(g, who.name, bx + 5, by + 3, { color: C.accentDark });
@@ -102,6 +108,19 @@ export class Actor {
     }
     lines.forEach((l, i) => drawText(g, l, bx + 5, by + 4 + head + i * 10, { color: C.ink }));
   }
+}
+
+/**
+ * Where a speech bubble goes: above the speaker (ax = their x, ay = their feet, world px), slid sideways into the view
+ * and flipped below them when it would run under the HUD bar. The tail points at the speaker. Returns { x, y, below, tail }.
+ */
+export function placeBubble(ax, ay, bw, bh, view) {
+  const x = Math.round(Math.max(view.x + 2, Math.min(ax - bw / 2, view.x + view.w - bw - 2)));
+  let y = ay - CHAR_H - bh - 6;
+  const below = y < view.y + view.top + 2;
+  if (below) y = ay + 6;
+  const tail = Math.max(x + 3, Math.min(ax, x + bw - 4));
+  return { x, y: Math.round(y), below, tail };
 }
 
 /**

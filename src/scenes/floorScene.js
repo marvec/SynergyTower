@@ -721,7 +721,8 @@ export class FloorScene {
     this.drawStandupMarker(g);
     this.quest?.renderWorld(g);
     this.event?.renderWorld(g);
-    for (const a of actors) a.drawBubble(g);
+    const bubbleView = { x: Math.round(this.cam.x), y: Math.round(this.cam.y), w: W, h: H, top: HUD_H };
+    for (const a of actors) a.drawBubble(g, bubbleView);
     g.restore();
 
     this.drawPrompt(g, s, now);
