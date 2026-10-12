@@ -14,11 +14,11 @@ export class Hud {
     this.game = game;
     this.buttons = new ButtonSet({ keyboard: false });
     const defs = [
-      { icon: 'cart', label: 'Shop', key: 'shop', hotkey: 'b' },
+      { icon: 'cart', label: 'Shop', key: 'shop', hotkey: 'o' },
       { icon: 'up', label: 'Perks', key: 'perks', hotkey: 'p' },
       { icon: 'book', label: 'Train', key: 'train', hotkey: 't' },
       { icon: 'coffee', label: 'Tip', key: 'coffee' },
-      { icon: 'medal', label: '', key: 'badges', hotkey: 'o' },
+      { icon: 'medal', label: '', key: 'badges', hotkey: 'b' },
       { icon: 'note', label: '', key: 'music' },
       { icon: 'menu', label: '', key: 'menu' },
     ];
