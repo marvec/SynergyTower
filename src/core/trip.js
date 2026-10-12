@@ -50,3 +50,10 @@ export const BREWER_KEY = 'coffee-machine-trip';
 
 /** The client's coffee brewers (they share one pot): the usual cups, ready again after TRIP_BREWER_S. */
 export const useBrewer = (s, now) => useCoffeeMachine(s, s.trip?.floor ?? s.floor, now, { key: BREWER_KEY, cooldownS: E.TRIP_BREWER_S });
+
+/** Debugging (window.__trip): the trip on `floor` is on offer again; a visit under way is dropped. */
+export function resetTrip(s, floor) {
+  const { [floor]: _, ...rest } = s.trips || {};
+  s.trips = rest;
+  s.trip = null;
+}

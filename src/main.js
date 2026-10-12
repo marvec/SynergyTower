@@ -7,6 +7,7 @@ import { TitleScene } from './scenes/title.js';
 import { MinigameScene } from './scenes/minigameScene.js';
 import { initAnalytics } from './engine/analytics.js';
 import { initReminders } from './engine/reminders.js';
+import * as T from './core/trip.js';
 
 // Static public files (served from public/, not bundled).
 for (const [rel, href, type] of [['manifest', './manifest.webmanifest'], ['icon', './icon.svg', 'image/svg+xml']]) {
@@ -84,4 +85,33 @@ window.__step = (frames = 1, dt = 1 / 30) => {
 window.__mg = (game_id, difficulty = 0.5) => {
   game.push(new MinigameScene(game, { id: `debug-${game_id}`, game: game_id, title: `Debug: ${game_id}`, difficulty, seed: 1 }, null));
   return game_id;
+};
+
+/**
+ * Debug: the business trip again, as often as you like. On floor 10 or 30: __trip() resets it and starts the drive,
+ * __trip('client') skips the drive and goes straight into the client's office. Elsewhere: __trip(10) / __trip(30, 'client')
+ * also rides there first.
+ */
+window.__trip = async (a, b) => {
+  const s = game.state;
+  if (!s) return 'no career loaded';
+  const floor = typeof a === 'number' ? a : s.floor;
+  const mode = typeof a === 'string' ? a : b;
+  if (!T.isTripFloor(floor)) return 'business trips leave from floors 10 and 30: try __trip(10)';
+  T.resetTrip(s, floor);
+  s.maxFloor = Math.max(s.maxFloor, floor);
+  s.floor = floor;
+  game.saveNow();
+  if (mode === 'client') {
+    T.departTrip(s, floor);
+    T.arriveTrip(s, floor, game.now());
+    const { ClientOfficeScene } = await import('./scenes/clientOffice.js');
+    game.set(new ClientOfficeScene(game, floor));
+    return `client office, floor ${floor}`;
+  }
+  const { FloorScene } = await import('./scenes/floorScene.js');
+  const fs = new FloorScene(game, floor);
+  game.set(fs);
+  await fs.startTrip();
+  return `drive from floor ${floor}`;
 };

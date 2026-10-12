@@ -91,3 +91,15 @@ test('the Road Warrior badge comes with the first client reached', () => {
   T.arriveTrip(s, 10, 0);
   expect(badge.test(s)).toBe(true);
 });
+
+test('resetTrip (debugging) makes the trip available again and drops a visit under way', () => {
+  const s = game();
+  T.departTrip(s, 10);
+  T.arriveTrip(s, 10, 0);
+  T.departTrip(s, 30);
+  T.resetTrip(s, 10);
+  expect(T.tripStatus(s, 10)).toBe('available');
+  expect(s.trip).toBeNull();
+  expect(T.tripStatus(s, 30)).toBe('missed');
+  expect(T.departTrip(s, 10).ok).toBe(true);
+});

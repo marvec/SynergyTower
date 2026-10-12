@@ -149,7 +149,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   `buildClientFloor` (`src/core/clientFloor.js`, built with floorgen's `createPlanner`, which tower floors share
   byte-for-byte). Its tasks run MinigameScene mode `'trip'` (`completeTripTask`: double paperclips, no KPI stars), its
   brewers use `T.BREWER_KEY` with a 2-minute cooldown; the lobby EXIT leaves at any time. Text in `src/data/trip.js`.
-  Console: `await __game.top.startTrip()` on floor 10/30.
+  Console (repeatable, resets the one-time trip): `__trip()` on floor 10/30, `__trip(30)` rides there first,
+  `__trip('client')` / `__trip(10, 'client')` skips the drive.
 - Reminders: opt-in browser notifications ("Reminders" in Menu > Settings (`SettingsMenu`), offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;
   `src/engine/reminders.js` schedules the soonest one when the tab is hidden and fires only if the tab is still hidden.
@@ -167,6 +168,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - `__game`: the game context (`__game.state`, `__game.top`, `__game.push(...)`).
 - `__step(frames)`: advance the loop manually (rAF pauses in background tabs).
 - `__mg('spreadsheet', 0.7)`: launch any mini-game at a given difficulty (needs a loaded career).
+- `__trip()` / `__trip(30)` / `__trip('client')`: the business trip again (resets it), or straight into the client's office.
 - In game: the `>_` desk on every floor opens the terminal; `systemctl isolate levelXX.target` jumps to floor XX.
   On floor 40 (CEO) talking to a colleague offers Fire/Keep (`state.fired`, keyed by NPC seed).
 - The terminal reads `input.keySeq()` (ordered raw keys) rather than `typed()` + `pressed`, because characters and Enter
