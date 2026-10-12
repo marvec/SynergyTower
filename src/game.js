@@ -1,5 +1,6 @@
 // Game context shared by all scenes: state, persistence, audio, input and the scene stack.
 import * as S from './core/state.js';
+import { createSlotStore } from './core/slots.js';
 import { checkBadges } from './core/achievements.js';
 import { track } from './engine/analytics.js';
 import { CORP_COLORS, SKIN_TONES, HAIR_COLORS } from './data/corpColors.js';
@@ -7,7 +8,24 @@ import { setAccent, C, panel } from './engine/ui.js';
 import { drawText } from './engine/font.js';
 import { W } from './engine/screen.js';
 
-const SAVE_KEY = 'synergytower.save.v1';
+
+/** How a career's employee looks: chosen skin/hair, clothes by the highest floor reached ({ skin, hair, hairStyle, colorId, maxFloor }). */
+export function careerLook(p) {
+  const col = CORP_COLORS.find((c) => c.id === p.colorId) || CORP_COLORS[0];
+  const f = p.maxFloor;
+  return {
+    skin: SKIN_TONES[p.skin] || SKIN_TONES[0],
+    hair: HAIR_COLORS[p.hair] || HAIR_COLORS[0],
+    hairStyle: p.hairStyle ?? 0,
+    shirt: f >= 16 ? '#f4f1e8' : '#dfe6ee',
+    jacket: f >= 21 ? col.dark : null,
+    pants: f >= 36 ? '#1a1a22' : '#3a3f55',
+    tie: f >= 6 ? col.color : null,
+    shoes: '#2a1d14',
+    badge: true,
+    glasses: false,
+  };
+}
 
 export function createGame({ screen, input, audio }) {
   const stack = [];
@@ -15,6 +33,9 @@ export function createGame({ screen, input, audio }) {
   let saveTimer = 0;
   let dirty = false;
   let badgeT = 0;
+  let store = null;
+  // localStorage can throw (blocked site data), so the store is made on first use inside each try.
+  const slots = () => (store ??= createSlotStore(localStorage, { now: () => game.now() }));
 
   const game = {
     screen,
@@ -24,24 +45,58 @@ export function createGame({ screen, input, audio }) {
     now: () => Date.now(),
     time: 0,
 
-    // ---- persistence
-    hasSave() {
+    // ---- persistence: one save slot per career (core/slots.js); game.slot is the one being played
+    slot: null,
+    /** The careers in this browser, last played first ([] when storage is blocked). */
+    careers() {
       try {
-        return !!localStorage.getItem(SAVE_KEY);
+        return slots().list();
       } catch {
-        return false;
+        return [];
       }
     },
-    load() {
+    canCreateCareer() {
       try {
-        const raw = localStorage.getItem(SAVE_KEY);
-        if (!raw) return false;
-        const s = S.deserialize(raw, game.now());
+        return slots().canCreate();
+      } catch {
+        return true; // storage blocked: the career just won't be saved
+      }
+    },
+    /** Loads a career into game.state; false if its save is gone or unreadable. */
+    loadCareer(id) {
+      try {
+        const s = slots().load(id);
         if (!s) return false;
+        game.slot = id;
         game.setState(s);
         return true;
       } catch {
         return false;
+      }
+    },
+    /** Starts playing a brand-new career in a slot of its own; false when all slots are taken. */
+    newCareer(s) {
+      let id = null;
+      try {
+        id = slots().create(s);
+        if (!id) return false;
+      } catch {
+        /* storage full or blocked: play unsaved */
+      }
+      game.slot = id;
+      game.setState(s);
+      return true;
+    },
+    deleteCareer(id) {
+      try {
+        slots().remove(id);
+      } catch {
+        /* ignore */
+      }
+      if (id === game.slot) {
+        game.slot = null;
+        game.state = null;
+        dirty = false;
       }
     },
     setState(s) {
@@ -56,20 +111,17 @@ export function createGame({ screen, input, audio }) {
       dirty = true;
     },
     saveNow() {
-      if (!game.state) return;
+      if (!game.state || !game.slot) return;
       try {
-        localStorage.setItem(SAVE_KEY, S.serialize(game.state));
+        slots().save(game.slot, game.state);
         dirty = false;
       } catch {
         /* storage full or blocked: keep playing */
       }
     },
+    /** Reset career (in-game menu): deletes the career being played. */
     wipeSave() {
-      try {
-        localStorage.removeItem(SAVE_KEY);
-      } catch {
-        /* ignore */
-      }
+      if (game.slot) game.deleteCareer(game.slot);
       game.state = null;
     },
 
@@ -97,20 +149,7 @@ export function createGame({ screen, input, audio }) {
     },
     playerLook() {
       const s = game.state;
-      const col = game.corpColor();
-      const f = s.maxFloor;
-      return {
-        skin: SKIN_TONES[s.player.skin] || SKIN_TONES[0],
-        hair: HAIR_COLORS[s.player.hair] || HAIR_COLORS[0],
-        hairStyle: s.player.hairStyle ?? 0,
-        shirt: f >= 16 ? '#f4f1e8' : '#dfe6ee',
-        jacket: f >= 21 ? col.dark : null,
-        pants: f >= 36 ? '#1a1a22' : '#3a3f55',
-        tie: f >= 6 ? col.color : null,
-        shoes: '#2a1d14',
-        badge: true,
-        glasses: false,
-      };
+      return careerLook({ ...s.player, colorId: s.corp.colorId, maxFloor: s.maxFloor });
     },
     sfx(name) {
       audio.sfx(name);

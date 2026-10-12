@@ -71,16 +71,24 @@ export class SetupScene {
     track('career_start');
     const s = S.newGame({ corpName, colorId: CORP_COLORS[this.color].id, playerName, skin: this.skin, hair: this.hair }, this.game.now());
     s.player.hairStyle = this.hairStyle;
-    this.game.setState(s);
-    this.game.saveNow();
+    if (!this.game.newCareer(s)) {
+      this.error = 'Delete a character to create a new one.';
+      this.game.sfx('bad');
+      return;
+    }
     const { ExteriorScene } = await import('./exterior.js');
     this.game.set(new ExteriorScene(this.game));
+  }
+  async backToTitle() {
+    const { TitleScene } = await import('./title.js');
+    this.game.set(new TitleScene(this.game));
   }
   update(dt) {
     this.t += dt;
     this.build();
     setAccent(CORP_COLORS[this.color]);
     const typing = this.corpField?.focused || this.nameField?.focused;
+    if (!typing && this.game.input.back()) return this.backToTitle();
     if (!typing) this.buttons.update(this.game.input, (n) => this.game.sfx(n));
     else if (this.game.input.pointer.clicked) {
       this.buttons.keyboard = false;
@@ -130,6 +138,6 @@ export class SetupScene {
     drawText(g, 'Valid until promoted', 350, 176, { align: 'center', color: '#8a8070' });
     rect(g, 330, 190, 40, 6, c.color);
     if (this.error) drawText(g, this.error, 270, 254, { color: C.bad });
-    else drawText(g, 'Enter/Tab confirms a field. Arrows + Space to pick.', 242, 254, { color: C.dim });
+    else drawText(g, 'Enter/Tab: next field. Arrows + Space pick. Esc back.', 242, 254, { color: C.dim });
   }
 }

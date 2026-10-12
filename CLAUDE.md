@@ -31,7 +31,7 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 | Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review), registered in `src/minigames/index.js`. |
 
 - `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`),
-  throttled autosave to `localStorage['synergytower.save.v1']`, toasts.
+  throttled autosave of the career being played (`game.slot`), toasts.
 - Scenes import each other with dynamic `import()` where a cycle would otherwise form (floor ⇄ elevator ride ⇄ title).
 - The soft currency is **paperclips** (state key and code name `sp`, a leftover from "Synergy Points").
 - Promotion gate: stars + level + keycard paperclips make you `ready`; then the HR desk (an `hr` room on every floor) runs the
@@ -123,6 +123,15 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   - **Badges** (`src/core/achievements.js`, `state.badges`): predicates over the state only; `game.checkBadges()` runs
     every 0.5 s while a FloorScene is on the stack (`inTower`, so never on the title screen). `stats.soSpent` = -1 for saves from before it was counted (never earns "Bootstrapped"). `BadgeWall`
     opens from the HUD medal button and B (not from the menu).
+- **Save slots** (spec `docs/superpowers/specs/2026-10-12-save-slots-design.md`): up to `MAX_SLOTS` = 100 careers per
+  browser. `src/core/slots.js` (pure, any getItem/setItem storage) keeps each career under `synergytower.slot.<id>` plus an
+  index of summaries (`synergytower.slots.v1`) so the picker never parses every save; the old single save
+  (`synergytower.save.v1`) moves into the first slot the first time the index is read. `game.careers/loadCareer/newCareer/
+  deleteCareer`; Reset career deletes only the career being played. The title loads the last played career (colours,
+  music settings); "Continue career" opens `CareerPicker` (`src/scenes/careerPicker.js`, ID badges in a row, last played
+  first; Play / Delete (asks twice) / New career / Back). With all slots taken, New career leads to the picker with the
+  button disabled. Switching careers mid-game means quitting to the title. Dev servers on other ports are other
+  localStorage origins: the save Martin tests with lives on :5317.
 - **Office curiosities** (spec `docs/superpowers/specs/2026-10-12-office-curiosities-design.md`): non-gameplay furniture
   reacts to Space/click without focus brackets or prompt (gameplay targets always win; walk-through decor only answers a
   click within reach). `src/core/curios.js` decides (`curioOf`, `closeUpOf`, deterministic `fridgeContents`/`plantInfo`/

@@ -18,7 +18,19 @@ export class TitleScene {
     this.game = game;
     this.t = 0;
     this.buttons = new ButtonSet();
-    this.saved = game.hasSave() && game.load();
+    this.refresh();
+  }
+  /** The last played career is loaded (its colours, music settings and name on the title); none if there are none. */
+  refresh() {
+    const game = this.game;
+    const careers = game.careers();
+    if (!careers.some((c) => c.id === game.slot && game.state)) {
+      game.slot = null;
+      game.state = null;
+      careers.some((c) => game.loadCareer(c.id));
+    }
+    this.anyCareer = careers.length > 0;
+    this.savedInfo = null;
     this.build();
   }
   build() {
@@ -26,13 +38,13 @@ export class TitleScene {
     b.clear();
     const x = 40;
     let y = 136;
-    if (this.saved) {
+    if (this.anyCareer) {
       const s = this.game.state;
-      b.add({ x, y, w: 150, h: 20, label: 'Continue career', color: C.goodBtn, onClick: () => this.continue() });
+      b.add({ x, y, w: 150, h: 20, label: 'Continue career', color: C.goodBtn, onClick: () => this.pickCareer() });
       y += 26;
-      this.savedInfo = `${s.player.name} · ${titleForFloor(s.maxFloor)} · F${s.maxFloor}`;
+      if (s) this.savedInfo = `${s.player.name} · ${titleForFloor(s.maxFloor)} · F${s.maxFloor}`;
     }
-    b.add({ x, y, w: 150, h: 20, label: this.saved ? 'New career' : 'Start your career', onClick: () => this.newGame() });
+    b.add({ x, y, w: 150, h: 20, label: this.anyCareer ? 'New career' : 'Start your career', onClick: () => (this.game.canCreateCareer() ? this.newGame() : this.pickCareer()) });
     y += 26;
     b.add({ x, y, w: 150, h: 20, label: 'How to play', color: C.panelLight, onClick: () => this.game.push(howToDialog(this.game)) });
     y += 28;
@@ -54,6 +66,20 @@ export class TitleScene {
   }
   resume() {
     this.game.audio.play('title');
+    this.refresh(); // back from the picker: a career may have been deleted
+  }
+  /** The character picker: every saved career, last played first. */
+  async pickCareer() {
+    const { CareerPicker } = await import('./careerPicker.js');
+    this.game.push(
+      new CareerPicker(this.game, {
+        onPick: (id) => {
+          if (id === this.game.slot || this.game.loadCareer(id)) this.continue();
+          else this.game.toast('That career could not be loaded.', C.bad);
+        },
+        onNew: () => this.newGame(),
+      }),
+    );
   }
   async continue() {
     const { FloorScene } = await import('./floorScene.js');
@@ -78,8 +104,10 @@ export class TitleScene {
     const groundY = H - 18;
     drawSky(g, W, H, 'dusk', this.t);
     drawSkyline(g, W, groundY, 'night', this.t * 4);
-    const corp = this.saved ? this.game.corpColor() : CORP_COLORS[Math.floor(this.t / 3) % CORP_COLORS.length];
-    const name = this.saved ? this.game.state.corp.name : corp.name + ' Corp';
+    // Read game.state every frame: the picker on top can delete the career that is loaded.
+    const s = this.game.state;
+    const corp = s ? this.game.corpColor() : CORP_COLORS[Math.floor(this.t / 3) % CORP_COLORS.length];
+    const name = s ? s.corp.name : corp.name + ' Corp';
     // Tower slowly scrolls to show it is tall.
     const th = towerHeight();
     const pan = (Math.sin(this.t * 0.25) + 1) / 2;
@@ -93,7 +121,7 @@ export class TitleScene {
     drawText(g, 'TOWER', 40, 64 - wob, { scale: 4, color: '#ffffff', shadow: '#000' });
     drawText(g, 'Climb 40 floors of corporate absurdity.', 42, 100, { color: '#e8dff8', shadow: '#000' });
     drawText(g, `Prove your skills in ${GAME_COUNT} challenging tasks!`, 42, 110, { color: C.gold, shadow: '#000' });
-    if (this.savedInfo) drawText(g, this.savedInfo, 42, 124, { color: C.so, shadow: '#000' });
+    if (this.savedInfo && s) drawText(g, this.savedInfo, 42, 124, { color: C.so, shadow: '#000' });
     this.buttons.render(g);
     drawText(g, 'v1.0 · works offline · no cookies · M toggles music', 4, H - 11, { color: '#8890b0' });
     drawLink(g, this.game.input, 'Buy author a coffee', W - 4, H - 11, openCoffee);
