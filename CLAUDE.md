@@ -111,7 +111,7 @@ unless Martin explicitly asks for that. Rules in `c64/CLAUDE.md`.
   - **Your desk** (`src/core/desk.js`, `state.desks`): `fl.myDesk` is picked in `planFloor` without the RNG (floors stay
     unchanged); `DESK_DECOR` prices scale with the floor; `DeskOverlay` buys/shows; `drawDeskDecor` in art.js.
   - **Badges** (`src/core/achievements.js`, `state.badges`): predicates over the state only; `game.checkBadges()` runs
-    every 0.5 s. `stats.soSpent` = -1 for saves from before it was counted (never earns "Bootstrapped"). `BadgeWall`
+    every 0.5 s while a FloorScene is on the stack (`inTower`, so never on the title screen). `stats.soSpent` = -1 for saves from before it was counted (never earns "Bootstrapped"). `BadgeWall`
     opens from the HUD medal button and the menu.
 - Reminders: opt-in browser notifications ("Reminders" in the ☰ menu, offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;

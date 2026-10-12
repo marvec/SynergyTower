@@ -44,6 +44,8 @@ const CHECKIN_NUDGES = [
 ];
 
 export class FloorScene {
+  /** Badges unlock only while a floor is on the stack (not on the title, setup or exterior screens). */
+  inTower = true;
   constructor(game, floor, { arrival = 'elevator' } = {}) {
     this.game = game;
     this.floorNo = floor;

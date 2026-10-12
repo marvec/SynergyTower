@@ -148,7 +148,7 @@ export function createGame({ screen, input, audio }) {
       game.time += dt;
       if (game.state) S.tick(game.state, game.now());
       badgeT += dt;
-      if (game.state && badgeT > 0.5) {
+      if (game.state && badgeT > 0.5 && stack.some((sc) => sc.inTower)) {
         badgeT = 0;
         game.checkBadges();
       }
