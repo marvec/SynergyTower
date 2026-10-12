@@ -17,9 +17,15 @@ const STEER = 2; // road widths per second at full speed
 export const PLAYER_W = 0.22; // half the car's width, in road half-widths
 export const CAR_LEN = SEG * 1.6;
 export const LANES = [-0.62, 0, 0.62];
-/** Hitting something faster than this (relative speed, a share of MAX_SPEED) wrecks the car; slower is a bump. */
+/** Hitting something faster than this (relative speed, a share of MAX_SPEED) is a crash; slower is a bump. */
 export const CRASH_CAR = 0.32;
 export const CRASH_OBJECT = 0.4;
+/** Crashes the car can take: each one dents it (damage += 1/WRECK_AT), this one wrecks it. */
+export const WRECK_AT = 5;
+/** After a crash the car spins out for SPIN_S seconds (no control, the clock runs on), then GRACE_S of bumps only. */
+export const SPIN_S = 1.2;
+export const GRACE_S = 1.5;
+const RECOVER_X = 0.7; // a crash off the road puts the car back this far from the centre line
 export const BARRIER_X = 1.12;
 const STEP = 1 / 60;
 
@@ -161,7 +167,9 @@ function scenery(rng, segments, st) {
 
 /**
  * A drive along `track`. update(dt, { accel, brake, steer -1..1 }) advances it; `events` lists what happened during
- * the last update ('bump', 'crash', 'checkpoint', 'scrape', 'arrived', 'late'). status: 'drive' → 'crashed' | 'late' | 'arrived'.
+ * the last update ('bump', 'crash', 'wreck', 'checkpoint', 'scrape', 'arrived', 'late'). status: 'drive' → 'crashed'
+ * (wrecked) | 'late' | 'arrived'. `crashes` counts the crashes, `damage` 0..1 is the share of WRECK_AT, `spin` and
+ * `grace` are the seconds left of the spin-out and of the grace period after it.
  */
 export function createDrive(track) {
   const hard = track.hard >= 0.5 ? 1 : 0;
@@ -179,6 +187,12 @@ export function createDrive(track) {
     status: 'drive',
     steer: 0,
     braking: false,
+    crashes: 0,
+    spin: 0,
+    grace: 0,
+    get damage() {
+      return Math.min(1, drive.crashes / WRECK_AT);
+    },
     offroad: false,
     events: [],
     get finishD() {
@@ -201,22 +215,40 @@ export function createDrive(track) {
     },
   };
 
+  /** A crash dents the car and spins it out; the last one the car can take wrecks it. */
   const crash = () => {
-    drive.status = 'crashed';
+    drive.crashes++;
+    if (drive.crashes >= WRECK_AT) {
+      drive.status = 'crashed';
+      drive.events.push('wreck');
+      return;
+    }
+    drive.speed = 0;
+    drive.spin = SPIN_S;
+    drive.grace = SPIN_S + GRACE_S;
     drive.events.push('crash');
   };
 
   function step(dt, c) {
     const live = drive.status === 'drive';
+    const spinning = drive.spin > 0;
+    const ctl = live && !spinning;
+    drive.spin = Math.max(0, drive.spin - dt);
+    drive.grace = Math.max(0, drive.grace - dt);
     const seg = drive.segAt(drive.d);
     const sp = drive.speed / MAX_SPEED;
-    const steer = live ? Math.max(-1, Math.min(1, c.steer || 0)) : 0;
+    const steer = ctl ? Math.max(-1, Math.min(1, c.steer || 0)) : 0;
     drive.steer = steer;
-    drive.braking = live && !!c.brake;
+    drive.braking = ctl && !!c.brake;
+    // Spinning out: the car is put back on the road (Lotus-style) while it comes to its senses.
+    if (spinning && live) {
+      const tx = Math.max(-RECOVER_X, Math.min(RECOVER_X, drive.x));
+      drive.x += Math.sign(tx - drive.x) * Math.min(Math.abs(tx - drive.x), dt * 3);
+    }
     // Steering bites with speed; curves push the car outwards.
     const dx = dt * STEER * sp;
     drive.x += steer * dx - dx * sp * seg.curve * CENTRIFUGAL;
-    if (!live) drive.speed -= BRAKE * 0.6 * dt;
+    if (!ctl) drive.speed -= BRAKE * 0.6 * dt;
     else if (c.accel) drive.speed += ACCEL * (1 - 0.35 * sp) * dt;
     else if (c.brake) drive.speed -= BRAKE * dt;
     else drive.speed -= DECEL * dt;
@@ -244,12 +276,17 @@ export function createDrive(track) {
     }
     if (!live) return;
 
-    // Roadside objects in the segments just crossed.
-    for (let i = Math.floor(before / SEG); i <= Math.floor(drive.d / SEG); i++) {
+    // Roadside objects in the segments just crossed (none while spinning: the car is being put back on the road).
+    const canCrash = drive.grace <= 0;
+    for (let i = Math.floor(before / SEG); i <= Math.floor(drive.d / SEG) && !spinning; i++) {
       for (const s of track.segments[i]?.sprites || []) {
         const def = SPRITES[s.kind];
         if (!def.solid || Math.abs(drive.x - s.x) >= def.w + PLAYER_W) continue;
-        if (drive.speed > CRASH_OBJECT * MAX_SPEED) return crash();
+        if (canCrash && drive.speed > CRASH_OBJECT * MAX_SPEED) {
+          drive.d = before;
+          crash();
+          return tick(dt);
+        }
         drive.speed = 0;
         drive.d = before;
         drive.x += drive.x < s.x ? -0.08 : 0.08;
@@ -260,8 +297,12 @@ export function createDrive(track) {
     // Traffic: running into the back of a car.
     for (const car of cars) {
       const gap = car.d - drive.d;
-      if (gap <= 0 || gap > CAR_LEN || Math.abs(car.x - drive.x) >= PLAYER_W * 2) continue;
-      if (drive.speed - car.speed > CRASH_CAR * MAX_SPEED) return crash();
+      if (spinning || gap <= 0 || gap > CAR_LEN || Math.abs(car.x - drive.x) >= PLAYER_W * 2) continue;
+      if (canCrash && drive.speed - car.speed > CRASH_CAR * MAX_SPEED) {
+        drive.d = car.d - CAR_LEN * 1.1;
+        crash();
+        break;
+      }
       if (drive.speed > car.speed) {
         drive.speed = car.speed * 0.8;
         drive.d = car.d - CAR_LEN;
@@ -270,6 +311,12 @@ export function createDrive(track) {
       }
     }
 
+    tick(dt);
+  }
+
+  /** The clock, the checkpoints and the finish. */
+  function tick(dt) {
+    if (drive.status !== 'drive') return;
     drive.elapsed += dt;
     drive.time -= dt;
     const st = track.stages[drive.stage + 1];

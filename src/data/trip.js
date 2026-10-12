@@ -34,7 +34,7 @@ export const TRIP_OFFER = (client) =>
   `"${client.name} just called. ${client.ask} I am stuck on calls: can you take the pool car?"\n` +
   'Drive there in about 3 minutes and beat the checkpoint clock. Then you get 15 minutes in their office: ' +
   'tasks cost the usual coffee but pay double paperclips, and their coffee brewers refill every 2 minutes.\n' +
-  'Crash the car or arrive late and the deal is off. One chance only.';
+  'The pool car takes a few dents, but wreck it or arrive late and the deal is off. One chance only.';
 
 /** The account manager afterwards. */
 export const TRIP_AFTER = {
@@ -52,6 +52,17 @@ export const TRIP_AFTER = {
 
 /** The drive. */
 export const DRIVE_HELP = 'Up or Space: accelerate. Down: brake. Left/Right: steer. Mouse or touch: hold to drive, the car steers towards the pointer.';
+/** Called out after a crash the car survives (the damage gauge goes up a notch). */
+export const DENT_LINES = [
+  'THAT WILL BUFF OUT',
+  'NOBODY SAW THAT',
+  'THE FLEET MANAGER WILL HEAR OF THIS',
+  'IT WAS LIKE THAT WHEN I GOT IT',
+  'ADD IT TO THE EXPENSES',
+  'STILL DRIVES. MOSTLY.',
+];
+export const LAST_DENT = 'ONE MORE AND THE CAR IS DONE';
+/** The car is wrecked (the last crash it could take). */
 export const CRASH_LINES = [
   'The pool car is a write-off. So is the deal.',
   'Insurance will want a word. So will your manager.',

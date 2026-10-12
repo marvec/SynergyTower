@@ -1,14 +1,15 @@
 import { test, expect } from 'bun:test';
-import { buildTrack, createDrive, autopilot, SEG, MAX_SPEED, STAGES, OFFROAD_LIMIT, LANES } from '../src/core/drive.js';
+import { buildTrack, createDrive, autopilot, SEG, MAX_SPEED, STAGES, OFFROAD_LIMIT, LANES, WRECK_AT, SPIN_S } from '../src/core/drive.js';
 
 const run = (track, controls, maxS = 400) => {
   const d = createDrive(track);
   const memo = {};
-  const log = { bumps: 0, checkpoints: 0 };
+  const log = { bumps: 0, checkpoints: 0, crashes: 0 };
   for (let n = 0; d.status === 'drive' && n < maxS * 60; n++) {
     d.update(1 / 60, typeof controls === 'function' ? controls(d, memo) : controls);
     if (d.events.includes('bump')) log.bumps++;
     if (d.events.includes('checkpoint')) log.checkpoints++;
+    if (d.events.includes('crash')) log.crashes++;
   }
   return { d, log };
 };
@@ -41,6 +42,8 @@ test('a good driver reaches the client in about 3 minutes, without crashing and 
     expect(d.time).toBeGreaterThan(10);
     expect(log.checkpoints).toBe(3);
     expect(d.progress).toBe(1);
+    expect(d.crashes).toBe(0);
+    expect(d.damage).toBe(0);
   }
 });
 
@@ -50,20 +53,31 @@ test('crawling along misses the meeting: the clock runs out', () => {
   expect(d.time).toBe(0);
 });
 
-test('flooring it without steering ends in a wreck', () => {
-  const { d } = run(buildTrack(10, 0), { accel: true });
-  expect(d.status).toBe('crashed');
+test('flooring it without steering never gets there: crash after crash until the clock runs out', () => {
+  const { d, log } = run(buildTrack(10, 0), { accel: true });
+  expect(d.status).not.toBe('arrived');
+  expect(log.crashes).toBeGreaterThanOrEqual(3);
+  expect(d.damage).toBeGreaterThan(0.5);
 });
 
-test('running into the back of a car at speed wrecks the car; a slow bump only costs speed', () => {
-  const lone = (gapSegs) => {
-    const t = buildTrack(10, 0);
-    for (const seg of t.segments) Object.assign(seg, { curve: 0, sprites: [] }); // only the car to hit
-    t.cars = [{ d: gapSegs * SEG, x: 0, lane: 1, speed: MAX_SPEED * 0.1, color: '#fff', weave: 999 }];
-    return t;
-  };
+// A flat, empty track with one slow car on it.
+const lone = (gapSegs) => {
+  const t = buildTrack(10, 0);
+  for (const seg of t.segments) Object.assign(seg, { curve: 0, sprites: [] }); // only the car to hit
+  t.cars = [{ d: gapSegs * SEG, x: 0, lane: 1, speed: MAX_SPEED * 0.1, color: '#fff', weave: 999 }];
+  return t;
+};
+/** Puts the traffic car right in front of the player and drives into it at full speed. */
+const rearEnd = (d) => {
+  Object.assign(d.cars[0], { d: d.d + 3 * SEG, x: d.x });
+  d.speed = MAX_SPEED;
+  d.update(0.2, { accel: true });
+};
+
+test('running into the back of a car at speed damages the car; a slow bump only costs speed', () => {
   const fast = run(lone(150), { accel: true, steer: 0 }, 20).d;
-  expect(fast.status).toBe('crashed');
+  expect(fast.crashes).toBe(1);
+  expect(fast.status).toBe('drive');
   const slow = createDrive(lone(14));
   let bumped = false;
   for (let n = 0; n < 60 * 4 && !bumped; n++) {
@@ -72,7 +86,73 @@ test('running into the back of a car at speed wrecks the car; a slow bump only c
   }
   expect(bumped).toBe(true);
   expect(slow.status).toBe('drive');
+  expect(slow.crashes).toBe(0);
   expect(slow.speed).toBeLessThan(MAX_SPEED * 0.1);
+});
+
+test('the car takes four crashes; the fifth wrecks it', () => {
+  expect(WRECK_AT).toBe(5);
+  const d = createDrive(lone(100));
+  for (let k = 1; k <= WRECK_AT; k++) {
+    rearEnd(d);
+    expect(d.crashes).toBe(k);
+    expect(d.damage).toBeCloseTo(k / WRECK_AT);
+    if (k < WRECK_AT) {
+      expect(d.events).toContain('crash');
+      expect(d.status).toBe('drive');
+      d.update(SPIN_S + 3, {}); // spin out, then the grace period passes
+    } else {
+      expect(d.events).toContain('wreck');
+      expect(d.status).toBe('crashed');
+    }
+  }
+});
+
+test('a good driver can afford four crashes and still make it in time', () => {
+  for (const [seed, hard] of [[10, 0], [30, 1]]) {
+    const at = [30, 65, 100, 135];
+    const { d } = run(buildTrack(seed, hard), (d, memo) => {
+      if (d.elapsed > at[0] && d.spin === 0) {
+        at.shift();
+        rearEnd(d);
+      }
+      return autopilot(d, 1, memo);
+    });
+    expect(d.crashes).toBe(4);
+    expect(d.status).toBe('arrived');
+  }
+});
+
+test('a crash stops and spins the car while the clock runs on; then a short grace period with no new damage', () => {
+  const d = createDrive(lone(100));
+  rearEnd(d);
+  expect(d.speed).toBe(0);
+  expect(d.spin).toBeGreaterThan(0);
+  const time = d.time;
+  d.update(SPIN_S / 2, { accel: true, steer: 1 });
+  expect(d.speed).toBe(0); // no control while spinning
+  expect(d.time).toBeCloseTo(time - SPIN_S / 2);
+  d.update(SPIN_S / 2 + 0.2, { accel: true });
+  expect(d.spin).toBe(0);
+  expect(d.speed).toBeGreaterThan(0);
+  rearEnd(d); // straight into the next car while still shaken up: only a bump
+  expect(d.events).toContain('bump');
+  expect(d.crashes).toBe(1);
+});
+
+test('crashing into the roadside puts the car back on the road', () => {
+  const t = lone(100);
+  t.cars = [];
+  t.segments[60].sprites.push({ kind: 'tree', x: 1.6 });
+  const d = createDrive(t);
+  d.d = 50 * SEG;
+  d.x = 1.5;
+  d.speed = MAX_SPEED * 0.8;
+  d.update(0.5, { accel: true });
+  expect(d.crashes).toBe(1);
+  d.update(SPIN_S + 0.1, {});
+  expect(Math.abs(d.x)).toBeLessThanOrEqual(0.8);
+  expect(d.status).toBe('drive');
 });
 
 test('the verge slows the car down; the motorway barrier keeps it on the road', () => {

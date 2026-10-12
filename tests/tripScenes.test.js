@@ -14,7 +14,7 @@ const { ClientOfficeScene } = await import('../src/scenes/clientOffice.js');
 const { MinigameScene } = await import('../src/scenes/minigameScene.js');
 const { TaskCard, Dialog } = await import('../src/scenes/overlays.js');
 const { TitleScene } = await import('../src/scenes/title.js');
-const { SEG } = await import('../src/core/drive.js');
+const { SEG, MAX_SPEED, WRECK_AT } = await import('../src/core/drive.js');
 const E = await import('../src/core/economy.js');
 const T = await import('../src/core/trip.js');
 
@@ -79,6 +79,31 @@ test('the drive renders in every phase; a crash sends the player back to the flo
   expect(game.top.floorNo).toBe(10);
   expect(T.tripStatus(game.state, 10)).toBe('missed');
   expect(game.top.tripNpc).toBeTruthy(); // still there, but the offer is gone
+});
+
+test('a crash dents the car and the drive goes on; the fifth one wrecks it', async () => {
+  const game = career();
+  T.departTrip(game.state, 10);
+  const ds = new DriveScene(game, 10);
+  game.set(ds);
+  ds.phase = 'drive';
+  const d = ds.drive;
+  d.cars.length = 1;
+  for (let k = 1; k <= WRECK_AT; k++) {
+    Object.assign(d.cars[0], { d: d.d + 3 * SEG, x: d.x });
+    d.speed = MAX_SPEED;
+    d.grace = 0;
+    await tick(game, 12); // into the car, then spinning (renders the spin-out and the damage gauge)
+    expect(d.crashes).toBe(k);
+    if (k < WRECK_AT) {
+      expect(ds.phase).toBe('drive');
+      expect(ds.message.text).toBe('CRASH!');
+      await tick(game, 100); // spun out and back on the road
+    }
+  }
+  expect(ds.phase).toBe('outro');
+  expect(ds.result).toBe('crashed');
+  expect(T.tripStatus(game.state, 10)).toBe('missed');
 });
 
 test('Esc pauses the drive; turning back misses the trip', async () => {

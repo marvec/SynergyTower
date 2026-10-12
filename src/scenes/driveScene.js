@@ -6,9 +6,9 @@ import { W, H } from '../engine/screen.js';
 import { C, rect, panel, dim, ButtonSet } from '../engine/ui.js';
 import { drawText, wrapText } from '../engine/font.js';
 import { track } from '../engine/analytics.js';
-import { buildTrack, createDrive, SEG, MAX_SPEED, KMH, STAGES, SPRITES, CHECKPOINT_TIME } from '../core/drive.js';
+import { buildTrack, createDrive, SEG, MAX_SPEED, KMH, STAGES, SPRITES, CHECKPOINT_TIME, WRECK_AT } from '../core/drive.js';
 import * as T from '../core/trip.js';
-import { CLIENTS, DRIVE_HELP, CRASH_LINES, LATE_LINES, ARRIVE_LINES, ROAD_SIGNS } from '../data/trip.js';
+import { CLIENTS, DRIVE_HELP, CRASH_LINES, DENT_LINES, LAST_DENT, LATE_LINES, ARRIVE_LINES, ROAD_SIGNS } from '../data/trip.js';
 import { STAGE_LOOK, playerCar, trafficCar, roadside, bannerText, backdrop } from './driveArt.js';
 
 const ROAD_W = 2000; // world units from the centre line to the road edge (core x = 1)
@@ -36,6 +36,7 @@ export class DriveScene {
     this.buttons = new ButtonSet();
     this.message = null; // { text, sub, t }
     this.shake = 0;
+    this.dentAt = -9; // this.time of the last crash the car survived
     this.bgX = 0;
     this.particles = [];
     this.result = null; // 'crashed' | 'late' | 'quit' | 'arrived'
@@ -75,7 +76,7 @@ export class DriveScene {
     this.result = result;
     this.phase = result === 'quit' ? 'result' : 'outro';
     this.t = 0;
-    track('trip', { floor: this.floor, result, time: Math.round(this.drive.elapsed), stage: this.drive.stage + 1 });
+    track('trip', { floor: this.floor, result, time: Math.round(this.drive.elapsed), stage: this.drive.stage + 1, crashes: this.drive.crashes });
     if (result === 'arrived') {
       T.arriveTrip(game.state, this.floor, game.now());
       game.markDirty();
@@ -184,6 +185,8 @@ export class DriveScene {
     const seg = d.segAt(d.d);
     this.bgX += seg.curve * (d.speed / MAX_SPEED) * dt * 18;
     if ((d.offroad && d.speed > 600) || (this.phase === 'outro' && this.result === 'crashed' && this.t < 1.2)) this.dust(this.result === 'crashed' ? '#8a8a90' : '#a08a5a');
+    // A dented car smokes: now and then at 2 crashes, steadily at the last one it can take.
+    if (this.phase === 'drive' && d.crashes >= 2 && Math.random() < (d.crashes - 1) * dt * 4) this.smoke();
   }
 
   onEvent(e) {
@@ -198,7 +201,15 @@ export class DriveScene {
     } else if (e === 'checkpoint') {
       g.sfx('levelup');
       this.say('CHECKPOINT', `EXTENDED TIME +${CHECKPOINT_TIME[this.hard]} · ${STAGES[this.drive.stage].name.toUpperCase()}`, 2.2);
-    } else if (e === 'crash') this.end('crashed');
+    } else if (e === 'crash') {
+      const d = this.drive;
+      g.sfx('crash');
+      this.shake = 0.5;
+      this.dentAt = this.time;
+      for (let k = 0; k < 6; k++) this.dust('#8a8a90');
+      const left = WRECK_AT - d.crashes;
+      this.say('CRASH!', left === 1 ? LAST_DENT : `${pick(DENT_LINES)} · DAMAGE ${Math.round(d.damage * 100)}%`, 1.8);
+    } else if (e === 'wreck') this.end('crashed');
     else if (e === 'late') this.end('late');
     else if (e === 'arrived') this.end('arrived');
   }
@@ -210,6 +221,11 @@ export class DriveScene {
   dust(color) {
     if (this.particles.length > 40) return;
     this.particles.push({ x: W / 2 + (Math.random() - 0.5) * 50, y: H - 20, vx: (Math.random() - 0.5) * 40, vy: -20 - Math.random() * 30, t: 0.6, color });
+  }
+  smoke() {
+    if (this.particles.length > 40) return;
+    const dark = this.drive.crashes >= WRECK_AT - 1;
+    this.particles.push({ x: W / 2 - 4 + Math.random() * 8, y: H - 30, vx: (Math.random() - 0.5) * 14, vy: -18 - Math.random() * 14, t: 0.9, color: dark ? '#4a4d57' : '#9a9ca6' });
   }
   spark() {
     const side = Math.sign(this.drive.x) || 1;
@@ -372,17 +388,21 @@ export class DriveScene {
 
   drawPlayer(g) {
     const d = this.drive;
-    const crashed = this.result === 'crashed' && this.phase !== 'brief';
+    const spinning = d.spin > 0 && d.status === 'drive';
+    const crashed = (this.result === 'crashed' && this.phase !== 'brief') || spinning;
+    // Shaken up after a crash (no new damage yet): the car blinks.
+    if (!spinning && d.grace > 0 && d.status === 'drive' && Math.floor(this.time * 10) % 2) return;
+    const t = spinning ? this.time - this.dentAt : this.t;
     let steer = Math.round(d.steer);
     let flip = false;
     if (crashed) {
-      const f = Math.floor(this.t / 0.09) % 4;
+      const f = Math.floor(t / 0.09) % 4;
       steer = [-1, 0, 1, 0][f];
       flip = f === 3;
     }
     const art = playerCar(steer, d.braking || (this.phase !== 'drive' && d.speed > 0 && this.phase !== 'lights'));
     const bounce = d.offroad && d.speed > 0 ? Math.round(Math.random() * 2) : Math.round(Math.sin(this.time * 30) * (d.speed / MAX_SPEED) * 0.6);
-    const x = Math.round(W / 2 - 32 + (crashed ? Math.sin(this.t * 9) * 12 : 0));
+    const x = Math.round(W / 2 - 32 + (crashed ? Math.sin(t * 9) * 12 : 0));
     const y = H - 34 - bounce;
     rect(g, x + 2, H - 7, 60, 4, 'rgba(0,0,0,0.35)');
     if (flip) {
@@ -414,10 +434,16 @@ export class DriveScene {
     const secs = Math.ceil(d.time);
     const low = secs <= 10 && this.phase === 'drive';
     if (!low || Math.floor(this.time * 4) % 2) drawText(g, String(secs), W / 2, 13, { align: 'center', scale: 2, color: low ? C.bad : C.gold, shadow: C.border });
-    // Stage (left).
-    rect(g, 2, 2, 120, 19, 'rgba(13,15,24,0.88)');
+    // Stage and the car's damage (left): one notch per crash, the last one wrecks it.
+    rect(g, 2, 2, 120, 28, 'rgba(13,15,24,0.88)');
     drawText(g, `STAGE ${Math.min(d.stage + 1, 4)}/4`, 6, 4, { color: C.text });
     drawText(g, stage.name.toUpperCase(), 6, 12, { color: C.gold });
+    const hit = this.time - this.dentAt < 1.2 && Math.floor(this.time * 8) % 2;
+    drawText(g, 'DMG', 6, 21, { color: hit ? C.bad : C.dim });
+    for (let k = 0; k < WRECK_AT; k++) {
+      const on = k < d.crashes;
+      rect(g, 26 + k * 19, 22, 17, 5, on ? (k >= WRECK_AT - 2 ? C.bad : C.warn) : '#2a2f45');
+    }
     // Speed and gear (right).
     const kmh = Math.round((d.speed / MAX_SPEED) * KMH);
     const gearIdx = Math.min(4, Math.floor((d.speed / MAX_SPEED) * 5)); // five gears; the top one revs all the way up
@@ -453,14 +479,15 @@ export class DriveScene {
     const x = W / 2 - 150;
     const y = H / 2 - 70;
     panel(g, x, y, 300, 132, { title: `Business trip · ${this.client.name}` });
+    const warn = wrapText(`Crashes at speed dent the car (DMG). The ${ordinal(WRECK_AT)} one wrecks it, and the deal with it.`, 276);
     const lines = [
       ...wrapText('Drive to the client before the clock runs out: each checkpoint adds time. Overtake the traffic and keep off the verge.', 276),
       '',
       ...wrapText(DRIVE_HELP, 276),
       '',
-      ...wrapText('A crash at speed wrecks the car, and the deal with it.', 276),
+      ...warn,
     ];
-    lines.forEach((l, i) => drawText(g, l, x + 12, y + 22 + i * 10, { color: i >= lines.length - 1 ? C.warn : C.text }));
+    lines.forEach((l, i) => drawText(g, l, x + 12, y + 22 + i * 10, { color: i >= lines.length - warn.length ? C.warn : C.text }));
     this.buttons.render(g);
   }
 
@@ -469,10 +496,10 @@ export class DriveScene {
     const ok = this.result === 'arrived';
     const x = W / 2 - 140;
     const y = H / 2 - 70;
-    const title = { arrived: 'ARRIVED!', crashed: 'CRASHED!', late: 'OUT OF TIME', quit: 'TURNED BACK' }[this.result];
+    const title = { arrived: 'ARRIVED!', crashed: 'WRECKED!', late: 'OUT OF TIME', quit: 'TURNED BACK' }[this.result];
     panel(g, x, y, 280, 108, { title, titleColor: ok ? C.goodBtn : '#7a2b2b' });
     const body = ok
-      ? [this.line, `Time to spare: ${Math.ceil(this.drive.time)} s.`, `Next: 15 minutes at ${this.client.name}.`, 'Double paperclips, coffee every 2 minutes.']
+      ? [this.line, `Time to spare: ${Math.ceil(this.drive.time)} s. Car damage: ${Math.round(this.drive.damage * 100)}%.`, `Next: 15 minutes at ${this.client.name}.`, 'Double paperclips, coffee every 2 minutes.']
       : [this.line, '', 'The business trip is off for good. Back to the office it is.'];
     let yy = y + 22;
     body.forEach((l, i) => {
@@ -495,3 +522,4 @@ function blit(g, canvas, x, y, w, h, clip) {
 }
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
+const ordinal = (n) => ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh'][n - 1] || `${n}th`;

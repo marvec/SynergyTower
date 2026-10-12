@@ -14,7 +14,7 @@ The full illustrated guide, with a screenshot and description of every mini-game
 - Coffee refills over time, even while you are away. Esc opens the menu, M toggles music, O opens the shop, P perks, T training, B the badge wall, H the quick help.
 - On floor 40 you are CEO and decide which colleagues stay.
 - Once a day a colleague with a blue speech bubble asks for a quick favour: the daily stand-up pays double paperclips, a cup of coffee and sometimes a Stock Option, with a bonus for 7 days in a row.
-- Business trips: on floors 10 and 30 a colleague offers a one-time drive to a client, a 3-minute Lotus III-style pseudo-3D racing mini-game against a checkpoint clock. Crash or run late and the chance is gone; arrive and you get 15 minutes in the client's much larger office, where tasks pay double paperclips and the coffee brewers refill every 2 minutes.
+- Business trips: on floors 10 and 30 a colleague offers a one-time drive to a client, a 3-minute Lotus III-style pseudo-3D racing mini-game against a checkpoint clock. The car survives four crashes (a damage gauge counts them); wreck it with a fifth or run late and the chance is gone; arrive and you get 15 minutes in the client's much larger office, where tasks pay double paperclips and the coffee brewers refill every 2 minutes.
 - Random office events liven up the floors: fire drills (reach the fire exit), printer meltdowns, cake in the kitchen (beat a colleague to it) and surprise audits.
 - You get a desk to decorate with paperclip-bought knick-knacks and stationery; your things move with you, every floor sells a different selection plus its own "Nth Floor's Best Employee" trophy.
 - 36 badges (achievements) to collect on the badge wall.

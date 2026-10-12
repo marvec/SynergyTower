@@ -100,7 +100,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   The dev server serves `public/<dir>/index.html` for folder URLs, like GitHub Pages.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
-  coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage}, trip_end {sp, tasks, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
+  coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
   so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges),
   c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
@@ -143,7 +143,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - **Business trip** (spec `docs/superpowers/specs/2026-10-12-business-trip-design.md`, a secret level): on floors 10 and
   30 the first colleague (`fl.npcs[0]`, `FloorScene.tripNpc`, "Account Manager") teases and offers a one-time trip
   (`state.trips[floor]`: `'missed'` as soon as the car leaves, `'done'` on arrival). `DriveScene` is a Lotus III-style
-  pseudo-3D drive (~3 min, checkpoint clock; crash or time-out = missed) over the pure sim in `src/core/drive.js`
+  pseudo-3D drive (~3 min, checkpoint clock; a crash dents the car and spins it out, the 5th (`WRECK_AT`) wrecks it; wreck or time-out = missed) over the pure sim in `src/core/drive.js`
   (`buildTrack`, `createDrive`, plus an `autopilot` the tests use for timing). Arriving starts `state.trip` (15-minute
   wall clock) in `ClientOfficeScene` (a FloorScene subclass, `foreign`: no events, stand-up, firing) on the 64×46
   `buildClientFloor` (`src/core/clientFloor.js`, built with floorgen's `createPlanner`, which tower floors share

@@ -8,7 +8,8 @@ On floors 10 and 30 a colleague offers a business trip. Accepting starts a short
 style of Lotus III: The Ultimate Challenge. Arriving puts the player in the client's office, much larger and more complex than
 a tower floor. Games there cost the same coffee, the coffee brewer refills every 2 minutes and games pay twice the
 paperclips. The visit lasts at most 15 minutes. Crashing during the drive sends the player back to the regular floor and the
-opportunity is gone.
+opportunity is gone. Follow-up request: the car survives some crashes (about 5) before the trip is cancelled, with a damage
+indicator.
 
 ## Flow
 
@@ -19,8 +20,12 @@ opportunity is gone.
 2. **Drive** (`DriveScene`). Briefing card, start lights, then a pseudo-3D road drive through four stages (Downtown,
    Countryside, Motorway, Business Park) with checkpoints that add time, traffic to overtake, curves that push the car out
    and hills. The client's building is at the finish.
-   - Crash = hitting a car or a roadside object too fast. Slower bumps only cost speed. The car spins, then "Back to the
-     office": the trip is missed.
+   - Crash = hitting a car or a roadside object too fast. Slower bumps only cost speed. A crash dents the car: it stops,
+     spins out for 1.2 s (no control, the clock runs on) and is put back on the road, then blinks for 1.5 s during which
+     hits are only bumps (no chain crashes into the same tree). "CRASH!" plus a quip and the damage in per cent; the 4th
+     warns "ONE MORE AND THE CAR IS DONE". The DMG gauge (5 notches, under the stage name) shows the dents, and from 2
+     dents the car smokes. The 5th crash (`WRECK_AT`) wrecks it: "WRECKED!", "Back to the office", the trip is missed.
+     Balance: each crash costs ~4 s, so a good driver who crashes four times still arrives (`tests/drive.test.js`).
    - The checkpoint clock running out (Lotus-style) also misses the trip ("the client has left for lunch").
    - Esc pauses: Keep driving / Turn back (turning back misses the trip as well).
 3. **Client office** (`ClientOfficeScene`, a FloorScene subclass). 64×46 tiles (the tower floors are 40×28): two corridors
@@ -53,7 +58,7 @@ opportunity is gone.
   goes back to the client office; an expired visit ends with the summary and the home floor. Client task ids are
   `trip<floor>-<item id>` (their cooldowns and best stars live in the usual maps).
 - **Badge:** "Road Warrior: make it to a client on a business trip."
-- **Analytics:** `trip {floor, result: arrived|crashed|late|quit}` and `trip_end {floor, sp, tasks}`.
+- **Analytics:** `trip {floor, result: arrived|crashed|late|quit, time, stage, crashes}` (`crashed` = wrecked) and `trip_end {floor, sp, tasks}`.
 - **Not ported to the C64** (feature-frozen).
 
 ## Code
