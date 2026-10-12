@@ -13,7 +13,7 @@ Play it at https://synergytower.co.uk/ . The game is drawn on an HTML canvas, so
 - On floor 40 you are CEO and decide which colleagues stay.
 - Once a day a colleague with a blue speech bubble asks for a quick favour: the daily stand-up pays double paperclips, a cup of coffee and sometimes a Stock Option, with a bonus for 7 days in a row.
 - Random office events liven up the floors: fire drills (reach the fire exit), printer meltdowns, cake in the kitchen (beat a colleague to it) and surprise audits.
-- Every floor you reach gives you a desk to decorate with paperclip-bought knick-knacks, up to a "World's Best Employee" trophy.
+- You get a desk to decorate with paperclip-bought knick-knacks and stationery; your things move with you, every floor sells a different selection plus its own "Nth Floor's Best Employee" trophy.
 - 35 badges (achievements) to collect on the badge wall.
 
 ## Mini-games

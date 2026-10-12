@@ -8,7 +8,7 @@ until you become CEO.
   played across the whole floor (track down a colleague for their 360 review, hunt the whiteboards for your lost password)
 - An HR performance review gates every promotion
 - A daily stand-up favour with a streak bonus, random office events (fire drills, printer meltdowns, office cake,
-  surprise audits), a desk to decorate on every floor, and 35 badges on the badge wall
+  surprise audits), a desk that moves with you, with a new decoration shop on every floor, and 35 badges on the badge wall
 - Collect paperclips, chat with colleagues, poke around the workstation terminals (some commands are more useful than
   others), and once you are CEO, decide who stays
 - All art is drawn in code and all music and sound is synthesized with WebAudio: no external assets

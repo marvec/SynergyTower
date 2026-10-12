@@ -5,7 +5,8 @@ import { ALL_GAMES, buildFloor } from './tasks.js';
 import { DEPARTMENTS } from '../data/departments.js';
 
 const ev = (s, kind) => s.stats.events?.[kind] || 0;
-const desks = (s) => Object.values(s.desks || {});
+const desk = (s) => s.desk || { owned: [], show: {} };
+const isTrophy = (id) => /^trophy-/.test(id || '');
 const DEPT_SHORT = { lobby: 'Lobby', support: 'Support', sales: 'Sales', marketing: 'Marketing', it: 'IT', finance: 'Finance', legalhr: 'Legal & HR', exec: 'Executive' };
 
 /** Every task on floors a..b has 3 stars. */
@@ -37,9 +38,9 @@ export const BADGES = [
   { id: 'cake3', name: 'Let Them Eat Cake', desc: 'Get to the office cake first 3 times.', icon: 'coffee', test: (s) => ev(s, 'cake') >= 3 },
   { id: 'printer3', name: 'Printer Whisperer', desc: 'Fix 3 printer meltdowns.', icon: 'check', test: (s) => ev(s, 'printer') >= 3 },
   { id: 'audit', name: 'Compliance Champion', desc: 'Help a surprise audit along.', icon: 'book', test: (s) => ev(s, 'audit') >= 1 },
-  { id: 'decorate', name: 'Home Office', desc: 'Put a decoration on your desk.', icon: 'sp', test: (s) => desks(s).some((d) => Object.values(d.show || {}).some(Boolean)) },
-  { id: 'designer', name: 'Interior Designer', desc: 'Own every decoration for one desk.', icon: 'sp', test: (s) => desks(s).some((d) => d.owned.length >= E.DESK_DECOR.length) },
-  { id: 'trophy', name: "World's Best Employee", desc: 'Put the trophy on show on your desk.', icon: 'star', test: (s) => desks(s).some((d) => d.show?.right === 'trophy') },
+  { id: 'decorate', name: 'Home Office', desc: 'Put a decoration on your desk.', icon: 'sp', test: (s) => Object.values(desk(s).show).some(Boolean) },
+  { id: 'designer', name: 'Interior Designer', desc: `Collect ${E.DESK_COLLECTOR} desk decorations.`, icon: 'sp', test: (s) => desk(s).owned.filter((id) => !isTrophy(id)).length >= E.DESK_COLLECTOR },
+  { id: 'trophy', name: 'Best Employee', desc: "Put a floor's Best Employee trophy on your desk.", icon: 'star', test: (s) => isTrophy(desk(s).show.right) },
   { id: 'caffeine', name: 'Caffeine Addict', desc: 'Use the coffee machine 25 times.', icon: 'coffee', test: (s) => (s.stats.coffeeMachine || 0) >= 25 },
   { id: 'maximiser', name: 'Paperclip Maximiser', desc: 'Hold 1,000,000 paperclips.', icon: 'sp', test: (s) => s.sp >= 1e6 },
   ...DEPARTMENTS.map((d, i) => {

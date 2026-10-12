@@ -3,7 +3,7 @@ import * as S from '../src/core/state.js';
 import * as E from '../src/core/economy.js';
 import * as A from '../src/core/achievements.js';
 import { buildFloor, ALL_GAMES } from '../src/core/tasks.js';
-import { buyDecor } from '../src/core/desk.js';
+import { buyDecor, deskOffer, trophyId } from '../src/core/desk.js';
 
 const player = () => {
   const s = S.newGame({ corpName: 'Acme', colorId: 'bigblue', playerName: 'Pat' }, 0);
@@ -92,10 +92,10 @@ test('stand-up, event and desk badges', () => {
   s.daily = { day: '2026-10-12', streak: 7, best: 7 };
   s.stats.events = { drill: 3, cake: 3, printer: 3, audit: 1 };
   s.sp = 1e9;
-  for (const d of E.DESK_DECOR) {
-    if (d.needs) s.starsByFloor[1] = E.starQuota(1);
-    buyDecor(s, 1, d.id);
-  }
+  s.maxFloor = 40;
+  for (let f = 1; f <= 40 && s.desk.owned.length < E.DESK_COLLECTOR; f++) for (const d of deskOffer(f)) if (!d.needs) buyDecor(s, f, d.id);
+  s.starsByFloor[3] = E.starQuota(3);
+  expect(buyDecor(s, 3, trophyId(3)).ok).toBe(true);
   const got = ids(A.checkBadges(s, 1));
   for (const id of ['standup', 'streak7', 'drill3', 'cake3', 'printer3', 'audit', 'decorate', 'designer', 'trophy']) expect(got).toContain(id);
 });

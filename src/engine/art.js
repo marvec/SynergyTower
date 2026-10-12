@@ -567,7 +567,7 @@ export function drawDeskDecor(g, id, x, y, w) {
   const L = x + 1;
   const R = x + W - 9;
   const M = x + W / 2 - 6; // the monitor's left edge; its top is at y - 14
-  switch (id) {
+  switch (id.startsWith('trophy-') ? 'trophy' : id) {
     case 'notes':
       r(M, y - 14, 3, 3, '#f2e14e');
       r(M + 9, y - 13, 3, 3, '#f29cd0');
@@ -618,6 +618,120 @@ export function drawDeskDecor(g, id, x, y, w) {
       r(R + 2, y - 8, 5, 6, '#8ad0f2');
       r(R + 3, y - 5, 1, 3, '#e8b88a');
       r(R + 5, y - 6, 1, 4, '#e8b88a');
+      break;
+    case 'snowglobe':
+      r(M + 3, y - 15, 6, 2, '#5a3d22');
+      r(M + 3, y - 21, 6, 6, '#bfe4f2');
+      r(M + 4, y - 22, 4, 1, '#bfe4f2');
+      r(M + 5, y - 18, 2, 3, '#3f9a4a');
+      r(M + 4, y - 20, 1, 1, '#ffffff');
+      r(M + 7, y - 19, 1, 1, '#ffffff');
+      break;
+    case 'crane':
+      r(M + 3, y - 16, 7, 2, '#e2504a');
+      r(M + 5, y - 19, 3, 3, '#e2504a');
+      r(M + 9, y - 20, 1, 4, '#c43a34');
+      r(M + 10, y - 21, 1, 1, '#c43a34');
+      r(M + 2, y - 17, 2, 1, '#c43a34');
+      break;
+    case 'pencup':
+      r(L + 1, y - 5, 5, 6, '#3a3f55');
+      r(L + 1, y - 5, 5, 1, '#5d6480');
+      r(L + 2, y - 9, 1, 4, '#2a6ad1');
+      r(L + 4, y - 10, 1, 5, '#e2504a');
+      r(L + 3, y - 8, 1, 3, '#1a1a22');
+      break;
+    case 'highlighters':
+      r(L, y - 1, 7, 2, '#3a3f55');
+      r(L + 1, y - 7, 1, 6, '#f2e14e');
+      r(L + 3, y - 6, 1, 5, '#f29cd0');
+      r(L + 5, y - 7, 1, 6, '#7ee08a');
+      r(L + 1, y - 8, 1, 1, '#1a1a22');
+      r(L + 3, y - 7, 1, 1, '#1a1a22');
+      r(L + 5, y - 8, 1, 1, '#1a1a22');
+      break;
+    case 'tray':
+      r(L, y - 4, 8, 5, '#1a1a22');
+      r(L + 1, y - 3, 6, 3, '#3a3f55');
+      r(L + 1, y - 5, 6, 2, '#f4f1e8');
+      r(L, y - 8, 8, 1, '#1a1a22');
+      r(L + 1, y - 9, 6, 1, '#f4f1e8');
+      r(L, y - 8, 1, 4, '#1a1a22');
+      r(L + 7, y - 8, 1, 4, '#1a1a22');
+      break;
+    case 'organizer':
+      r(L, y - 6, 8, 7, '#5a3d22');
+      r(L + 1, y - 5, 2, 5, '#3a2b1a');
+      r(L + 4, y - 5, 3, 5, '#3a2b1a');
+      r(L + 1, y - 9, 1, 4, '#2a6ad1');
+      r(L + 2, y - 8, 1, 3, '#1a1a22');
+      r(L + 4, y - 8, 3, 3, '#f4f1e8');
+      break;
+    case 'bonsai':
+      r(L, y - 2, 8, 3, '#3a3f55');
+      r(L, y - 2, 8, 1, '#5d6480');
+      r(L + 3, y - 6, 1, 4, '#6a4a2a');
+      r(L + 4, y - 7, 1, 2, '#6a4a2a');
+      r(L, y - 10, 5, 3, '#3f7a3a');
+      r(L + 3, y - 12, 5, 4, '#4c9a46');
+      r(L + 4, y - 12, 2, 1, '#6fc062');
+      break;
+    case 'globe':
+      r(L + 1, y, 6, 1, '#3a2b1a');
+      r(L + 3, y - 2, 2, 2, '#c9a227');
+      r(L + 1, y - 10, 6, 8, '#2a6ad1');
+      r(L + 2, y - 11, 4, 1, '#2a6ad1');
+      r(L + 2, y - 9, 2, 3, '#4caf50');
+      r(L + 5, y - 6, 1, 2, '#4caf50');
+      r(L, y - 9, 1, 6, '#c9a227');
+      break;
+    case 'clips':
+      r(R + 2, y - 4, 5, 5, '#1a1a22');
+      r(R + 3, y - 3, 3, 3, '#3a3f55');
+      r(R + 3, y - 6, 1, 2, '#c0c6d4');
+      r(R + 5, y - 7, 1, 3, '#c0c6d4');
+      r(R + 4, y - 5, 2, 1, '#e2504a');
+      break;
+    case 'stapler':
+      r(R, y - 1, 8, 2, '#1a1a22');
+      r(R, y - 4, 8, 3, '#e2504a');
+      r(R, y - 4, 8, 1, '#f27a74');
+      r(R + 7, y - 3, 1, 2, '#c0c6d4');
+      break;
+    case 'tape':
+      r(R, y - 3, 8, 4, '#1a1a22');
+      r(R + 1, y - 2, 6, 2, '#3a3f55');
+      r(R + 2, y - 6, 4, 4, '#d8dce4');
+      r(R + 3, y - 5, 2, 2, '#1a1a22');
+      r(R + 7, y - 4, 1, 1, '#c0c6d4');
+      break;
+    case 'calculator':
+      r(R, y - 8, 7, 9, '#22242e');
+      r(R + 1, y - 7, 5, 2, '#9fe8b0');
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) r(R + 1 + j * 3, y - 4 + i * 2, 2, 1, j && i === 2 ? '#f29c38' : '#c0c6d4');
+      break;
+    case 'punch':
+      r(R, y - 1, 8, 2, '#1a1a22');
+      r(R + 1, y - 3, 6, 2, '#5d6480');
+      r(R + 1, y - 6, 6, 2, '#2a6ad1');
+      r(R + 3, y - 4, 1, 1, '#c0c6d4');
+      r(R + 5, y - 4, 1, 1, '#c0c6d4');
+      break;
+    case 'espresso':
+      r(R, y - 12, 8, 13, '#3a3f55');
+      r(R, y - 12, 8, 2, '#c0c6d4');
+      r(R + 1, y - 8, 6, 5, '#16181e');
+      r(R + 3, y - 8, 2, 1, '#c0c6d4');
+      r(R + 3, y - 5, 2, 2, '#f4f1e8');
+      r(R + 6, y - 11, 1, 1, '#e2504a');
+      break;
+    case 'penset':
+      r(R, y - 2, 8, 3, '#5a3d22');
+      r(R, y - 2, 8, 1, '#7a5a3a');
+      r(R + 2, y - 9, 1, 7, '#1a1a22');
+      r(R + 2, y - 10, 1, 1, '#f2c14e');
+      r(R + 5, y - 8, 1, 6, '#1a1a22');
+      r(R + 5, y - 9, 1, 1, '#f2c14e');
       break;
     case 'trophy':
       r(R + 1, y, 7, 1, '#3a2b1a');

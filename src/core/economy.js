@@ -120,16 +120,35 @@ export function perkCost(perk, currentLevel) {
  * floor like task rewards, so every new desk is worth decorating. The trophy needs the floor's KPI star quota.
  */
 export const DESK_DECOR = [
-  { id: 'notes', name: 'Sticky notes', slot: 'top', cost: 15 },
-  { id: 'mug', name: 'Coffee mug', slot: 'right', cost: 20 },
+  // Slot top = on the monitor, left/right = the desk corners. minFloor: offered from that floor up.
+  { id: 'notes', name: 'Sticky notes', slot: 'top', cost: 15, stationery: true },
   { id: 'duck', name: 'Rubber duck', slot: 'top', cost: 25 },
+  { id: 'snowglobe', name: 'Snow globe', slot: 'top', cost: 60, minFloor: 6 },
+  { id: 'bobble', name: 'CEO bobblehead', slot: 'top', cost: 100, minFloor: 11 },
+  { id: 'crane', name: 'Origami crane', slot: 'top', cost: 80, minFloor: 16 },
+  { id: 'pencup', name: 'Pen cup', slot: 'left', cost: 15, stationery: true },
+  { id: 'highlighters', name: 'Highlighters', slot: 'left', cost: 20, stationery: true },
+  { id: 'tray', name: 'Paper tray', slot: 'left', cost: 25, stationery: true },
   { id: 'plant', name: 'Desk plant', slot: 'left', cost: 30 },
-  { id: 'photo', name: 'Family photo', slot: 'right', cost: 40 },
   { id: 'cactus', name: 'Cactus', slot: 'left', cost: 45 },
-  { id: 'lamp', name: 'Desk lamp', slot: 'left', cost: 75 },
-  { id: 'bobble', name: 'CEO bobblehead', slot: 'top', cost: 100 },
-  { id: 'trophy', name: "World's Best Employee", slot: 'right', cost: 200, needs: 'quota' },
+  { id: 'lamp', name: 'Desk lamp', slot: 'left', cost: 75, minFloor: 6 },
+  { id: 'organizer', name: 'Desk organiser', slot: 'left', cost: 90, minFloor: 11, stationery: true },
+  { id: 'bonsai', name: 'Bonsai tree', slot: 'left', cost: 150, minFloor: 21 },
+  { id: 'globe', name: 'Desk globe', slot: 'left', cost: 200, minFloor: 26 },
+  { id: 'clips', name: 'Paperclip holder', slot: 'right', cost: 10, stationery: true },
+  { id: 'mug', name: 'Coffee mug', slot: 'right', cost: 20 },
+  { id: 'stapler', name: 'Red stapler', slot: 'right', cost: 20, stationery: true },
+  { id: 'tape', name: 'Tape dispenser', slot: 'right', cost: 25, stationery: true },
+  { id: 'photo', name: 'Family photo', slot: 'right', cost: 40 },
+  { id: 'calculator', name: 'Calculator', slot: 'right', cost: 50, minFloor: 6, stationery: true },
+  { id: 'punch', name: 'Hole punch', slot: 'right', cost: 60, minFloor: 11, stationery: true },
+  { id: 'espresso', name: 'Espresso machine', slot: 'right', cost: 180, minFloor: 21 },
+  { id: 'penset', name: 'Fountain pen set', slot: 'right', cost: 250, minFloor: 31, stationery: true },
 ];
+export const DESK_OFFER = 7; // items on sale per floor, at least DESK_OFFER_STATIONERY of them stationery
+export const DESK_OFFER_STATIONERY = 3;
+export const DESK_COLLECTOR = 12; // decorations for the Interior Designer badge
+export const TROPHY_COST = 200; // every floor also sells its own Best Employee trophy (needs the floor's star quota)
 export const decorCost = (d, floor) => Math.round(d.cost * 1.17 ** (floor - 1));
 
 export const SO_PACKS = [

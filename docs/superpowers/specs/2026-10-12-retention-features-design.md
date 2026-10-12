@@ -75,13 +75,14 @@ Give players reasons to come back and long-term goals beyond the 40-floor climb:
 - You have a desk on a floor once you have reached it (`floor <= maxFloor`; floor 1 after check-in). The desk is drawn as a
   tidy desk with a nameplate (your name) once it is yours.
 - Interacting opens the **Desk overlay**: a big preview of the decorated desk, and the decoration catalogue.
-- Decorations (`DESK_DECOR` in economy.js) have a slot (`left`, `right`, `top`) and a base price that scales with the
-  floor (`× 1.17^(floor-1)`, like task rewards):
-  sticky notes 15 (top), coffee mug 20 (right), rubber duck 25 (top), desk plant 30 (left), family photo 40 (right),
-  cactus 45 (left), desk lamp 75 (left), CEO bobblehead 100 (top), "World's Best Employee" trophy 200 (right; needs the
-  floor's KPI star quota met).
-- State: `desks: { [floor]: { owned: [ids], show: { left, right, top } } }`. Buying puts it on show in its slot. Owned
-  items can be swapped in and out for free.
+- **Revised 2026-10-12 (Martin):** your things move with you. One collection (`state.desk = { owned, show }`), shown
+  on your desk on whatever floor you are on. Older per-floor `desks` saves merge into it on load (`mergeOldDesks`).
+- Decorations (`DESK_DECOR` in economy.js, 23 items, 12 of them stationery) have a slot (`left`, `right`, `top`), a base
+  price that scales with the floor where you buy it (`× 1.17^(floor-1)`) and some a `minFloor`.
+- Each floor's shop (`deskOffer(floor)`, seeded by the floor number) sells 7 of them, at least 3 stationery, so the
+  offer changes from floor to floor while items recur. It also sells that floor's trophy, "Nth Floor's Best Employee"
+  (`trophy-N`, 200, right slot, needs that floor's KPI star quota).
+- Buying puts the item on show in its slot. Owned items can be swapped in and out for free (Collection tab).
 - Until a desk has a decoration it carries a small "YOUR DESK" marker.
 
 ## 4. Badges

@@ -108,8 +108,10 @@ unless Martin explicitly asks for that. Rules in `c64/CLAUDE.md`.
   - **Office events** (`src/core/events.js` rules, `src/scenes/officeEvent.js` run by the FloorScene like a quest): fire
     drill, printer meltdown, cake, surprise audit. `state.events.nextAt` spaces them 6-10 min apart, 40 s on a floor
     first; timers use scene dt. Force one from the console: `__game.top.startEvent('cake')`.
-  - **Your desk** (`src/core/desk.js`, `state.desks`): `fl.myDesk` is picked in `planFloor` without the RNG (floors stay
-    unchanged); `DESK_DECOR` prices scale with the floor; `DeskOverlay` buys/shows; `drawDeskDecor` in art.js.
+  - **Your desk** (`src/core/desk.js`, `state.desk`): `fl.myDesk` is picked in `planFloor` without the RNG (floors stay
+    unchanged). One collection that moves with you; each floor's shop (`deskOffer`) sells 7 `DESK_DECOR` items (≥3
+    stationery) plus its "Nth Floor's Best Employee" trophy (`trophy-N`, needs the quota); prices scale with the floor.
+    Old per-floor `desks` saves merge on load. `DeskOverlay` (Shop / Collection tabs); `drawDeskDecor` in art.js.
   - **Badges** (`src/core/achievements.js`, `state.badges`): predicates over the state only; `game.checkBadges()` runs
     every 0.5 s while a FloorScene is on the stack (`inTower`, so never on the title screen). `stats.soSpent` = -1 for saves from before it was counted (never earns "Bootstrapped"). `BadgeWall`
     opens from the HUD medal button and the menu.

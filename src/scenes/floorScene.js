@@ -710,7 +710,7 @@ export class FloorScene {
     g.fillStyle = '#0d0f18';
     g.fillRect(0, 0, W, H);
     this.view.gateOpen = !this.gateClosed;
-    this.view.desk = this.hasDesk ? K.deskOf(s, this.floorNo) : null;
+    this.view.desk = this.hasDesk ? K.myDesk(s) : null;
     const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : []), ...(this.receptionist ? [this.receptionist] : []), ...(this.event?.actors || [])];
     this.view.render(g, this.cam, [...actors, ...(this.quest?.props || [])]);
 
@@ -797,7 +797,7 @@ export class FloorScene {
         if (Math.floor(this.time * 2) % 2 === 0) rect(g, cx, y + 7, 4, 1, '#5fd068');
       } else if (it === this.fl.myDesk && this.hasDesk) {
         // "MY DESK" tag until something is on show.
-        if (Object.values(K.deskOf(s, this.floorNo).show).some(Boolean)) continue;
+        if (Object.values(K.myDesk(s).show).some(Boolean)) continue;
         const y = top - 12 + bob;
         const w = measureText('MY DESK') + 6;
         rect(g, cx - w / 2, y, w, 10, C.border);

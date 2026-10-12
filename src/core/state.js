@@ -1,6 +1,7 @@
 // Game state + all player actions as pure-ish functions (mutate the passed state, never touch the DOM).
 import * as E from './economy.js';
 import { ALL_GAMES, buildFloor } from './tasks.js';
+import { mergeOldDesks } from './desk.js';
 
 export const SAVE_VERSION = 1;
 
@@ -29,7 +30,7 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     stats: { tasksPlayed: 0, perfectTasks: 0, soPurchased: 0, promotions: 0, fired: 0, warps: 0, standups: 0, soSpent: 0, coffeeMachine: 0, events: {} },
     daily: { day: null, streak: 0, best: 0 }, // daily stand-up (core/daily.js): last local day played + streak of days in a row
     events: { nextAt: now + 5 * 60 * 1000 }, // random office events (core/events.js): none before this wall-clock time
-    desks: {}, // floor → { owned: [decor ids], show: { left, right, top } } (core/desk.js)
+    desk: { owned: [], show: {} }, // your desk, moves with you: owned decor ids + one on show per slot (core/desk.js)
     badges: {}, // badge id → unlocked at (core/achievements.js)
     settings: { music: true, sfx: true, reminders: false },
     flags: { introSeen: false, ceo: false, reminderOffered: false },
@@ -326,6 +327,10 @@ export function deserialize(json, now) {
     merged.version = SAVE_VERSION;
     if (s.lobby === undefined) merged.lobby = 'done'; // careers from before the lobby check-in
     if (s.stats && s.stats.soSpent === undefined) merged.stats.soSpent = -1; // spent before we counted: unknown
+    if (s.desks) {
+      if (!s.desk) merged.desk = mergeOldDesks(s.desks, merged.maxFloor);
+      delete merged.desks;
+    }
     return merged;
   } catch {
     return null;
