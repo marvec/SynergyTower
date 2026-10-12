@@ -19,6 +19,7 @@ const SAY = { x: 6, y: 227, w: 370, h: 24 };
 const PX = 206; // player sprite x
 const CX = 248; // CEO sprite x
 const PY = 86; // both sprites' top (2x scale, 30 rows → feet at 146)
+const READ_MAX = 30; // the CEO's reply to a pitch waits for Space/click; after this long it moves on by itself
 const mod = (k, n) => ((k % n) + n) % n;
 const inside = (p, x, y, w, h) => p.x >= x && p.y >= y && p.x < x + w && p.y < y + h;
 
@@ -228,7 +229,7 @@ export default {
   help: 'Stop each reel (Space/Enter, click STOP or the reel) on the word the CEO will love. Follow the rumour icon!',
   create({ difficulty: d, rng, theme, sfx = () => {} }) {
     const speed = byDiff(d, 2.0, 3.6); // words per second
-    const autoT = byDiff(d, 5.5, 3.2); // seconds before a reel stops by itself
+    const autoT = byDiff(d, 7.5, 4.5); // seconds before a reel stops by itself
     const grace = byDiff(d, 0.3, 0.25); // reaction-time forgiveness, in rows
     const fl = new Floaters();
     const shake = new Shake();
@@ -394,7 +395,9 @@ export default {
             stopReel(false);
           }
         } else if (phase === 'reply') {
-          if (phaseT >= 3.2 || (phaseT > 0.7 && (input.confirm() || ptr.clicked))) {
+          // The finished pitch and the CEO's reply stay until Space/Enter or a click (after a short pause, so the
+          // press that stopped the last reel doesn't skip it).
+          if (phaseT >= READ_MAX || (phaseT > 0.7 && (input.confirm() || ptr.clicked))) {
             input.consumeKeys();
             input.consumeClick();
             p++;
@@ -510,9 +513,10 @@ export default {
         lines.slice(0, 2).forEach((l, i) => drawText(g, l, SAY.x + 6, ty + i * 10, { color: C.ink }));
 
         const label = phase === 'reply' || phase === 'arrive' ? 'NEXT' : 'STOP';
-        drawButton(g, { ...STOP, label, sub: 'Space', color: label === 'STOP' ? '#b83a32' : C.goodBtn, disabled: phase === 'intro' }, spinning, inside(hover, STOP.x, STOP.y, STOP.w, STOP.h));
+        drawButton(g, { ...STOP, label, sub: 'Space', color: label === 'STOP' ? '#b83a32' : C.goodBtn, disabled: phase === 'intro' }, spinning || phase === 'reply', inside(hover, STOP.x, STOP.y, STOP.w, STOP.h));
 
-        drawText(g, 'Space/Enter or click STOP (or the reel). Pick the icon from the rumour!', W / 2, 257, { align: 'center', color: C.dim });
+        const hint = phase === 'reply' ? 'Read the CEO, then Space/Enter or click NEXT.' : 'Space/Enter or click STOP (or the reel). Pick the icon from the rumour!';
+        drawText(g, hint, W / 2, 257, { align: 'center', color: C.dim });
         fl.render(g);
         g.restore();
       },

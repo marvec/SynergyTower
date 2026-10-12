@@ -6,6 +6,7 @@ import { BUZZ, FILLER, BOSS, BOARD, GOOD_NOD, BAD_NOD, ASLEEP } from '../data/mg
 
 const AWAKE_AT = 0.3; // eyelid level that still counts as "awake"
 const GRACE = 0.35; // seconds after a line ends that a late nod still counts
+const PACE = 1.2; // the monologue's slowness: lines, gaps and the whole meeting last this much longer
 const NOD_BTN = { x: 16, y: 212, w: 100, h: 30 };
 const MUG = { x: 372, y: 206, w: 96, h: 42 };
 const inBox = (p, b) => p.x >= b.x && p.y >= b.y && p.x < b.x + b.w && p.y < b.y + b.h;
@@ -17,10 +18,10 @@ export default {
   create({ difficulty: d, rng, theme, sfx = () => {} }) {
     const fl = new Floaters();
     const shake = new Shake();
-    const total = new Countdown(byDiff(d, 35, 45));
-    const drain = byDiff(d, 0.055, 0.085);
+    const total = new Countdown(byDiff(d, 35, 45) * PACE);
+    const drain = byDiff(d, 0.055, 0.085) * 0.8; // eyelids droop 20% slower
     const sipGain = 0.27;
-    const baseLife = byDiff(d, 1.6, 1.0);
+    const baseLife = byDiff(d, 1.6, 1.0) * PACE;
     const bossName = BOSS[theme?.dept] || 'The Boss';
     const board = BOARD[theme?.dept] || ['SYNERGY', 'Q4 GOALS'];
     const buzzDeck = rng.shuffle(BUZZ);
@@ -57,7 +58,7 @@ export default {
       runFill = buzz ? 0 : runFill + 1;
       const text = buzz ? buzzDeck[bi++ % buzzDeck.length] : fillDeck[fi++ % fillDeck.length];
       if (buzz) buzzTotal++;
-      line = { text, buzz, life: baseLife + Math.min(0.9, text.length * 0.016), age: 0, nodded: 0 };
+      line = { text, buzz, life: baseLife + PACE * Math.min(0.9, text.length * 0.016), age: 0, nodded: 0 };
     };
 
     const score = () => {
@@ -138,7 +139,7 @@ export default {
             last = line;
             lastEnd = elapsed;
             line = null;
-            gap = rng.float(0.25, 0.45);
+            gap = PACE * rng.float(0.25, 0.45);
           }
         } else {
           gap -= dt;
