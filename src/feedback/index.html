@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contact the author · SynergyTower</title>
+    <meta name="description" content="Suggest a new task, report a bug, sponsor a hallway poster or ask anything else about SynergyTower." />
+    <link rel="canonical" href="https://synergytower.co.uk/feedback/" />
+    <link rel="stylesheet" href="../style.css" />
+    <style>
+      /* A page of its own (the game's stylesheet is made for a full-screen canvas). */
+      html,
+      body {
+        overflow: auto;
+        touch-action: auto;
+        -webkit-user-select: text;
+        user-select: text;
+      }
+      #intro {
+        box-sizing: border-box;
+        width: min(440px, 100%);
+        padding: 16px;
+        font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace;
+        color: #aab0cc;
+        text-align: center;
+      }
+      #intro h1 {
+        margin: 0 0 8px;
+        font-size: 20px;
+        color: #ffd75e;
+      }
+      #intro a,
+      #intro button {
+        color: #c8b8e8;
+      }
+      #intro button {
+        border: 0;
+        padding: 8px 16px;
+        font: bold 14px ui-monospace, Menlo, Consolas, monospace;
+        color: #fff;
+        background: #3f8f5a;
+        cursor: pointer;
+      }
+      #intro .row {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        align-items: center;
+        margin-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="intro">
+      <h1>SynergyTower</h1>
+      <p>Contact the author: ideas for a new task, a bug report, a poster sponsorship or anything else.</p>
+      <div class="row">
+        <button type="button" id="open">Open the form</button>
+        <a href="../">Play the game</a>
+      </div>
+    </main>
+    <script type="module" src="./page.js"></script>
+  </body>
+</html>
