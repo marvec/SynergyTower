@@ -11,6 +11,8 @@ import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import { departmentForFloor, floorName, titleForFloor } from '../data/departments.js';
 import { COMMON_NPC_LINES } from '../data/npcLines.js';
+import { STANDUP_ASKS, STANDUP_NUDGES, STANDUP_THANKS } from '../data/standup.js';
+import * as D from '../core/daily.js';
 import { FIRED_LINES, KEPT_LINES } from '../data/people.js';
 import { SPONSOR_PITCH, adPitch } from '../data/sponsors.js';
 import { openFeedback } from '../engine/feedback.js';
@@ -80,6 +82,8 @@ export class FloorScene {
     this.stepT = 0;
     this.focus = null;
     this.quest = null; // active floor quest (360 Feedback, Lost Password)
+    this.standupNpc = null; // the colleague with today's stand-up favour (core/daily.js)
+    this.standupT = 0;
     this.hud = new Hud(game, {
       shop: () => game.push(new ShopOverlay(game)),
       perks: () => game.push(new PerksOverlay(game)),
@@ -100,6 +104,11 @@ export class FloorScene {
     this.game.markDirty();
     this.game.audio.play(this.dept.music);
     const s = this.game.state;
+    this.refreshStandup();
+    if (this.standupNpc && !this.standupToast) {
+      this.standupToast = true;
+      this.game.toast(`Daily stand-up: ${this.standupNpc.id.name} is looking for you.`, C.xp);
+    }
     const checkin = s.lobby === 'checkin' && this.receptionist;
     if (checkin) this.receptionist.say(`Welcome, ${s.player.name}! Please check in at the front desk.`, 6);
     if (!s.flags.introSeen) {
@@ -245,6 +254,7 @@ export class FloorScene {
       p.faceTowards(a.x - p.x, a.y - p.y);
       t.n.brain.talkPause = 3.5;
       a.path = null;
+      if (t.n === this.standupNpc && !q) return this.askStandup(t.n);
       const line = q?.hintLine(t.n) || this.nextLine();
       a.say(line);
       game.sfx('blip');
@@ -325,6 +335,58 @@ export class FloorScene {
     this.recentLines.push(line);
     if (this.recentLines.length > 30) this.recentLines.shift();
     return line;
+  }
+
+  /** Today's stand-up colleague on this floor: picked by day and floor among the colleagues still here. */
+  refreshStandup() {
+    const s = this.game.state;
+    const now = this.game.now();
+    if (D.standupStatus(s, now) !== 'pending') {
+      this.standupNpc = null;
+      return;
+    }
+    const day = D.dayKey(now);
+    if (this.standupNpc && this.standupDay === day && !this.standupNpc.brain.exit) return;
+    const pool = this.npcs.filter((n) => !n.brain.exit);
+    let h = this.floorNo;
+    for (const ch of day) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    this.standupNpc = pool.length ? createRng(h).pick(pool) : null;
+    this.standupDay = day;
+  }
+
+  askStandup(n) {
+    const game = this.game;
+    const mg = MINIGAMES[D.standupGame(D.dayKey(game.now()))];
+    n.brain.talkPause = 6;
+    n.a.say(this.rng.pick(STANDUP_NUDGES), 3);
+    game.sfx('blip');
+    game.push(
+      new Dialog(game, {
+        title: `${n.id.name} · Daily stand-up`,
+        w: 300,
+        text:
+          `"${this.rng.pick(STANDUP_ASKS).replace('{game}', mg.name)}"\n` +
+          `Free to play, once a day. Bonus: double paperclips, +${E.STANDUP_COFFEE} coffee and a chance of a Stock Option (a sure one every ${E.STANDUP_STREAK_SO}th day in a row).`,
+        button: 'Later',
+        action: { label: 'Sure!', onClick: () => this.startStandup(n) },
+      }),
+    );
+  }
+
+  startStandup(n) {
+    const game = this.game;
+    const now = game.now();
+    if (D.standupStatus(game.state, now) !== 'pending') return;
+    const day = D.dayKey(now);
+    const f = this.floorNo;
+    const task = { id: `standup-${day}`, game: D.standupGame(day), title: 'Daily stand-up favour', difficulty: Math.min(1, ((f - 1) / 39) * 0.85 + 0.075), seed: f * 977 + day.length };
+    game.push(
+      new MinigameScene(game, task, (r) => {
+        if (!r?.standup) return;
+        this.standupNpc = null;
+        n.a.say(this.rng.pick(STANDUP_THANKS), 4);
+      }, { mode: 'standup' }),
+    );
   }
 
   startTask(task) {
@@ -552,6 +614,11 @@ export class FloorScene {
     p.update(dt);
     this.hrRep?.update(dt);
     this.updateReceptionist(dt);
+    this.standupT -= dt;
+    if (this.standupT <= 0) {
+      this.standupT = 1;
+      this.refreshStandup();
+    }
 
     const t = this.camTarget();
     const k = Math.min(1, dt * 8);
@@ -596,6 +663,7 @@ export class FloorScene {
     g.translate(-Math.round(this.cam.x), -Math.round(this.cam.y));
     if (this.focus && this.focus.kind !== 'npc') this.drawFocus(g, this.focus.it);
     this.drawMarkers(g, s, now);
+    this.drawStandupMarker(g);
     this.quest?.renderWorld(g);
     for (const a of actors) a.drawBubble(g);
     g.restore();
@@ -675,6 +743,20 @@ export class FloorScene {
     }
   }
 
+  /** A blue speech bubble over the colleague with today's stand-up favour. */
+  drawStandupMarker(g) {
+    const n = this.standupNpc;
+    if (!n || n.a.bubble || this.quest) return;
+    const bob = Math.round(Math.sin(this.time * 4) * 1.5);
+    const cx = Math.round(n.a.x * TILE);
+    const y = Math.round(n.a.y * TILE) - CHAR_H - 14 + bob;
+    rect(g, cx - 6, y, 13, 10, C.border);
+    rect(g, cx - 5, y + 1, 11, 8, C.xp);
+    rect(g, cx - 2, y + 10, 3, 2, C.border);
+    rect(g, cx - 1, y + 9, 1, 2, C.xp);
+    for (const dx of [-3, 0, 3]) rect(g, cx + dx, y + 4, 2, 2, C.ink);
+  }
+
   drawPrompt(g, s, now) {
     const t = this.focus;
     if (!t) return;
@@ -682,7 +764,7 @@ export class FloorScene {
     let sub = '';
     if (t.kind === 'npc') {
       text = 'Talk';
-      sub = S.canFire(s) && !this.quest ? `${t.n.id.name} - decide their fate` : t.n.id.name;
+      sub = t.n === this.standupNpc && !this.quest ? `${t.n.id.name} - daily stand-up` : S.canFire(s) && !this.quest ? `${t.n.id.name} - decide their fate` : t.n.id.name;
     } else if (t.kind === 'terminal') {
       text = 'Workstation';
       sub = 'open terminal';

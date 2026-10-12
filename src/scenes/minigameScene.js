@@ -6,12 +6,16 @@ import { drawText, wrapText } from '../engine/font.js';
 import { createRng } from '../core/rng.js';
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
+import { completeStandup } from '../core/daily.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { departmentForFloor, titleForFloor } from '../data/departments.js';
 import { drawStarsLarge } from './overlays.js';
 
 export class MinigameScene {
-  /** opts.mode: 'task' (default, rewards + KPI stars) or 'review' (HR performance review: pass/fail gate). */
+  /**
+   * opts.mode: 'task' (default, rewards + KPI stars), 'review' (HR performance review: pass/fail gate) or 'standup'
+   * (the daily stand-up favour: a daily bonus, no KPI stars or cooldown).
+   */
   constructor(game, task, onDone, opts = {}) {
     this.game = game;
     this.task = task;
@@ -87,6 +91,7 @@ export class MinigameScene {
   }
   complete(score) {
     if (this.mode === 'review') return this.completeReview(score);
+    if (this.mode === 'standup') return this.completeStandup(score);
     const s = this.game.state;
     const before = { level: s.level };
     this.result = S.completeTask(s, this.task, this.floor, score, this.game.now());
@@ -113,6 +118,55 @@ export class MinigameScene {
     this.game.sfx(this.result.passed ? 'levelup' : 'fail');
     this.buttons.clear();
     this.buttons.add({ x: W / 2 - 50, y: H / 2 + 62, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  completeStandup(score) {
+    const s = this.game.state;
+    // Null if the stand-up was already done today (another tab): show the stars, pay nothing.
+    this.result = completeStandup(s, this.task.game, score, this.game.now()) || { standup: true, stars: E.starsFromScore(score), none: true };
+    this.result.score = score;
+    track('standup', { stars: this.result.stars, streak: this.result.streak || 0, floor: s.maxFloor });
+    this.game.markDirty();
+    this.game.saveNow();
+    this.phase = 'result';
+    this.t = 0;
+    this.revealed = 0;
+    this.game.sfx('good');
+    if (this.result.levelsGained) setTimeout(() => this.game.sfx('levelup'), 900);
+    this.buttons.clear();
+    this.buttons.add({ x: W / 2 - 50, y: H / 2 + 72, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  renderStandupResult(g) {
+    const r = this.result;
+    const s = this.game.state;
+    dim(g, 0.65);
+    const x = W / 2 - 120;
+    const y = H / 2 - 94;
+    panel(g, x, y, 240, 192, { title: 'Stand-up favour done!', titleColor: C.accent });
+    drawStarsLarge(g, this.revealed, W / 2, y + 18);
+    drawText(g, `Score ${Math.round(r.score * 100)}%  ·  any result counts`, W / 2, y + 44, { align: 'center', color: C.dim });
+    let yy = y + 58;
+    const line = (ic, label, val, color) => {
+      icon(g, ic, x + 40, yy);
+      drawText(g, label, x + 52, yy, { color: C.dim });
+      drawText(g, val, x + 200, yy, { align: 'right', color });
+      yy += 12;
+    };
+    if (r.none) drawText(g, 'Already done today. See you tomorrow!', W / 2, yy, { align: 'center', color: C.dim });
+    else {
+      line('sp', 'Paperclips (x2)', `+${formatNum(r.sp)}`, C.gold);
+      line('xp', 'Experience', `+${formatNum(r.xp)}`, C.xp);
+      line('coffee', 'Coffee', `+${r.coffee}`, C.coffee);
+      if (r.bonusSo) line('so', 'Stock Option', `+${r.bonusSo}`, C.so);
+      if (r.levelsGained) {
+        rect(g, x + 10, yy, 220, 12, '#3a3a10');
+        drawText(g, `LEVEL UP! Seniority Lv${s.level}`, W / 2, yy + 2, { align: 'center', color: C.gold });
+        yy += 14;
+      }
+      const toGo = E.STANDUP_STREAK_SO - (r.streak % E.STANDUP_STREAK_SO);
+      drawText(g, `Stand-up streak: ${r.streak} day${r.streak === 1 ? '' : 's'}`, W / 2, yy + 8, { align: 'center', color: C.text });
+      drawText(g, toGo === E.STANDUP_STREAK_SO ? 'Streak bonus paid! Come back tomorrow.' : `${toGo} more day${toGo === 1 ? '' : 's'} in a row for a sure Stock Option`, W / 2, yy + 20, { align: 'center', color: C.dim });
+    }
+    this.buttons.render(g);
   }
   renderReviewResult(g) {
     const r = this.result;
@@ -151,6 +205,7 @@ export class MinigameScene {
       this.buttons.render(g);
     } else if (this.phase === 'result') {
       if (this.mode === 'review') this.renderReviewResult(g);
+      else if (this.mode === 'standup') this.renderStandupResult(g);
       else this.renderResult(g);
     }
     drawText(g, 'Esc: pause', W - 4, H - 10, { align: 'right', color: 'rgba(255,255,255,0.4)' });
