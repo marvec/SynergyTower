@@ -1,5 +1,7 @@
 // Game context shared by all scenes: state, persistence, audio, input and the scene stack.
 import * as S from './core/state.js';
+import { checkBadges } from './core/achievements.js';
+import { track } from './engine/analytics.js';
 import { CORP_COLORS, SKIN_TONES, HAIR_COLORS } from './data/corpColors.js';
 import { setAccent, C, panel } from './engine/ui.js';
 import { drawText } from './engine/font.js';
@@ -12,6 +14,7 @@ export function createGame({ screen, input, audio }) {
   let toasts = [];
   let saveTimer = 0;
   let dirty = false;
+  let badgeT = 0;
 
   const game = {
     screen,
@@ -68,6 +71,23 @@ export function createGame({ screen, input, audio }) {
         /* ignore */
       }
       game.state = null;
+    },
+
+    /** Unlocks earned badges (core/achievements.js) and announces them; several at once get one summary toast. */
+    checkBadges() {
+      const fresh = checkBadges(game.state, game.now());
+      if (!fresh.length) return;
+      // Many at once = an older save catching up: one toast, one analytics event.
+      if (fresh.length >= 3) {
+        track('badge', { id: 'many', n: fresh.length, floor: game.state.maxFloor });
+        game.toast(`${fresh.length} badges unlocked! See the badge wall.`, C.gold);
+      } else
+        for (const b of fresh) {
+          track('badge', { id: b.id, floor: game.state.maxFloor });
+          game.toast(`Badge unlocked: ${b.name}`, C.gold);
+        }
+      game.sfx('star');
+      game.markDirty();
     },
 
     // ---- helpers
@@ -127,6 +147,11 @@ export function createGame({ screen, input, audio }) {
     update(dt) {
       game.time += dt;
       if (game.state) S.tick(game.state, game.now());
+      badgeT += dt;
+      if (game.state && badgeT > 0.5) {
+        badgeT = 0;
+        game.checkBadges();
+      }
       game.top?.update(dt);
       toasts.forEach((t) => (t.t += dt));
       toasts = toasts.filter((t) => t.t < 3);

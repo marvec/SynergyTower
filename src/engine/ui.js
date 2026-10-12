@@ -102,6 +102,7 @@ const ICONS = {
   cart: { map: 'k......|kkkkkkk|.kwwwwk|.kwwwk.|.kkkkk.|.......|..k..k.', pal: { w: '#7ee0c3' } },
   up: { map: '...k...|..kgk..|.kgggk.|kkgggkk|..kgk..|..kgk..|..kkk..', pal: { g: '#5fd068' } },
   book: { map: 'kkkkkk.|kbbbbkk|kbwwbkk|kbbbbkk|kbwwbkk|kbbbbkk|kkkkkk.', pal: { b: '#8ab4ff', w: '#e8e8f0' } },
+  medal: { map: '.rr.bb.|..rbb..|..kkk..|.kyyyk.|.kywyk.|.kyyyk.|..kkk..', pal: { r: '#e2504a', b: '#2a6ad1', y: '#f2c14e', w: '#fff6c8' } },
   menu: { map: '.......|kkkkkkk|.......|kkkkkkk|.......|kkkkkkk|.......', pal: {} },
 };
 const iconCache = new Map();

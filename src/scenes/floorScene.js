@@ -25,6 +25,7 @@ import { MinigameScene } from './minigameScene.js';
 import { FloorQuest } from './floorQuest.js';
 import { OfficeEvent } from './officeEvent.js';
 import { DeskOverlay } from './deskOverlay.js';
+import { BadgeWall } from './badgeWall.js';
 import * as K from '../core/desk.js';
 import * as V from '../core/events.js';
 import { MINIGAMES } from '../minigames/index.js';
@@ -101,6 +102,7 @@ export class FloorScene {
         game.markDirty();
       },
       coffee: openCoffee,
+      badges: () => game.push(new BadgeWall(game)),
       menu: () => this.openMenu(),
     });
   }
@@ -142,6 +144,7 @@ export class FloorScene {
     const game = this.game;
     game.push(
       new PauseMenu(game, {
+        onBadges: () => game.push(new BadgeWall(game)),
         onQuit: async () => {
           const { TitleScene } = await import('./title.js');
           game.set(new TitleScene(game));

@@ -575,9 +575,11 @@ export class FateDialog extends Modal {
 
 // ------------------------------------------------------------------ pause menu
 export class PauseMenu extends Modal {
-  constructor(game, { onQuit }) {
-    super(game, { w: 200, h: remindersSupported() ? 242 : 220, title: 'Menu' });
+  /** onBadges: optional, adds a "Badge wall" entry. */
+  constructor(game, { onQuit, onBadges = null }) {
+    super(game, { w: 200, h: (remindersSupported() ? 242 : 220) + (onBadges ? 22 : 0), title: 'Menu' });
     this.onQuit = onQuit;
+    this.onBadges = onBadges;
     this.confirmReset = false;
   }
   build() {
@@ -599,6 +601,7 @@ export class PauseMenu extends Modal {
     });
     if (remindersSupported()) add(`Reminders: ${remindersOn(s) ? 'ON' : 'OFF'}`, () => toggleReminders(this.game));
     add('How to play', () => this.game.push(new Dialog(this.game, { title: 'How to play', w: 320, text: HOW_TO })));
+    if (this.onBadges) add('Badge wall', this.onBadges);
     add('Send feedback', () => openFeedback(`floor ${s.floor}, level ${s.level}, ${s.player.name} @ ${s.corp.name}`));
     add('Buy author a coffee', openCoffee, C.goodBtn);
     add('Save & quit to title', () => {
