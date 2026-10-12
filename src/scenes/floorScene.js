@@ -695,6 +695,7 @@ export class FloorScene {
       }
     }
     if (p.moving) {
+      p.bubble = null; // what the player said about something goes away once they walk on
       this.stepT += dt;
       if (this.stepT > 0.32) {
         this.stepT = 0;
