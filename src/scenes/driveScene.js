@@ -420,13 +420,15 @@ export class DriveScene {
     drawText(g, stage.name.toUpperCase(), 6, 12, { color: C.gold });
     // Speed and gear (right).
     const kmh = Math.round((d.speed / MAX_SPEED) * KMH);
-    const gear = d.speed < 50 ? 'N' : String(1 + Math.min(4, Math.floor((d.speed / MAX_SPEED) * 5)));
-    rect(g, W - 122, 2, 120, 19, 'rgba(13,15,24,0.88)');
+    const gearIdx = Math.min(4, Math.floor((d.speed / MAX_SPEED) * 5)); // five gears; the top one revs all the way up
+    const gear = d.speed < 50 ? 'N' : String(1 + gearIdx);
+    // Number and gear on top, the rev counter on a row of its own underneath (the big digits never reach it).
+    rect(g, W - 122, 2, 120, 28, 'rgba(13,15,24,0.88)');
     drawText(g, String(kmh), W - 52, 4, { align: 'right', scale: 2, color: C.text, shadow: C.border });
     drawText(g, 'KM/H', W - 48, 4, { color: C.dim });
     drawText(g, `G${gear}`, W - 48, 12, { color: C.so });
-    const rev = ((d.speed / MAX_SPEED) * 5) % 1;
-    for (let k = 0; k < 8; k++) rect(g, W - 118 + k * 6, 16, 5, 3, k / 8 < rev ? (k > 5 ? C.bad : C.good) : '#2a2f45');
+    const rev = (d.speed / MAX_SPEED) * 5 - gearIdx;
+    for (let k = 0; k < 12; k++) rect(g, W - 118 + k * 9, 23, 8, 4, k / 12 < rev ? (k >= 9 ? C.bad : C.good) : '#2a2f45');
     // Route to the client.
     const bx = 130;
     const bw = W - 260;
