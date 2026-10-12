@@ -78,6 +78,20 @@ export const SONGS = {
       'D5 - . D5 - . F#5 - . . A5 - F#5 - . .', 'D#5 - . F#5 - . B5 - . . A5 - F#5 - D#5 -',
     ],
   },
+  // The business-trip drive: a driving minor-key tune in the spirit of 90s Amiga racers.
+  drive: {
+    bpm: 150, swing: 0, lead: 'square', leadVol: 0.11,
+    chords: ['Am', 'F', 'G', 'Em', 'Am', 'F', 'G', 'E7'],
+    bass: { steps: [0, 2, 4, 6, 8, 10, 12, 14], tones: [0, 3, 0, 3, 0, 3, 0, 3], len: 1 },
+    arp: { steps: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], tones: [0, 1, 2, 3, 2, 1, 0, 1, 0, 1, 2, 3, 2, 1, 2, 1], vol: 0.022 },
+    drums: 'k.h.s.hkk.hks.hh',
+    melody: [
+      'A4 - C5 - E5 - A5 - G5 - E5 - C5 - D5 -', 'C5 - - - A4 - C5 - F5 - - - E5 - D5 -',
+      'B4 - D5 - G5 - - - F5 - E5 - D5 - B4 -', 'E5 - - - - - G5 - B5 - - - A5 - G5 -',
+      'A5 - - - E5 - A5 - C6 - B5 - A5 - G5 -', 'F5 - - - C5 - F5 - A5 - G5 - F5 - E5 -',
+      'D5 - G5 - B5 - D6 - - - C6 - B5 - A5 -', 'G#5 - - - E5 - - - B4 - - - G#4 - . .',
+    ],
+  },
   fanfare: {
     bpm: 132, swing: 0, lead: 'square', leadVol: 0.14, once: true,
     chords: ['C', 'G', 'C'],

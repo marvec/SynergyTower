@@ -32,6 +32,8 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     events: { nextAt: now + 5 * 60 * 1000 }, // random office events (core/events.js): none before this wall-clock time
     desk: { owned: [], show: {} }, // your desk, moves with you: owned decor ids + one on show per slot (core/desk.js)
     badges: {}, // badge id → unlocked at (core/achievements.js)
+    trips: {}, // business trips (core/trip.js): floor → 'missed' (left in the car) | 'done' (made it to the client)
+    trip: null, // the client visit under way: { floor, endsAt, sp, tasks }
     settings: { music: true, sfx: true, reminders: false },
     flags: { introSeen: false, ceo: false, reminderOffered: false },
   };
@@ -92,9 +94,11 @@ export function startTask(s, task, floor, now) {
   return c;
 }
 
-export function completeTask(s, task, floor, score, now, rng = Math.random) {
+/** opts: spMult multiplies the paperclips; kpi: false keeps the stars off the floor's quota (a client's office). */
+export function completeTask(s, task, floor, score, now, rng = Math.random, { spMult = 1, kpi = true } = {}) {
   const stars = E.starsFromScore(score);
   const reward = E.taskReward(floor, stars, s.perks);
+  reward.sp *= spMult;
   s.sp += reward.sp;
   const lv = E.addXp(s.level, s.xp, reward.xp);
   s.level = lv.level;
@@ -102,17 +106,17 @@ export function completeTask(s, task, floor, score, now, rng = Math.random) {
   let soGained = lv.levelsGained;
   if (stars === 3 && rng() < 0.05) soGained++;
   s.so += soGained;
-  s.starsByFloor[floor] = (s.starsByFloor[floor] || 0) + stars;
+  if (kpi) s.starsByFloor[floor] = (s.starsByFloor[floor] || 0) + stars;
   const prevBest = s.bestByTask[task.id] ?? -1;
   if (stars > prevBest) s.bestByTask[task.id] = stars;
   s.cooldowns[task.id] = now + E.stationCooldownMs(floor, s.perks, task.game);
   if (task.game) s.played[task.game] = (s.played[task.game] || 0) + 1;
   s.stats.tasksPlayed++;
   if (stars === 3) s.stats.perfectTasks++;
-  const ceoUnlocked = floor === E.FLOORS && !s.flags.ceo && s.starsByFloor[floor] >= E.starQuota(floor);
+  const ceoUnlocked = kpi && floor === E.FLOORS && !s.flags.ceo && s.starsByFloor[floor] >= E.starQuota(floor);
   if (ceoUnlocked) s.flags.ceo = true;
   // Playing the front-desk check-in (any result) loads the coffee card and starts its refill.
-  const checkedIn = !!task.checkin && s.lobby === 'checkin';
+  const checkedIn = kpi && !!task.checkin && s.lobby === 'checkin';
   if (checkedIn) {
     s.lobby = 'gate';
     s.coffee = { value: Math.max(s.coffee.value, coffeeMax(s)), updatedAt: now };
@@ -293,13 +297,13 @@ export function refillCoffee(s, now) {
   return { ok: true };
 }
 
-export function useCoffeeMachine(s, floor, now) {
-  const key = `coffee-machine-${floor}`;
+/** A floor's coffee machine; a client's brewer passes its own key and cooldown (core/trip.js). */
+export function useCoffeeMachine(s, floor, now, { key = `coffee-machine-${floor}`, cooldownS = E.COFFEE_MACHINE_COOLDOWN_S } = {}) {
   tick(s, now);
   if (cooldownLeft(s, key, now) > 0) return { ok: false, reason: 'cooldown', left: cooldownLeft(s, key, now) };
   const before = s.coffee.value;
   s.coffee.value = s.coffee.value + E.COFFEE_MACHINE_AMOUNT; // may exceed max: a little treat
-  s.cooldowns[key] = now + E.COFFEE_MACHINE_COOLDOWN_S * 1000;
+  s.cooldowns[key] = now + cooldownS * 1000;
   s.stats.coffeeMachine = (s.stats.coffeeMachine || 0) + 1;
   return { ok: true, gained: s.coffee.value - before };
 }

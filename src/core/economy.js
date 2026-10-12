@@ -56,6 +56,15 @@ export const EVENT_GAP_MIN_S = 6 * 60;
 export const EVENT_GAP_MAX_S = 10 * 60;
 export const EVENT_CAKE_COFFEE = 2;
 export const AUDIT_LOCK_S = 90;
+/**
+ * Business trip (core/trip.js, spec 2026-10-12-business-trip): a colleague on these floors offers it once. The client's
+ * office pays double paperclips, its coffee brewers are ready again after 2 minutes and the visit lasts 15 minutes.
+ */
+export const TRIP_FLOORS = [10, 30];
+export const TRIP_SP_MULT = 2;
+export const TRIP_VISIT_S = 15 * 60;
+export const TRIP_BREWER_S = 2 * 60;
+export const TRIP_STATIONS = 20;
 export const COOLDOWN_TIER_MULT = { 1: 4, 2: 1.5, 3: 0.75 };
 export const stationCount = (floor) => Math.min(14, 8 + Math.floor((floor - 1) / 6));
 

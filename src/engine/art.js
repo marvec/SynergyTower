@@ -832,7 +832,9 @@ export function floorStyleForRoom(roomType, deptId) {
     case 'kitchen': return 'tile';
     case 'restroom': return 'bathroom';
     case 'elevator':
+    case 'atrium':
     case 'reception': return 'marble';
+    case 'boardroom': return 'parquet';
     case 'copy': return 'tile';
     case 'manager': return deptId === 'exec' ? 'parquet' : 'carpet';
     case 'hr': return 'parquet';

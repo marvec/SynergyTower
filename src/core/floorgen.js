@@ -9,10 +9,11 @@ export const FLOOR_H = 28;
 export const T_FLOOR = 0;
 export const T_WALL = 1;
 
-const TOP = { y0: 1, y1: 11 };
-const BOTTOM = { y0: 16, y1: 26 };
 const TOP_WALL_Y = 12;
 const BOTTOM_WALL_Y = 15;
+// A band of rooms along a corridor: rows y0..y1, doors in the wall row wallY; `above` = the rooms lie above the corridor.
+const TOP = { y0: 1, y1: 11, wallY: TOP_WALL_Y, above: true };
+const BOTTOM = { y0: 16, y1: 26, wallY: BOTTOM_WALL_Y, above: false };
 export const ELEVATOR_ROOM = { x0: 17, x1: 22 };
 /** The hallway rows between the two room bands; it runs the full width of every floor. */
 export const CORRIDOR = { y0: TOP_WALL_Y + 1, y1: BOTTOM_WALL_Y - 1 };
@@ -46,36 +47,27 @@ export const STATION_GAMES = {
   plant: ['plant'],
 };
 
-export function generateFloor(floor) {
-  const rng = createRng(floor * 7919 + 13);
-  const dept = departmentForFloor(floor);
-  const tiles = new Uint8Array(FLOOR_W * FLOOR_H).fill(T_FLOOR);
-  const roomOf = new Int16Array(FLOOR_W * FLOOR_H).fill(-1);
-  const reserved = new Uint8Array(FLOOR_W * FLOOR_H);
-  const occupied = new Uint8Array(FLOOR_W * FLOOR_H);
-  const idx = (x, y) => y * FLOOR_W + x;
+/**
+ * Room building blocks on a w × h grid, shared by the tower floors and the client office (core/clientFloor.js):
+ * walls, rooms with doors onto a corridor, and the furniture fillers for each room type. Consumes `rng` only when called,
+ * in call order, so the tower floors stay exactly as they were.
+ */
+export function createPlanner(w, h, rng, dept) {
+  const tiles = new Uint8Array(w * h).fill(T_FLOOR);
+  const roomOf = new Int16Array(w * h).fill(-1);
+  const reserved = new Uint8Array(w * h);
+  const occupied = new Uint8Array(w * h);
+  const idx = (x, y) => y * w + x;
   const setWall = (x, y) => (tiles[idx(x, y)] = T_WALL);
   const rooms = [];
   const items = [];
-
-  // Outer walls + band walls.
-  for (let x = 0; x < FLOOR_W; x++) {
-    setWall(x, 0);
-    setWall(x, FLOOR_H - 1);
-    setWall(x, TOP_WALL_Y);
-    setWall(x, BOTTOM_WALL_Y);
-  }
-  for (let y = 0; y < FLOOR_H; y++) {
-    setWall(0, y);
-    setWall(FLOOR_W - 1, y);
-  }
 
   const addRoom = (type, x0, x1, band, doorCount = 1, doorWidth = 2) => {
     const room = { id: rooms.length, type, x0, x1, y0: band.y0, y1: band.y1, doors: [] };
     rooms.push(room);
     for (let y = room.y0; y <= room.y1; y++) for (let x = x0; x <= x1; x++) roomOf[idx(x, y)] = room.id;
-    const wallY = band === TOP ? TOP_WALL_Y : BOTTOM_WALL_Y;
-    const inside = band === TOP ? room.y1 : room.y0;
+    const wallY = band.wallY;
+    const inside = band.above ? room.y1 : room.y0;
     const width = x1 - x0 + 1;
     for (let d = 0; d < doorCount; d++) {
       const seg = width / doorCount;
@@ -85,7 +77,7 @@ export function generateFloor(floor) {
       for (let i = 0; i < doorWidth; i++) {
         tiles[idx(dx + i, wallY)] = T_FLOOR;
         reserved[idx(dx + i, inside)] = 1;
-        reserved[idx(dx + i, band === TOP ? inside - 1 : inside + 1)] = 1;
+        reserved[idx(dx + i, band.above ? inside - 1 : inside + 1)] = 1;
       }
       room.doors.push({ x: dx, y: wallY, w: doorWidth });
     }
@@ -94,84 +86,6 @@ export function generateFloor(floor) {
   const vWall = (x, band) => {
     for (let y = band.y0; y <= band.y1; y++) setWall(x, y);
   };
-
-  // --- Top band: left region | elevator lobby | right region.
-  vWall(ELEVATOR_ROOM.x0 - 1, TOP);
-  vWall(ELEVATOR_ROOM.x1 + 1, TOP);
-  const elevatorRoom = addRoom('elevator', ELEVATOR_ROOM.x0, ELEVATOR_ROOM.x1, TOP, 1, 4);
-  const regions = [];
-  // The ground floor always splits both regions: it needs room for the reception + every required room type.
-  const splitRegion = (a, b) => {
-    if (floor === 1 || rng.chance(0.6)) {
-      const cut = rng.int(a + 6, b - 6);
-      vWall(cut, TOP);
-      regions.push([a, cut - 1], [cut + 1, b]);
-    } else regions.push([a, b]);
-  };
-  splitRegion(1, ELEVATOR_ROOM.x0 - 2);
-  splitRegion(ELEVATOR_ROOM.x1 + 2, FLOOR_W - 2);
-
-  // --- Bottom band.
-  const bottomRooms = [];
-  if (floor === 1) {
-    vWall(13, BOTTOM);
-    vWall(26, BOTTOM);
-    bottomRooms.push([1, 12, 'auto'], [14, 25, 'reception'], [27, 38, 'auto']);
-  } else {
-    const count = rng.chance(0.5) ? 3 : 4;
-    const total = FLOOR_W - 2 - (count - 1);
-    const openW = count === 3 ? rng.int(16, 20) : rng.int(14, 16);
-    const rest = total - openW;
-    const others = [];
-    let left = rest;
-    for (let i = 0; i < count - 2; i++) {
-      const minOther = 6;
-      const w = rng.int(minOther, left - minOther * (count - 2 - i));
-      others.push(w);
-      left -= w;
-    }
-    others.push(left);
-    const openAt = rng.int(0, count - 1);
-    const widths = [...others];
-    widths.splice(openAt, 0, openW);
-    let x = 1;
-    widths.forEach((w, i) => {
-      bottomRooms.push([x, x + w - 1, i === openAt ? 'openplan' : 'auto']);
-      x += w;
-      if (i < widths.length - 1) {
-        vWall(x, BOTTOM);
-        x++;
-      }
-    });
-  }
-
-  // Assign room types.
-  const autoTypes = rng.shuffle(['manager', 'copy', 'restroom', 'meeting']);
-  const required = ['kitchen', 'meeting', 'special', 'hr'];
-  if (floor === 1) required.push('openplan');
-  const slots = [...regions.map((r) => ({ band: TOP, r })), ...bottomRooms.filter((b) => b[2] === 'auto').map((b) => ({ band: BOTTOM, r: b }))];
-  const typeQueue = [...required, ...autoTypes];
-  rng.shuffle(slots).forEach((slot, i) => {
-    const type = typeQueue[i] || 'meeting';
-    addRoom(type, slot.r[0], slot.r[1], slot.band);
-  });
-  for (const b of bottomRooms) {
-    if (b[2] === 'openplan') addRoom('openplan', b[0], b[1], BOTTOM, 2);
-    if (b[2] === 'reception') addRoom('reception', b[0], b[1], BOTTOM, 1, 8);
-  }
-
-  // Ground floor entrance in the outer wall.
-  let entrance = null;
-  if (floor === 1) {
-    for (const x of [19, 20]) {
-      tiles[idx(x, FLOOR_H - 1)] = T_FLOOR;
-      reserved[idx(x, FLOOR_H - 2)] = 1;
-      reserved[idx(x, FLOOR_H - 3)] = 1;
-    }
-    entrance = { x: 19, y: FLOOR_H - 1, w: 2 };
-  }
-
-  // --- Furniture.
   const canPlace = (x, y, w, h, room) => {
     for (let yy = y; yy < y + h; yy++)
       for (let xx = x; xx < x + w; xx++) {
@@ -293,8 +207,7 @@ export function generateFloor(floor) {
       place(r, 'plant', 17, r.y1);
       place(r, 'plant', 22, r.y1);
     },
-    special(r) {
-      const sp = dept.special;
+    special(r, sp = dept.special) {
       if (sp === 'serverroom' || sp === 'archive' || sp === 'mailroom') {
         const type = sp === 'serverroom' ? 'serverrack' : sp === 'archive' ? 'filing' : 'mailshelf';
         let n = 0;
@@ -335,6 +248,104 @@ export function generateFloor(floor) {
       }
     },
   };
+
+  return { tiles, roomOf, reserved, occupied, idx, setWall, rooms, items, addRoom, vWall, place, station, decor, fillers };
+}
+
+export function generateFloor(floor) {
+  const rng = createRng(floor * 7919 + 13);
+  const dept = departmentForFloor(floor);
+  const P = createPlanner(FLOOR_W, FLOOR_H, rng, dept);
+  const { tiles, roomOf, reserved, idx, setWall, rooms, items, addRoom, vWall, place, fillers } = P;
+
+  // Outer walls + band walls.
+  for (let x = 0; x < FLOOR_W; x++) {
+    setWall(x, 0);
+    setWall(x, FLOOR_H - 1);
+    setWall(x, TOP_WALL_Y);
+    setWall(x, BOTTOM_WALL_Y);
+  }
+  for (let y = 0; y < FLOOR_H; y++) {
+    setWall(0, y);
+    setWall(FLOOR_W - 1, y);
+  }
+
+  // --- Top band: left region | elevator lobby | right region.
+  vWall(ELEVATOR_ROOM.x0 - 1, TOP);
+  vWall(ELEVATOR_ROOM.x1 + 1, TOP);
+  const elevatorRoom = addRoom('elevator', ELEVATOR_ROOM.x0, ELEVATOR_ROOM.x1, TOP, 1, 4);
+  const regions = [];
+  // The ground floor always splits both regions: it needs room for the reception + every required room type.
+  const splitRegion = (a, b) => {
+    if (floor === 1 || rng.chance(0.6)) {
+      const cut = rng.int(a + 6, b - 6);
+      vWall(cut, TOP);
+      regions.push([a, cut - 1], [cut + 1, b]);
+    } else regions.push([a, b]);
+  };
+  splitRegion(1, ELEVATOR_ROOM.x0 - 2);
+  splitRegion(ELEVATOR_ROOM.x1 + 2, FLOOR_W - 2);
+
+  // --- Bottom band.
+  const bottomRooms = [];
+  if (floor === 1) {
+    vWall(13, BOTTOM);
+    vWall(26, BOTTOM);
+    bottomRooms.push([1, 12, 'auto'], [14, 25, 'reception'], [27, 38, 'auto']);
+  } else {
+    const count = rng.chance(0.5) ? 3 : 4;
+    const total = FLOOR_W - 2 - (count - 1);
+    const openW = count === 3 ? rng.int(16, 20) : rng.int(14, 16);
+    const rest = total - openW;
+    const others = [];
+    let left = rest;
+    for (let i = 0; i < count - 2; i++) {
+      const minOther = 6;
+      const w = rng.int(minOther, left - minOther * (count - 2 - i));
+      others.push(w);
+      left -= w;
+    }
+    others.push(left);
+    const openAt = rng.int(0, count - 1);
+    const widths = [...others];
+    widths.splice(openAt, 0, openW);
+    let x = 1;
+    widths.forEach((w, i) => {
+      bottomRooms.push([x, x + w - 1, i === openAt ? 'openplan' : 'auto']);
+      x += w;
+      if (i < widths.length - 1) {
+        vWall(x, BOTTOM);
+        x++;
+      }
+    });
+  }
+
+  // Assign room types.
+  const autoTypes = rng.shuffle(['manager', 'copy', 'restroom', 'meeting']);
+  const required = ['kitchen', 'meeting', 'special', 'hr'];
+  if (floor === 1) required.push('openplan');
+  const slots = [...regions.map((r) => ({ band: TOP, r })), ...bottomRooms.filter((b) => b[2] === 'auto').map((b) => ({ band: BOTTOM, r: b }))];
+  const typeQueue = [...required, ...autoTypes];
+  rng.shuffle(slots).forEach((slot, i) => {
+    const type = typeQueue[i] || 'meeting';
+    addRoom(type, slot.r[0], slot.r[1], slot.band);
+  });
+  for (const b of bottomRooms) {
+    if (b[2] === 'openplan') addRoom('openplan', b[0], b[1], BOTTOM, 2);
+    if (b[2] === 'reception') addRoom('reception', b[0], b[1], BOTTOM, 1, 8);
+  }
+
+  // Ground floor entrance in the outer wall.
+  let entrance = null;
+  if (floor === 1) {
+    for (const x of [19, 20]) {
+      tiles[idx(x, FLOOR_H - 1)] = T_FLOOR;
+      reserved[idx(x, FLOOR_H - 2)] = 1;
+      reserved[idx(x, FLOOR_H - 3)] = 1;
+    }
+    entrance = { x: 19, y: FLOOR_H - 1, w: 2 };
+  }
+
   for (const room of rooms) fillers[room.type]?.(room);
 
   // Ground floor: turnstiles fill the lobby door, the only way from the entrance into the building. They stay walkable in

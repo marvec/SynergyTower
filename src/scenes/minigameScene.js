@@ -7,6 +7,7 @@ import { createRng } from '../core/rng.js';
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import { completeStandup } from '../core/daily.js';
+import { completeTripTask, tripLeft } from '../core/trip.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { departmentForFloor, titleForFloor } from '../data/departments.js';
 import { drawStarsLarge } from './overlays.js';
@@ -14,7 +15,8 @@ import { drawStarsLarge } from './overlays.js';
 export class MinigameScene {
   /**
    * opts.mode: 'task' (default, rewards + KPI stars), 'review' (HR performance review: pass/fail gate) or 'standup'
-   * (the daily stand-up favour: a daily bonus, no KPI stars or cooldown).
+   * (the daily stand-up favour: a daily bonus, no KPI stars or cooldown) or 'trip' (a client's office on a business
+   * trip: double paperclips, no KPI stars).
    */
   constructor(game, task, onDone, opts = {}) {
     this.game = game;
@@ -94,9 +96,10 @@ export class MinigameScene {
     if (this.mode === 'standup') return this.completeStandup(score);
     const s = this.game.state;
     const before = { level: s.level };
-    this.result = S.completeTask(s, this.task, this.floor, score, this.game.now());
+    const trip = this.mode === 'trip';
+    this.result = trip ? completeTripTask(s, this.task, score, this.game.now()) : S.completeTask(s, this.task, this.floor, score, this.game.now());
     this.result.score = score;
-    track('task_played', { game: this.task.game, floor: this.floor, stars: this.result.stars });
+    track('task_played', { game: this.task.game, floor: this.floor, stars: this.result.stars, ...(trip ? { trip: true } : {}) });
     this.result.before = before;
     this.game.markDirty();
     this.game.saveNow();
@@ -227,9 +230,10 @@ export class MinigameScene {
       drawText(g, val, x + 200, yy, { align: 'right', color });
       yy += 12;
     };
-    line('sp', 'Paperclips', `+${formatNum(r.sp)}`, C.gold);
+    const trip = this.mode === 'trip';
+    line('sp', trip ? 'Paperclips (x2)' : 'Paperclips', `+${formatNum(r.sp)}`, C.gold);
     line('xp', 'Experience', `+${formatNum(r.xp)}`, C.xp);
-    line('star', 'KPI stars', `+${r.stars}`, C.text);
+    if (!trip) line('star', 'KPI stars', `+${r.stars}`, C.text);
     if (r.soGained) line('so', 'Stock Options', `+${r.soGained}`, C.so);
     if (r.levelsGained) {
       rect(g, x + 10, yy, 220, 12, '#3a3a10');
@@ -239,6 +243,14 @@ export class MinigameScene {
     if (r.newBest && r.stars > 0) {
       drawText(g, 'New personal best!', W / 2, yy, { align: 'center', color: C.good });
       yy += 12;
+    }
+    if (trip) {
+      // The visit so far instead of the floor's KPI bar.
+      const t = s.trip;
+      if (t) drawText(g, `Client visit: ${t.tasks} task${t.tasks === 1 ? '' : 's'}, +${formatNum(t.sp)} paperclips`, W / 2, y + 141, { align: 'center' });
+      drawText(g, t && tripLeft(s, this.game.now()) > 0 ? `${formatTime(tripLeft(s, this.game.now()))} left at the client` : 'Time is up at the client', W / 2, y + 155, { align: 'center', color: C.dim });
+      this.buttons.render(g);
+      return;
     }
     const stars = s.starsByFloor[this.floor] || 0;
     const quota = E.starQuota(this.floor);

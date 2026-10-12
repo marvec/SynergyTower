@@ -32,6 +32,8 @@ import { MINIGAMES } from '../minigames/index.js';
 import * as Q from '../core/curios.js';
 import { FRIDGE_LINES, PLANT_LINES, QUIPS } from '../data/curios.js';
 import { FridgeCloseUp, PlantCloseUp, VendingCloseUp, FilesCloseUp } from './closeUp.js';
+import * as T from '../core/trip.js';
+import { CLIENTS, TRIP_TEASERS, TRIP_OFFER, TRIP_AFTER } from '../data/trip.js';
 
 const SPEED = 4.4;
 const R = 0.3;
@@ -49,13 +51,16 @@ const CHECKIN_NUDGES = [
 export class FloorScene {
   /** Badges unlock only while a floor is on the stack (not on the title, setup or exterior screens). */
   inTower = true;
-  constructor(game, floor, { arrival = 'elevator' } = {}) {
+  /** fl: a prebuilt floor instead of the tower's (the client's office on a business trip, see clientOffice.js). */
+  constructor(game, floor, { arrival = 'elevator', fl = null } = {}) {
     this.game = game;
     this.floorNo = floor;
-    this.fl = buildFloor(floor);
+    this.fl = fl || buildFloor(floor);
+    this.foreign = !!this.fl.client; // someone else's office: no firing, events, stand-ups or trips
     this.dept = departmentForFloor(floor);
     this.view = new FloorView(this.fl, game.corpColor());
-    const spawn = arrival === 'entrance' ? { x: 19.9, y: this.fl.h - 2.2 } : { x: 19.9, y: 2.6 };
+    const e = this.fl.entrance;
+    const spawn = arrival === 'entrance' && e ? { x: e.x + e.w / 2 - 0.1, y: this.fl.h - 2.2 } : { x: 19.9, y: 2.6 };
     this.player = new Actor(game.playerLook(), spawn.x, spawn.y);
     this.player.dir = arrival === 'entrance' ? 'up' : 'down';
     const fired = game.state.fired || {};
@@ -99,6 +104,11 @@ export class FloorScene {
     this.event = null; // a running random office event (officeEvent.js)
     this.onFloorS = 0;
     this.standupT = 0;
+    this.taskMode = 'task'; // MinigameScene mode for this floor's stations
+    // Business trip (core/trip.js): on floors 10 and 30 the first colleague is the account manager with the offer.
+    this.tripNpc = !this.foreign && T.isTripFloor(floor) ? this.npcs.find((n) => n.seed === this.fl.npcs[0]?.seed) || null : null;
+    if (this.tripNpc) this.tripNpc.a.who.role = 'Account Manager';
+    this.teaseT = 5;
     this.hud = new Hud(game, {
       shop: () => game.push(new ShopOverlay(game)),
       perks: () => game.push(new PerksOverlay(game)),
@@ -295,11 +305,14 @@ export class FloorScene {
       p.faceTowards(a.x - p.x, a.y - p.y);
       t.n.brain.talkPause = 3.5;
       a.path = null;
+      const trip = t.n === this.tripNpc ? T.tripStatus(s, this.floorNo) : null;
+      if (trip === 'available' && !q && !ev) return this.askTrip(t.n);
       if (t.n === this.standupNpc && !q) return this.askStandup(t.n);
-      const line = q?.hintLine(t.n) || this.nextLine();
+      const after = trip && trip !== 'available' && this.rng.chance(0.5) ? this.rng.pick(TRIP_AFTER[trip]) : null;
+      const line = q?.hintLine(t.n) || after || this.nextLine();
       a.say(line);
       game.sfx('blip');
-      if (S.canFire(s) && !q) {
+      if (S.canFire(s) && !q && !this.foreign) {
         game.push(new FateDialog(game, { npc: t.n, line, dept: this.dept.name, floor: this.floorNo, onFire: () => this.fire(t.n), onKeep: () => this.keep(t.n) }));
       }
       return;
@@ -312,7 +325,7 @@ export class FloorScene {
       game.sfx('click');
       if (it.task.checkin && s.lobby === 'checkin') this.receptionist?.say('Quick test before your badge: spot the buzzwords!', 4);
       const peek = Q.closeUpOf(this.fl, it) ? () => this.poke(it) : null;
-      game.push(new TaskCard(game, it.task, (task) => this.startTask(task), { peek }));
+      game.push(new TaskCard(game, it.task, (task) => this.startTask(task), { peek, trip: this.taskMode === 'trip' }));
     } else if (t.kind === 'turnstile') {
       this.useTurnstile();
     } else if (t.kind === 'mydesk') {
@@ -340,7 +353,7 @@ export class FloorScene {
       const action = { label: 'Advertise here', onClick: () => openFeedback(`poster on floor ${this.floorNo}`, 'sponsor') };
       game.push(new Dialog(game, { ...(t.it.ad ? adPitch(t.it.ad) : SPONSOR_PITCH), w: 280, action }));
     } else if (t.kind === 'coffee') {
-      const r = S.useCoffeeMachine(s, this.floorNo, game.now());
+      const r = this.useCoffee();
       if (r.ok) {
         game.sfx('coin');
         game.toast(`Fresh brew! +${r.gained} coffee`, C.coffee);
@@ -350,6 +363,52 @@ export class FloorScene {
         game.toast(`The machine is brewing... ready in ${formatTime(r.left)}`, C.dim);
       }
     }
+  }
+
+  /** The floor's coffee machine (a client's brewer refills sooner, see clientOffice.js). */
+  useCoffee() {
+    return S.useCoffeeMachine(this.game.state, this.floorNo, this.game.now());
+  }
+  get brewerKey() {
+    return `coffee-machine-${this.floorNo}`;
+  }
+
+  /** The account manager's business trip offer (floors 10 and 30, once per career). */
+  askTrip(n) {
+    const game = this.game;
+    n.brain.talkPause = 6;
+    game.sfx('blip');
+    game.push(
+      new Dialog(game, {
+        title: `${n.id.name} · Business trip`,
+        w: 320,
+        text: TRIP_OFFER(CLIENTS[this.floorNo]),
+        button: 'Not now',
+        action: { label: 'Grab the keys', onClick: () => this.startTrip() },
+      }),
+    );
+  }
+
+  async startTrip() {
+    const game = this.game;
+    if (this.quest || this.event) return game.toast('Finish what you are doing first.', C.warn);
+    if (!T.departTrip(game.state, this.floorNo).ok) return;
+    track('trip_start', { floor: this.floorNo });
+    game.saveNow();
+    const { DriveScene } = await import('./driveScene.js');
+    game.set(new DriveScene(game, this.floorNo));
+  }
+
+  /** Now and then the account manager calls out the trip while the player is around (it is a secret, not a hidden one). */
+  updateTripTease(dt) {
+    const n = this.tripNpc;
+    if (!n || n.brain.exit || n.a.bubble || this.quest || this.event) return;
+    if (T.tripStatus(this.game.state, this.floorNo) !== 'available') return;
+    if (Math.hypot(n.a.x - this.player.x, n.a.y - this.player.y) > 8) return;
+    this.teaseT -= dt;
+    if (this.teaseT > 0) return;
+    this.teaseT = 16;
+    n.a.say(Q.pickLine(TRIP_TEASERS, (this.teaseMemo ||= {})), 4);
   }
 
   /** The lobby turnstiles: closed before check-in, one cup for the first way in. */
@@ -388,7 +447,7 @@ export class FloorScene {
   refreshStandup() {
     const s = this.game.state;
     const now = this.game.now();
-    if (D.standupStatus(s, now) !== 'pending') {
+    if (this.foreign || D.standupStatus(s, now) !== 'pending') {
       this.standupNpc = null;
       return;
     }
@@ -455,7 +514,7 @@ export class FloorScene {
       this.quest = new FloorQuest(this, task);
       return;
     }
-    this.game.push(new MinigameScene(this.game, task, (result) => this.taskDone(result)));
+    this.game.push(new MinigameScene(this.game, task, (result) => this.taskDone(result), { mode: this.taskMode }));
   }
 
   async taskDone(result) {
@@ -662,7 +721,7 @@ export class FloorScene {
     if (this.event) {
       this.event.update(dt);
       if (this.event.over) this.event = null;
-    } else if (!this.quest && V.canStartEvent(game.state, game.now(), { onFloorS: this.onFloorS, busy: false })) this.startEvent();
+    } else if (!this.quest && !this.foreign && V.canStartEvent(game.state, game.now(), { onFloorS: this.onFloorS, busy: false })) this.startEvent();
 
     // Keyboard movement.
     let kx = (input.down('ArrowRight') ? 1 : 0) - (input.down('ArrowLeft') ? 1 : 0);
@@ -741,6 +800,7 @@ export class FloorScene {
     p.update(dt);
     this.hrRep?.update(dt);
     this.updateReceptionist(dt);
+    this.updateTripTease(dt);
     this.standupT -= dt;
     if (this.standupT <= 0) {
       this.standupT = 1;
@@ -878,7 +938,7 @@ export class FloorScene {
         rect(g, cx - w / 2 + 1, y + 1, w - 2, 8, C.gold);
         drawText(g, 'MY DESK', cx, y + 1, { align: 'center', color: C.ink });
       } else if (it.interact === 'coffee') {
-        if (S.cooldownLeft(s, `coffee-machine-${this.floorNo}`, now) <= 0) icon(g, 'coffee', cx - 3, top - 10 + bob);
+        if (S.cooldownLeft(s, this.brewerKey, now) <= 0) icon(g, 'coffee', cx - 3, top - 10 + bob);
       }
     }
   }
@@ -919,6 +979,10 @@ export class FloorScene {
       sub = t.b.checked ? 'look again' : 'take a look';
     }
     else if (t.kind === 'elevator') text = 'Elevator';
+    else if (t.kind === 'exit') {
+      text = 'Way out';
+      sub = 'back to the office';
+    }
     else if (t.kind === 'mydesk') {
       text = 'Your desk';
       sub = 'decorate';

@@ -61,12 +61,16 @@ const inside = (p, x, y, w, h) => p.x >= x && p.y >= y && p.x < x + w && p.y < y
 
 // ------------------------------------------------------------------ task card
 export class TaskCard extends Modal {
-  /** peek: optional callback for stations that are also curiosities (the fridge, a plant): a "Peek" button. */
-  constructor(game, task, onStart, { peek = null } = {}) {
+  /**
+   * peek: optional callback for stations that are also curiosities (the fridge, a plant): a "Peek" button.
+   * trip: a task in a client's office (business trip): double paperclips, no KPI stars.
+   */
+  constructor(game, task, onStart, { peek = null, trip = false } = {}) {
     super(game, { w: peek ? 340 : 280, h: 170, title: task.title });
     this.task = task;
     this.onStart = onStart;
     this.peek = peek;
+    this.trip = trip;
     this.mg = MINIGAMES[task.game];
   }
   build() {
@@ -140,13 +144,17 @@ export class TaskCard extends Modal {
     else stars(g, best, x + 40, y + 72);
     const r3 = E.taskReward(s.floor, 3, s.perks);
     const r1 = E.taskReward(s.floor, 1, s.perks);
+    const m = this.trip ? E.TRIP_SP_MULT : 1;
     drawText(g, 'Rewards:', x + 10, y + 86, { color: C.dim });
     icon(g, 'sp', x + 56, y + 86);
-    drawText(g, `${formatNum(r1.sp)}-${formatNum(r3.sp)}`, x + 66, y + 86, { color: C.gold });
+    drawText(g, `${formatNum(r1.sp * m)}-${formatNum(r3.sp * m)}`, x + 66, y + 86, { color: C.gold });
     icon(g, 'xp', x + 130, y + 86);
     drawText(g, `${formatNum(r1.xp)}-${formatNum(r3.xp)}`, x + 140, y + 86, { color: C.xp });
-    icon(g, 'star', x + 200, y + 86);
-    drawText(g, '0-3 KPI', x + 210, y + 86);
+    if (this.trip) drawText(g, 'x2 clips', x + 200, y + 86, { color: C.good });
+    else {
+      icon(g, 'star', x + 200, y + 86);
+      drawText(g, '0-3 KPI', x + 210, y + 86);
+    }
     if (t.checkin && s.lobby === 'checkin') drawText(g, `Check-in: any result loads your coffee card`, x + 10, y + 100, { color: C.coffee });
     else drawText(g, `Cooldown after play: ${formatTime(E.stationCooldownMs(s.floor, s.perks, t.game))}`, x + 10, y + 100, { color: C.dim });
   }

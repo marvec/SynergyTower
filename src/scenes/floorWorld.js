@@ -188,7 +188,8 @@ function makeKit(fl, corp) {
 export class FloorView {
   constructor(fl, corp) {
     this.fl = fl;
-    this.dept = DEPARTMENTS.find((d) => d.id === fl.dept);
+    // A client's office (business trip) brings its own carpet and wall colours.
+    this.dept = { ...DEPARTMENTS.find((d) => d.id === fl.dept), ...(fl.look || {}) };
     this.kit = makeKit(fl, corp);
     this.time = 0;
     this.bake();

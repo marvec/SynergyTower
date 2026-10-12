@@ -88,6 +88,18 @@ export class TitleScene {
       const { ExteriorScene } = await import('./exterior.js');
       return this.game.set(new ExteriorScene(this.game));
     }
+    // A business trip under way: back to the client's office while its clock runs, else the visit is over.
+    if (s.trip) {
+      const T = await import('../core/trip.js');
+      if (T.tripActive(s, this.game.now())) {
+        const { ClientOfficeScene } = await import('./clientOffice.js');
+        return this.game.set(new ClientOfficeScene(this.game, s.trip.floor));
+      }
+      const sum = T.endTrip(s);
+      this.game.saveNow();
+      this.game.set(new FloorScene(this.game, sum.floor));
+      return this.game.toast(`The client visit is over: +${sum.sp} paperclips in ${sum.tasks} tasks.`, C.gold);
+    }
     // A new hire who has not made it past the lobby turnstiles yet comes back in through the front door.
     const arrival = s.lobby !== 'done' && s.floor === 1 ? 'entrance' : 'elevator';
     this.game.set(new FloorScene(this.game, s.floor, { arrival }));

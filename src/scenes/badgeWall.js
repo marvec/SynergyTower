@@ -5,14 +5,15 @@ import { BADGES } from '../core/achievements.js';
 import { dayKey } from '../core/daily.js';
 import { Modal } from './overlays.js';
 
-const COLS = 7;
-const CW = 44;
+const COLS = 9;
+const CW = 36;
 const CH = 28;
+const ROWS = Math.ceil(BADGES.length / COLS);
 const RIBBONS = ['#e2504a', '#2a6ad1', '#2e8540', '#7a3bb6'];
 
 export class BadgeWall extends Modal {
   constructor(game) {
-    super(game, { w: 332, h: 232, title: 'Badge wall' });
+    super(game, { w: 344, h: 84 + ROWS * CH + 34, title: 'Badge wall' });
     this.buttons = new ButtonSet({ keyboard: false });
     this.sel = 0;
   }
@@ -60,7 +61,7 @@ export class BadgeWall extends Modal {
     });
     const b = BADGES[this.sel];
     const at = got[b.id];
-    const ty = this.gy + 5 * CH + 4;
+    const ty = this.gy + ROWS * CH + 4;
     rect(g, x + 10, ty - 2, this.w - 20, 34, C.panelDark);
     drawText(g, at ? b.name : `${b.name} (locked)`, x + 16, ty + 1, { color: at ? C.gold : C.dim });
     if (at) drawText(g, dayKey(at), x + this.w - 16, ty + 1, { align: 'right', color: C.dim });
