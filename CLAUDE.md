@@ -61,6 +61,12 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
   `create()` must still work without `quest` (smoke tests). `inst.peek()` exposes answers for the perfect-player tests
   in `tests/quests.test.js`.
 
+## C64 port (feature-frozen)
+
+`c64/` is a Commodore 64 port built from the game's own modules (`bun c64/build.js`, see `c64/README.md`). It is
+**feature-frozen** since 2026-10-12: new browser features, mini-games and balance changes are not ported to the C64
+unless Martin explicitly asks for that. Rules in `c64/CLAUDE.md`.
+
 ## Conventions & gotchas
 
 - **No external assets.** Art is drawn in code, music and SFX are synthesized with WebAudio (`src/data/music.js` tracker
