@@ -250,7 +250,8 @@ export function buyPerk(s, perkId) {
   if (lvl >= perk.max) return { ok: false, reason: 'max' };
   const cost = E.perkCost(perk, lvl);
   if (s[perk.currency] < cost) return { ok: false, reason: perk.currency };
-  s[perk.currency] -= cost;
+  if (perk.currency === 'so') spendSo(s, cost);
+  else s.sp -= cost;
   s.perks[perkId] = lvl + 1;
   return { ok: true, cost };
 }
@@ -267,10 +268,16 @@ export function train(s, xpAmount) {
   return { ok: true, cost, levelsGained: lv.levelsGained };
 }
 
+/** Stock Options spent are counted for the "Bootstrapped" badge (-1 = unknown, from a save older than the count). */
+function spendSo(s, n) {
+  s.so -= n;
+  if (s.stats.soSpent >= 0) s.stats.soSpent += n;
+}
+
 export function skipCooldown(s, key, now) {
   if (cooldownLeft(s, key, now) <= 0) return { ok: false, reason: 'ready' };
   if (s.so < E.SKIP_COOLDOWN_SO) return { ok: false, reason: 'so' };
-  s.so -= E.SKIP_COOLDOWN_SO;
+  spendSo(s, E.SKIP_COOLDOWN_SO);
   delete s.cooldowns[key];
   return { ok: true };
 }
@@ -279,7 +286,7 @@ export function refillCoffee(s, now) {
   tick(s, now);
   if (s.coffee.value >= coffeeMax(s)) return { ok: false, reason: 'full' };
   if (s.so < E.REFILL_COFFEE_SO) return { ok: false, reason: 'so' };
-  s.so -= E.REFILL_COFFEE_SO;
+  spendSo(s, E.REFILL_COFFEE_SO);
   s.coffee.value = coffeeMax(s);
   s.coffee.updatedAt = now;
   return { ok: true };
@@ -292,6 +299,7 @@ export function useCoffeeMachine(s, floor, now) {
   const before = s.coffee.value;
   s.coffee.value = s.coffee.value + E.COFFEE_MACHINE_AMOUNT; // may exceed max: a little treat
   s.cooldowns[key] = now + E.COFFEE_MACHINE_COOLDOWN_S * 1000;
+  s.stats.coffeeMachine = (s.stats.coffeeMachine || 0) + 1;
   return { ok: true, gained: s.coffee.value - before };
 }
 
@@ -317,6 +325,7 @@ export function deserialize(json, now) {
     const merged = { ...base, ...s, settings: { ...base.settings, ...s.settings }, flags: { ...base.flags, ...s.flags }, stats: { ...base.stats, ...s.stats } };
     merged.version = SAVE_VERSION;
     if (s.lobby === undefined) merged.lobby = 'done'; // careers from before the lobby check-in
+    if (s.stats && s.stats.soSpent === undefined) merged.stats.soSpent = -1; // spent before we counted: unknown
     return merged;
   } catch {
     return null;
