@@ -3,7 +3,7 @@ import { rm, cp } from 'node:fs/promises';
 
 await rm('dist', { recursive: true, force: true });
 const result = await Bun.build({
-  entrypoints: ['./src/index.html', './src/feedback/index.html'], // the game, synergytower.co.uk/feedback/
+  entrypoints: ['./src/index.html', './src/feedback/index.html', './src/c64/index.html'], // the game, /feedback/, /c64/
   outdir: './dist',
   minify: true,
   sourcemap: 'linked',

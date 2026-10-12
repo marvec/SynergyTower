@@ -1,6 +1,7 @@
 // Dev server: bundles src/index.html on the fly (hot reload) and serves public/ files.
 import homepage from './src/index.html';
 import feedbackPage from './src/feedback/index.html';
+import c64Page from './src/c64/index.html';
 
 const PORT = Number(process.env.PORT || 5317);
 
@@ -11,6 +12,8 @@ const server = Bun.serve({
     '/': homepage,
     '/feedback': feedbackPage,
     '/feedback/': feedbackPage,
+    '/c64': c64Page,
+    '/c64/': c64Page,
   },
   async fetch(req) {
     const { pathname } = new URL(req.url);

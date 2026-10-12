@@ -11,6 +11,7 @@
 //   bun c64/build.js                 build every side
 //   bun c64/build.js --sides=1,3     build only these sides
 //   bun c64/build.js --run           build and start VICE with side 1
+//   bun c64/build.js --publish       build every side and zip them for the download page (public/c64/)
 //   bun c64/build.js --autoplay      test disk: skips the title, walks to the Memory station and plays it perfectly
 //   bun c64/build.js --autoplay --shots=8,20,40   ... and save headless VICE screenshots at those seconds
 //   bun c64/build.js --autoplay=bingo   ... the same for another station's game
@@ -532,6 +533,15 @@ for (const { side, disk, report, missing, cells } of sideReports) {
   console.log(`side ${side.n} (disk ${side.label}, floors ${side.floors[0]}-${side.floors.at(-1)}, ${side.dept.id}): ${disk.blocksFree} blocks free (+${disk.used[18].filter((u) => !u).length} on track 18${disk.dirTrackBlocks ? `, ${disk.dirTrackBlocks} used there` : ''}), ${disk.files.length} files, ${cells}/128 tile cells${missing.length ? `; not ported yet: ${missing.join(' ')}` : ''}`);
 }
 copyFileSync(join(B, 'synergy-1a.d64'), join(B, 'synergy.d64')); // (the tests and --run use side 1 under this name)
+if (args.includes('--publish')) {
+  // the download on synergytower.co.uk/c64/: all 8 release sides, nothing else
+  if (AUTOPLAY || BUILD_SIDES.length !== SIDES.length) throw new Error('--publish needs a release build of every side');
+  const zip = join(ROOT, '..', 'public', 'c64', 'synergy-tower-c64.zip');
+  rmSync(zip, { force: true });
+  const z = spawnSync('zip', ['-q', '-9', '-X', '-j', zip, ...SIDES.map((s) => join(B, `synergy-${s.label}.d64`))], { stdio: 'inherit' });
+  if (z.status !== 0) throw new Error('zip failed');
+  console.log(`published ${zip} (${statSync(zip).size} bytes)`);
+}
 const d64 = join(B, 'synergy.d64');
 
 // ---- optional: headless screenshots / interactive run

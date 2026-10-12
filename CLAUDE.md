@@ -66,6 +66,8 @@ export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dep
 `c64/` is a Commodore 64 port built from the game's own modules (`bun c64/build.js`, see `c64/README.md`). It is
 **feature-frozen** since 2026-10-12: new browser features, mini-games and balance changes are not ported to the C64
 unless Martin explicitly asks for that. Rules in `c64/CLAUDE.md`.
+Its download page is `synergytower.co.uk/c64/` (`src/c64/`, built like `/feedback/`); `bun c64/build.js --publish`
+refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 
 ## Conventions & gotchas
 
@@ -94,7 +96,8 @@ unless Martin explicitly asks for that. Rules in `c64/CLAUDE.md`.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
   coffee_click, checkin {stars}, turnstile, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
-  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}; all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing.
+  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges),
+  c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
   completing it fills the pot and starts the refill. The `turnstile` item fills the lobby door: walkable in `fl.walk` so floor

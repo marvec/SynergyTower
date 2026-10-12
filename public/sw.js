@@ -1,7 +1,7 @@
 // Offline support for same-origin GETs.
 // Page navigations are network-first (cache only when offline), so another app later served on the same
 // localhost port is never hijacked by a stale copy of this game. Hashed assets use stale-while-revalidate.
-const CACHE = 'synergytower-v3';
+const CACHE = 'synergytower-v4';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])).catch(() => {}));
@@ -17,17 +17,26 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (/\.(zip|d64)$/i.test(new URL(req.url).pathname)) return; // the C64 download: straight from the network
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          if (res.ok) {
+          // each page under its own URL (the game, /feedback/, /c64/); downloads (the C64 ZIP) are not cached
+          if (res.ok && (res.headers.get('content-type') || '').includes('text/html')) {
             const copy = res.clone();
-            e.waitUntil(caches.open(CACHE).then((c) => c.put('./index.html', copy)));
+            const key = new URL(req.url).pathname === new URL('./', self.registration.scope).pathname ? './index.html' : req;
+            e.waitUntil(caches.open(CACHE).then((c) => c.put(key, copy)));
           }
           return res;
         })
-        .catch(async () => (await caches.match('./index.html')) || (await caches.match('./')) || new Response('Offline', { status: 503 })),
+        .catch(
+          async () =>
+            (await caches.match(req, { ignoreSearch: true })) ||
+            (await caches.match('./index.html')) ||
+            (await caches.match('./')) ||
+            new Response('Offline', { status: 503 }),
+        ),
     );
     return;
   }

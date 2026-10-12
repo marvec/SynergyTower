@@ -20,10 +20,17 @@ Play it at https://synergytower.co.uk/ . The game is drawn on an HTML canvas, so
 
 Meeting Buzzword Bingo, Cable Spaghetti, Schedule the Meeting, Coffee Run, Write the Email, Calendar Defender, Expense Fraud Detective, 360 Feedback (find a colleague across the floor), Fridge Tetris, Coffee Crossing, Magic Chart, Inbox Triage, Jargon Decoder, PowerPoint Karaoke, Lost Password (search the floor's whiteboards), Expense Report, Meeting Survival, Name Badge Memory, Slide Deck Order, Org Chart Shuffle, Password Policy, Elevator Pitch, Desk Plant Survival, Corporate Quiz, Reply-All Apocalypse, Server Rack Sequence, Fix the Spreadsheet, Boss Alert, Quarterly Ticker, Badge Tailgate, Perfect Timing and more. Every game supports keyboard and mouse.
 
+## Commodore 64 version
+
+SynergyTower also runs on a real or emulated Commodore 64: https://synergytower.co.uk/c64/ . It is the full career (40 floors in 8 departments, all 33 mini-games plus the HR performance review, promotions to CEO and the ending), written in 6502 assembly and converted from the browser game's own code and data at build time. Free download: https://synergytower.co.uk/c64/synergy-tower-c64.zip (1 MB ZIP with 8 D64 disk images = 4 double-sided disks; boot from synergy-1a.d64 with LOAD"*",8,1).
+
+- Runs in VICE (x64sc, true drive emulation on, the default) or on a C64 with a 1541-compatible drive, 1541 Ultimate or Pi1541. SD2IEC is not supported (the game uses its own fast loader with drive code). Developed and tested on PAL.
+- Joystick in port 2 or keyboard (WASD / cursor keys, SPACE / RETURN). The game asks for the right disk when the elevator reaches a floor on another side, and saves to the disk in the drive.
+
 ## Facts
 
 - Price: free. In-game purchases are fake and labelled DEMO; there are no real payments.
-- Platforms: web browser (desktop, tablet, phone); installable as a PWA; works offline.
+- Platforms: web browser (desktop, tablet, phone); installable as a PWA; works offline. Also a Commodore 64 version (D64 disk images).
 - Tech: vanilla JavaScript and Canvas 2D at 480x270, all art drawn in code, all music and sound synthesised with WebAudio, no external assets.
 - Author: Martin Večeřa (https://github.com/marvec).
 - Language: English.
@@ -31,6 +38,7 @@ Meeting Buzzword Bingo, Cable Spaghetti, Schedule the Meeting, Coffee Run, Write
 ## Links
 
 - [Play SynergyTower](https://synergytower.co.uk/): the game
+- [Commodore 64 version](https://synergytower.co.uk/c64/): download page for the C64 port (D64 disk images)
 - [Source code](https://github.com/marvec/SynergyTower): GitHub repository with README
 - [Support the author](https://buymeacoffee.com/marvec): Buy Me a Coffee
 - Feedback, bug reports, new task ideas and sponsorship enquiries: use the "Feedback" link on the title screen or "Send feedback" in the in-game menu. Brands can sponsor the "Your logo here" posters in the tower's hallways.

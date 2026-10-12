@@ -10,6 +10,7 @@ tip jar) are shown as addresses.
 ```bash
 brew install cc65 vice
 bun c64/build.js --run                 # build the disk images and start VICE with disk 1 side A
+bun c64/build.js --publish             # build every side and zip them for synergytower.co.uk/c64/ (public/c64/)
 bun c64/build.js --sides=1,3           # build only these sides (side 1 is always built: it carries the program)
 bun c64/build.js --autoplay=bingo --shots=45,60   # test disk: skips the title, plays that game perfectly
 bun c64/build.js --autoplay=promote    # test disk: promotion-ready, takes the HR review, rides up to floor 2

@@ -1,0 +1,279 @@
+/* synergytower.co.uk/c64: a C64 screen (light blue border, blue paper) as a readable page. */
+:root {
+  --border: #6c5eb5;
+  --paper: #352879;
+  --ink: #ece9ff;
+  --dim: #b8b2ec;
+  --yellow: #ffd75e;
+  --cyan: #9be7f0;
+  --green: #3f8f5a;
+  --line: #4d3f9e;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  background: var(--border);
+}
+body {
+  margin: 0;
+  padding: 24px 16px;
+  font: 16px/1.6 var(--mono);
+  color: var(--ink);
+  background: var(--border);
+}
+.screen {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px clamp(16px, 4vw, 48px) 32px;
+  background: var(--paper);
+}
+a {
+  color: var(--cyan);
+}
+a:hover {
+  color: #fff;
+}
+:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  color: var(--yellow);
+}
+h1 {
+  margin: 0 0 16px;
+  font-size: clamp(28px, 6vw, 44px);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+h2 {
+  margin: 48px 0 12px;
+  font-size: 22px;
+  text-transform: uppercase;
+}
+h2::before {
+  content: '▌';
+  color: var(--cyan);
+  margin-right: 8px;
+}
+h3 {
+  margin: 24px 0 8px;
+  font-size: 17px;
+  color: var(--cyan);
+}
+code,
+kbd {
+  font-family: var(--mono);
+  font-size: 0.95em;
+  color: var(--yellow);
+}
+kbd {
+  padding: 0 4px;
+  border: 1px solid var(--dim);
+  border-radius: 3px;
+}
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.top {
+  font-size: 14px;
+  color: var(--dim);
+}
+.ready {
+  margin: 24px 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.ready::after {
+  content: '█';
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ready::after {
+    animation: none;
+  }
+}
+.lead {
+  font-size: 18px;
+  max-width: 62ch;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 24px 0 12px;
+}
+.btn {
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  padding: 12px 20px;
+  text-decoration: none;
+  border: 3px solid #000;
+  box-shadow: 5px 5px 0 #000;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+.btn:hover,
+.btn:focus-visible {
+  transform: translate(2px, 2px);
+  box-shadow: 3px 3px 0 #000;
+}
+.btn-title {
+  font-size: 19px;
+  font-weight: bold;
+}
+.btn-sub {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.download {
+  color: #fff;
+  background: var(--green);
+}
+.download:hover {
+  color: #fff;
+}
+.coffee {
+  color: #1b1e2b;
+  background: #ffdd00;
+}
+.coffee:hover {
+  color: #1b1e2b;
+}
+.alt {
+  font-size: 14px;
+  color: var(--dim);
+}
+.hero-shot {
+  margin: 24px 0 0;
+}
+.hero-shot img {
+  width: 768px;
+  border: 3px solid #000;
+}
+.facts {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.facts div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.facts dt {
+  color: var(--cyan);
+}
+.facts dd {
+  margin: 0;
+}
+@media (max-width: 560px) {
+  .facts div {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .btn {
+    min-width: 0;
+    width: 100%;
+  }
+}
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+.gallery figure {
+  margin: 0;
+}
+.gallery img {
+  width: 100%;
+  border: 3px solid #000;
+}
+figcaption {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--dim);
+}
+ol,
+ul {
+  padding-left: 1.4em;
+}
+li {
+  margin: 4px 0;
+}
+.note {
+  font-size: 14px;
+  color: var(--dim);
+}
+.table-wrap {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+th,
+td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+td:first-child {
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  table {
+    font-size: 13px;
+  }
+  th,
+  td {
+    padding: 6px 4px;
+  }
+}
+th {
+  color: var(--cyan);
+}
+.games {
+  color: var(--dim);
+}
+details {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+}
+summary {
+  cursor: pointer;
+  color: var(--yellow);
+}
+details p {
+  margin: 8px 0 0;
+}
+.cta {
+  margin-top: 48px;
+}
+footer {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--dim);
+}
