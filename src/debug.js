@@ -1,7 +1,14 @@
 // Dev-only console helpers. Loaded by main.js on the dev server only: the production build drops the import (__DEV__).
 import * as T from './core/trip.js';
+import { MinigameScene } from './scenes/minigameScene.js';
 
 export function installDebug(game) {
+  /** Launch any mini-game, e.g. __mg('spreadsheet', 0.5). Needs a loaded career. It pays real rewards, hence dev only. */
+  window.__mg = (gameId, difficulty = 0.5) => {
+    game.push(new MinigameScene(game, { id: `debug-${gameId}`, game: gameId, title: `Debug: ${gameId}`, difficulty, seed: 1 }, null));
+    return gameId;
+  };
+
   /**
    * Debug: the business trip again, as often as you like. On floor 10 or 30: __trip() resets it and starts the drive,
    * __trip('client') skips the drive and goes straight into the client's office. Elsewhere: __trip(10) / __trip(30, 'client')

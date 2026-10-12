@@ -4,7 +4,6 @@ import { createInput, attachInput } from './engine/input.js';
 import { createAudio } from './engine/audio.js';
 import { createGame } from './game.js';
 import { TitleScene } from './scenes/title.js';
-import { MinigameScene } from './scenes/minigameScene.js';
 import { initAnalytics } from './engine/analytics.js';
 import { initReminders } from './engine/reminders.js';
 
@@ -80,12 +79,6 @@ window.__step = (frames = 1, dt = 1 / 30) => {
   return game.top?.constructor.name;
 };
 
-/** Debug: launch any mini-game, e.g. __mg('spreadsheet', 0.5). Needs a loaded career. */
-window.__mg = (game_id, difficulty = 0.5) => {
-  game.push(new MinigameScene(game, { id: `debug-${game_id}`, game: game_id, title: `Debug: ${game_id}`, difficulty, seed: 1 }, null));
-  return game_id;
-};
-
-// Dev-only helpers (src/debug.js, e.g. __trip): the production build defines __DEV__ = false (scripts/build.js), so this
+// Dev-only helpers (src/debug.js: __trip, __mg): the production build defines __DEV__ = false (scripts/build.js), so this
 // import is dropped from the bundle and the helpers never ship. The dev server leaves __DEV__ undefined.
 if (typeof __DEV__ === 'undefined' || __DEV__) import('./debug.js').then((m) => m.installDebug(game));

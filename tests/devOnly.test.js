@@ -7,10 +7,11 @@ test('the production bundle leaves out the dev-only helpers', async () => {
   const prod = await build(PROD_DEFINE);
   expect(prod.success).toBe(true);
   const code = (await Promise.all(prod.outputs.map((o) => o.text()))).join('\n');
-  expect(code).not.toContain('__trip');
-  expect(code).not.toContain('business trips leave from');
+  const shipped = (src) => ['__trip', '__mg'].filter((h) => src.includes(h));
+  expect(shipped(code)).toEqual([]);
+  expect(code.includes('business trips leave from')).toBe(false);
   // Sanity check: without the define (as on the dev server) the helpers are there.
   const dev = await build({});
   const devCode = (await Promise.all(dev.outputs.map((o) => o.text()))).join('\n');
-  expect(devCode).toContain('__trip');
+  expect(shipped(devCode)).toEqual(['__trip', '__mg']);
 });

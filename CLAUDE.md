@@ -167,7 +167,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 
 - `__game`: the game context (`__game.state`, `__game.top`, `__game.push(...)`).
 - `__step(frames)`: advance the loop manually (rAF pauses in background tabs).
-- `__mg('spreadsheet', 0.7)`: launch any mini-game at a given difficulty (needs a loaded career).
+- `__mg('spreadsheet', 0.7)`: launch any mini-game at a given difficulty (needs a loaded career). Dev server only.
 - `__trip()` / `__trip(30)` / `__trip('client')`: the business trip again (resets it), or straight into the client's office.
   Dev server only: it lives in `src/debug.js`, which `main.js` imports unless `__DEV__` is false; the production build
   defines it so (`scripts/buildConfig.js`, checked by `tests/devOnly.test.js`). Put new cheat-like helpers there too.
