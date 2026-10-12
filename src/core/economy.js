@@ -67,7 +67,7 @@ export function maxCoffee(floor, perks = {}) {
 }
 
 export function coffeeRegenMs(perks = {}) {
-  return Math.round(180000 * (1 - 0.1 * (perks.espresso || 0)));
+  return Math.round(120000 * (1 - 0.1 * (perks.espresso || 0)));
 }
 
 /** Applies XP, returning the new level/xp and how many levels were gained. */

@@ -158,7 +158,7 @@ quest per floor. No game is held back for later floors; floor-specific specialit
 - Station cooldown: `round(60·1.08^(f-1))` s (1 min → ~20 min) × complexity: simple 4×, medium 1.5×, complex 0.75×.
   The HR review retry waits 2× the base.
 - Coffee cost per task: 1 / 2 / 3 cups (simple / medium / complex game); HR review 2. Max coffee `6 + floor(f/5)` (+ perks).
-  Regen 1 per 180 s (− perks). `tests/pacing.test.js` simulates a career to keep this curve.
+  Regen 1 per 120 s (− perks). `tests/pacing.test.js` simulates a career to keep this curve.
 - Training: 4 SP → 1 XP.
 - Skip a cooldown: 1 SO. Refill coffee: 3 SO.
 

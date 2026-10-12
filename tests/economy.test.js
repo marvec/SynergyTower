@@ -69,10 +69,10 @@ test('coffee cost follows the tier; simple games cool down longest', () => {
   expect(E.reviewCooldownMs(1)).toBe(2 * E.baseCooldownMs(1));
 });
 
-test('smaller pot, slower regen', () => {
+test('smaller pot, 2-minute regen', () => {
   expect(E.maxCoffee(1)).toBe(6);
   expect(E.maxCoffee(40)).toBe(14);
   expect(E.maxCoffee(1, { mug: 2 })).toBe(10);
-  expect(E.coffeeRegenMs()).toBe(180000);
-  expect(E.coffeeRegenMs({ espresso: 5 })).toBe(90000);
+  expect(E.coffeeRegenMs()).toBe(120000);
+  expect(E.coffeeRegenMs({ espresso: 5 })).toBe(60000);
 });
