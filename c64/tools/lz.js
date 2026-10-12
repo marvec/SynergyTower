@@ -42,7 +42,9 @@ class BitOut {
   }
 }
 
-export function pack(data) {
+export function pack(data, dict) {
+  const start = dict ? dict.length : 0;
+  if (dict) { const d = new Uint8Array(start + data.length); d.set(dict); d.set(data, start); data = d; }
   const n = data.length;
   // Hash chains on 2- and 3-byte prefixes.
   const head2 = new Map();
@@ -73,8 +75,8 @@ export function pack(data) {
   const offAt = new Int32Array(n + 1); // the last offset after the step that ends here
   const litEnd = new Uint8Array(n + 1);
   const from = new Int32Array(n + 1);
-  cost[0] = 0;
-  offAt[0] = 1;
+  cost[start] = 0;
+  offAt[start] = 1;
   const relax = (to, c, k, a, off, lit, fr) => {
     if (c < cost[to]) {
       cost[to] = c;
@@ -104,7 +106,7 @@ export function pack(data) {
   }
   void prev2;
   void prev3;
-  for (let i = 0; i < n; i++) {
+  for (let i = start; i < n; i++) {
     const c0 = cost[i];
     if (c0 >= INF) continue;
     const lit = litEnd[i];
@@ -139,7 +141,7 @@ export function pack(data) {
   }
   // walk back the best path, then emit it forwards
   const steps = [];
-  for (let p = n; p > 0; p = from[p]) steps.push(p);
+  for (let p = n; p > start; p = from[p]) steps.push(p);
   steps.reverse();
   const bo = new BitOut();
   let prevLit = 0;
