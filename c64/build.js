@@ -296,6 +296,7 @@ run('ca65', ['-g', '-I', 'src', '-I', 'build', '--bin-include-dir', 'build', ...
 run('ld65', ['-C', 'cfg/main.cfg', '-m', 'build/main.map', '-Ln', 'build/main.lbl', '-o', 'build/main.prg', 'build/obj/main.o']);
 const mainFile = packed(readFileSync(join(B, 'main.prg')).subarray(2), 'main', 0x4000);
 const main2File = packed(readFileSync(join(B, 'main2.bin')), 'main2', 0x4000);
+if (0xe000 + statSync(join(B, 'far.bin')).size > 0xfd00) throw new Error('far texts reach $fd00 (the hair sprite frames)');
 const farFile = packed(readFileSync(join(B, 'far.bin')), 'far', 0x4000);
 const charsFile = packed(cs.bytes, 'chars');
 writeFileSync(

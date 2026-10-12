@@ -49,7 +49,42 @@ init_actors:
         tay
         inx
         bne @npc
-@done:  rts
+@done:  ldx nact                ; your hair: one more actor, kept on your head (hair_sync)
+        stx HAIR_A
+        lda #ACTOR_HAIR
+        sta akind,x
+        lda #1
+        sta astill,x
+        lda #0
+        sta aanim,x
+        sta adir,x
+        sta apause,x
+        ldy st_hair
+        lda hair_c64,y
+        sta acol,x
+        inc nact
+        jmp hair_sync
+
+; The hair actor follows you, one line lower (so it sorts in front of you), with your facing's frame:
+; pointer 244 + facing = facing × 3 + abase.
+hair_sync:
+        ldx HAIR_A
+        lda ax_lo
+        sta ax_lo,x
+        lda ax_hi
+        sta ax_hi,x
+        ldy ay
+        iny
+        tya
+        sta ay,x
+        lda adir
+        sta adir,x
+        asl
+        eor #$ff
+        sec
+        adc #HAIR_SPR           ; 244 - 2 × facing
+        sta abase,x
+        rts
 
 ; ---- sprite multiplexer -------------------------------------------------------------------------------
 ; Up to MAX_ACT actors share the 8 hardware sprites. mux_build (after the frame's game logic) sorts the
@@ -125,6 +160,7 @@ mux_show:
         rts
 
 mux_build:
+        jsr hair_sync
         lda CAMPY               ; the camera of the coming frame
         ldx PEND
         beq :+

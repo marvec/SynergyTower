@@ -42,6 +42,7 @@ auto:     .res 1
 
 .segment "CODE"
         jmp title_main
+        jmp hair_to_floor       ; $4003: just your hair's sprite frames (test careers skip the title)
 
 title_main:
         sta have
@@ -72,12 +73,33 @@ title_main:
         jsr intro
         lda #1
         sta st_intro
-:       lda #0
+:       jsr hair_to_floor
+        lda #0
         rts
 @new:   jsr setup
         bcc @title              ; RUN/STOP: back to the title
         jsr intro
+        jsr hair_to_floor
         lda #1
+        rts
+
+; Your hair style's four frames (down, up, left, right) for the floor's hair sprite: to $fd00 (pointers 244-247,
+; RAM under the KERNAL that no overlay uses).
+hair_to_floor:
+        lda #$ff                ; (the badge made sprite 0 the only multicolour one)
+        sta $d01c
+        lda st_hstyle           ; style × 256 (4 frames × 64 bytes): + style to the high byte
+        and #3
+        clc
+        adc #>hair_frames
+        sta p0+1
+        lda #<hair_frames
+        sta p0
+        ldy #0
+:       lda (p0),y
+        sta $fd00,y
+        iny
+        bne :-
         rts
 
 ; ---- input: joystick port 2 + keyboard buffer (letters stay letters while typing) ---------------------------

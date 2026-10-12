@@ -37,6 +37,8 @@ COFFEE_MACHINE_S = 15 * 60
 CHECKIN_TOAST_T = 150             ; frames from the receptionist's welcome to the coffee card toast
 PLAYER_SHIRT  = 15                ; light grey (src/game.js playerLook, floors 1-15)
 RECENT        = 8                 ; colleague lines not repeated soon
+ACTOR_HAIR    = 4                 ; your hair (an overlay sprite on your head)
+HAIR_SPR      = ($fd00 - $c000) / 64   ; its frames (down, up, left, right), put there by sys.title
 
 .include "zp.inc"
 .import __BSS_RUN__, __BSS_SIZE__, __BSS2_RUN__, __BSS2_SIZE__
@@ -458,6 +460,15 @@ enter_floor:
         jsr copy_colours
         jsr set_fine
         jsr draw_hud
+        ldx st_skin             ; skin: the sprites' shared colour, your choice
+        lda skin_c64,x
+        sta $d026
+        lda #0                  ; people: multicolour, black outline, normal size (overlays change these)
+        sta $d025
+        sta $d017
+        sta $d01d
+        lda #$ff
+        sta $d01c
         jsr update_sprites
         lda #0
         sta $c6
@@ -492,9 +503,15 @@ auto_career:
         bne :-
 :       lda #0
         sta st_color
+        lda #1                  ; a look to see on the floor: tan, blond, long hair
         sta st_skin
+        lda #2
         sta st_hair
         sta st_hstyle
+        lda #SYS_TITLE_T
+        ldx #SYS_TITLE_S
+        jsr load_overlay
+        jsr OVERLAY + 3
         jsr st_new
         lda #1
         sta st_intro
@@ -577,6 +594,8 @@ drum_tab:
         .byte $21, $0a, $00, $0c, $ff, 12   ; 8 bad
 
 corp_c64: .byte 14, 3, 9, 6, 2, 5, 7, 10, 4, 8, 12, 13   ; data/corpColors.js -> C64 colours
+hair_c64: .byte 0, 9, 7, 2, 15                           ; HAIR_COLORS (as tools/titledata.js)
+skin_c64: .byte 10, 8, 9, 9                              ; SKIN_TONES
 bit_tab: .byte 1, 2, 4, 8, 16, 32, 64, 128
 bit_inv: .byte $fe, $fd, $fb, $f7, $ef, $df, $bf, $7f
 dir_dx:  .byte 0, 0, $ff, 1             ; down, up, left, right
@@ -656,16 +675,6 @@ d_y:     .res MAX_ACT
 d_msb:   .res MAX_ACT
 d_col:   .res MAX_ACT
 d_ptr:   .res MAX_ACT
-MUXN:    .res 1                     ; entries 8+ for the IRQ (copied by mux_show)
-MUXI:    .res 1
-m_line:  .res MAX_ACT - 8
-m_hw:    .res MAX_ACT - 8
-m_hw2:   .res MAX_ACT - 8
-m_x:     .res MAX_ACT - 8
-m_y:     .res MAX_ACT - 8
-m_msb:   .res MAX_ACT - 8
-m_col:   .res MAX_ACT - 8
-m_ptr:   .res MAX_ACT - 8
 akind:   .res MAX_ACT               ; ACTOR_* (colleague, receptionist, HR rep)
 apause:  .res MAX_ACT               ; frames a colleague stands still (talking)
 mus_w1:  .res 1
@@ -707,9 +716,22 @@ QFIRST:    .res 1               ; the first board actor
 QCHECKED:  .res 1
 QFAIL_T:   .res 2
 QDESK:     .res 1
+HAIR_A:    .res 1               ; the hair actor
 recent:    .res RECENT
 farbuf:    .res 256
 textbuf = farbuf                ; (composed texts: never needed while a far text is)
+
+.segment "LOWBSS"                ; $0200 (BASIC's input buffer)
+MUXN:    .res 1                     ; entries 8+ for the IRQ (copied by mux_show)
+MUXI:    .res 1
+m_line:  .res MAX_ACT - 8
+m_hw:    .res MAX_ACT - 8
+m_hw2:   .res MAX_ACT - 8
+m_x:     .res MAX_ACT - 8
+m_y:     .res MAX_ACT - 8
+m_msb:   .res MAX_ACT - 8
+m_col:   .res MAX_ACT - 8
+m_ptr:   .res MAX_ACT - 8
 
 .segment "BSS2"
 UI_TITLE:  .res 2

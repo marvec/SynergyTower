@@ -45,6 +45,49 @@ function portrait(style) {
   return out;
 }
 
+// The player's hair on the floor: an overlay sprite over the person sprite (tools/art.js personSprites: the head is
+// fat columns 3-8, rows 5-10), in the sprite's own colour ('2'). One frame per facing (down, up, left, right) per
+// style; drawn one row higher, because the multiplexer sorts it one line below the player (so it is in front).
+const HAIR_DOWN = [
+  ['.2222.', '222222', '2....2'], // A short
+  ['..2222', '222222', '22....'], // B side-swept
+  ['.2222.', '222222', '2....2', '2....2', '2....2'], // C long
+  ['.2222.', '222222', '2....2'], // D bun (+ the bun above)
+];
+const HAIR_UP = [
+  ['.2222.', '222222', '222222', '222222'],
+  ['.2222.', '222222', '222222', '222222'],
+  ['.2222.', '222222', '222222', '222222', '222222', '.2222.'],
+  ['.2222.', '222222', '222222', '222222'],
+];
+const HAIR_LEFT = [
+  ['..222.', '.2222.', '...222', '....22'],
+  ['.2222.', '22222.', '...222', '....22'],
+  ['..222.', '.2222.', '...222', '...222', '...222', '....22'],
+  ['..222.', '.2222.', '...222', '....22'],
+];
+function hairFrame(rows, bun, mirror) {
+  const out = new Uint8Array(64);
+  const put = (r, y) => {
+    const line = '...' + (mirror ? [...r].reverse().join('') : r) + '...';
+    for (let x = 0; x < 12; x++) if (line[x] === '2') out[y * 3 + (x >> 2)] |= 2 << (6 - (x & 3) * 2);
+  };
+  rows.forEach((r, i) => put(r, 4 + i)); // head row 0 = sprite row 5, one higher = 4
+  if (bun) put('..22..', 3);
+  return out;
+}
+export function hairFrames() {
+  const frames = [];
+  for (let style = 0; style < 4; style++)
+    frames.push(
+      hairFrame(HAIR_DOWN[style], style === 3, false),
+      hairFrame(HAIR_UP[style], style === 3, false),
+      hairFrame(HAIR_LEFT[style], style === 3, false),
+      hairFrame(HAIR_LEFT[style], style === 3, true),
+    );
+  return frames.flatMap((f) => [...f]);
+}
+
 const str = (s) => `.byte ${asc(s).join(', ')}, 0`;
 
 export function titleDataAsm({ bigText, CORP_COLORS, SKIN_TONES, HAIR_COLORS, titles, games }) {
@@ -71,5 +114,6 @@ export function titleDataAsm({ bigText, CORP_COLORS, SKIN_TONES, HAIR_COLORS, ti
   out.push(`N_HOWTO = ${HOW_TO_C64.length}`, `howto_lo: .byte ${HOW_TO_C64.map((_, i) => `<howto${i}`).join(', ')}`, `howto_hi: .byte ${HOW_TO_C64.map((_, i) => `>howto${i}`).join(', ')}`);
   out.push(`GAMES_ON_DISK = ${games}`);
   out.push(`portraits: .byte ${[0, 1, 2, 3].flatMap((s) => [...portrait(s)]).join(', ')}`);
+  out.push(`hair_frames: .byte ${hairFrames().join(', ')}`); // style × (down, up, left, right)
   return out.join('\n') + '\n';
 }

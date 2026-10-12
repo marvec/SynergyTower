@@ -68,7 +68,7 @@ itself (`tools/d64.js`), so it controls sector placement and knows where every f
 | Address | Contents |
 |---|---|
 | `$0002-$003f`, `$0080-$008f` | zero page (`$02-$13` shared with overlays, see `src/api.inc`; resident part in `src/zp.inc`) |
-| `$02a7-$02ff`, `$033c-$03fb` | context for overlays (HR review, floor quest), button labels |
+| `$0200-$0257`, `$02a7-$02ff`, `$033c-$03fb` | multiplexer tables, context for overlays (HR review, floor quest), button labels |
 | `$0801-$3fff` | resident part 1: engine, API jump table at `$0810`, multiplexer, HUD, host, economy, save, music |
 | `$4000-$5fff` | overlay slot (`mg.*`, `sys.title`) |
 | `$6000-$7fff` | load buffer for packed files |
@@ -77,7 +77,7 @@ itself (`tools/d64.js`), so it controls sector placement and knows where every f
 | `$9500-$bfff` | resident part 2: dialogs, menus, elevator, game table, economy tables, strings |
 | `$c000` / `$c400` | the two screens (VIC bank 3); the playfield alternates between them |
 | `$c800` | charset |
-| `$e000-$fff9` | RAM under the KERNAL: 12 person frames, overlay sprites at `$e300`, long texts (read with the KERNAL banked out) |
+| `$e000-$fff9` | RAM under the KERNAL: 12 person frames, overlay sprites at `$e300`, long texts (read with the KERNAL banked out), your hair's 4 frames at `$fd00` |
 
 The terminal is bigger than the overlay slot: it is unpacked in place over `$4000-$93ff` (slot, load buffer and
 floor) from a packed copy loaded to the top of that area, and the floor is loaded again when you leave it.
@@ -108,8 +108,8 @@ floor) from a packed copy loaded to the top of that area, and the floor is loade
   Firing colleagues (floor 40) and the CEO ending are out of reach for the same reason.
 - Web links can't be opened: the feedback form (synergytower.co.uk/feedback) and the tip jar are shown as addresses.
 - No real-time clock: coffee and cooldowns run while the C64 runs (the browser counts time away too).
-- Skin, hair colour and hair style show on the badge, not on the walking sprite (all people share two of the
-  sprites' colours).
+- Your skin tone is the skin of everyone on the floor (all people share two of the sprites' colours); your hair
+  colour and style ride on your head as an extra sprite.
 - The C64 has no mouse: everything is joystick or keys.
 
 ## Measured in VICE (true drive emulation)
