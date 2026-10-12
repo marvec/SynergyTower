@@ -14,6 +14,9 @@ export const ALL_GAMES = [
 /** Furniture with a computer on it, in order of preference for the terminal. */
 const TERMINAL_TYPES = ['desk', 'headsetdesk', 'tradingdesk', 'reception', 'bossdesk'];
 
+/** Desks that can become yours, in order of preference. */
+const DESK_TYPES = ['desk', 'headsetdesk', 'tradingdesk', 'bossdesk'];
+
 /** Games played partly on the floor (src/scenes/floorQuest.js): at most one of them per floor. */
 const QUEST_GAMES = new Set(['feedback', 'lostpw']);
 export const CHECKIN_GAME = 'jargon';
@@ -122,5 +125,10 @@ function planFloor(floor, usage) {
     npcs.push({ x: (t % fl.w) + 0.5, y: Math.floor(t / fl.w) + 0.5, seed: floor * 31 + i });
   }
 
-  return { ...fl, walk, dist, tasks: chosen, npcs };
+  // Your own desk (core/desk.js): the first free desk, picked without the RNG so nothing else on the floor moves.
+  const free = fl.items.filter((it) => !it.task && !it.terminal && DESK_TYPES.includes(it.type) && isItemReachable(fl, walk, dist, it));
+  free.sort((a, b) => DESK_TYPES.indexOf(a.type) - DESK_TYPES.indexOf(b.type) || a.id - b.id);
+  const myDesk = free[0] || null;
+
+  return { ...fl, walk, dist, tasks: chosen, npcs, myDesk };
 }

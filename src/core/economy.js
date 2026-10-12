@@ -115,6 +115,23 @@ export function perkCost(perk, currentLevel) {
   return Math.round(perk.baseCost * perk.growth ** currentLevel);
 }
 
+/**
+ * Your desk on each floor (core/desk.js): decorations bought with paperclips, one on show per slot. Prices grow with the
+ * floor like task rewards, so every new desk is worth decorating. The trophy needs the floor's KPI star quota.
+ */
+export const DESK_DECOR = [
+  { id: 'notes', name: 'Sticky notes', slot: 'top', cost: 15 },
+  { id: 'mug', name: 'Coffee mug', slot: 'right', cost: 20 },
+  { id: 'duck', name: 'Rubber duck', slot: 'top', cost: 25 },
+  { id: 'plant', name: 'Desk plant', slot: 'left', cost: 30 },
+  { id: 'photo', name: 'Family photo', slot: 'right', cost: 40 },
+  { id: 'cactus', name: 'Cactus', slot: 'left', cost: 45 },
+  { id: 'lamp', name: 'Desk lamp', slot: 'left', cost: 75 },
+  { id: 'bobble', name: 'CEO bobblehead', slot: 'top', cost: 100 },
+  { id: 'trophy', name: "World's Best Employee", slot: 'right', cost: 200, needs: 'quota' },
+];
+export const decorCost = (d, floor) => Math.round(d.cost * 1.17 ** (floor - 1));
+
 export const SO_PACKS = [
   { id: 'pack10', so: 10, price: '€0.99', label: 'Handful' },
   { id: 'pack60', so: 60, price: '€4.99', label: 'Vesting Plan' },
