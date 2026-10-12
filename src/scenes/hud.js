@@ -18,7 +18,7 @@ export class Hud {
       { icon: 'up', label: 'Perks', key: 'perks', hotkey: 'p' },
       { icon: 'book', label: 'Train', key: 'train', hotkey: 't' },
       { icon: 'coffee', label: 'Tip', key: 'coffee' },
-      { icon: 'medal', label: '', key: 'badges' },
+      { icon: 'medal', label: '', key: 'badges', hotkey: 'o' },
       { icon: 'note', label: '', key: 'music' },
       { icon: 'menu', label: '', key: 'menu' },
     ];

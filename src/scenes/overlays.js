@@ -650,8 +650,9 @@ export const HOW_TO =
   'Each task is a mini-game that costs coffee and earns paperclips (the office currency), XP and 0-3 KPI stars.\n' +
   'Collect enough stars on a floor, reach the seniority level and the keycard fee, then pass the HR performance review. Only then does the elevator take you up (going down is always fine).\n' +
   'Coffee refills over time (also offline). Tasks have cooldowns. Stock Options skip the waiting.\n' +
-  'Daily: a colleague with a blue bubble has a stand-up favour. Decorate your desk (MY DESK): each floor sells new items. Collect badges (medal button).\n' +
-  'Esc: menu/back   M: music   B: shop   P: perks   T: training';
+  'Daily: a colleague with a blue bubble has a stand-up favour. Decorate your desk (MY DESK): each floor sells new items. Collect badges (medal button or O).\n' +
+  'Esc: menu/back   M: music   H: this help\n' +
+  'B: shop   P: perks   T: training   O: badges';
 
 /** Three big result stars centred on cx (74 px wide, 22 px tall). */
 export function drawStarsLarge(g, n, cx, y) {
