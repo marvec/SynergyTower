@@ -84,23 +84,15 @@ st_clips:
         jsr far_text
         jsr ui_gap
         lda st_max
-        cmp #FLOORS_DISK
+        cmp #FLOORS_MAX
         bcs :+
         jsr sb_line             ; "Keycard fee for floor N+1"  "fee - covered" / "fee - X to go"
         ldx st_max
-        lda fee_lo,x
-        sta NUM
-        lda fee_hi,x
-        sta NUM+1
-        jsr sb_u16
+        jsr fee_num
+        jsr sb_u24
         ldx st_max
-        lda st_sp
-        sec
-        sbc fee_lo,x
-        sta T0
-        lda st_sp+1
-        sbc fee_hi,x
-        sta T1
+        jsr fee_num
+        jsr sp_ge
         bcc @togo
         lda #<s_covered
         ldx #>s_covered
@@ -109,14 +101,17 @@ st_clips:
 @togo:  lda #<s_dash
         ldx #>s_dash
         jsr sb_str
-        lda #0
+        lda NUM                 ; fee - paperclips
         sec
-        sbc T0
+        sbc st_sp
         sta NUM
-        lda #0
-        sbc T1
+        lda NUM+1
+        sbc st_sp+1
         sta NUM+1
-        jsr sb_u16
+        lda NUM+2
+        sbc st_sp+2
+        sta NUM+2
+        jsr sb_u24
         lda #<s_togo
         ldx #>s_togo
         jsr sb_str
@@ -226,20 +221,13 @@ st_levelpg:
         jsr far_text
         jsr ui_gap
         jsr sb_line             ; "x / y to Lv n+1"
-        lda st_xp
-        sta NUM
-        lda st_xp+1
-        sta NUM+1
-        jsr sb_u16
+        jsr xp_num
+        jsr sb_u24
         lda #<s_slash
         ldx #>s_slash
         jsr sb_str
-        ldx st_level
-        lda xpn_lo,x
-        sta NUM
-        lda xpn_hi,x
-        sta NUM+1
-        jsr sb_u16
+        jsr xpn_num
+        jsr sb_u24
         lda #<s_tolv
         ldx #>s_tolv
         jsr sb_str
@@ -252,7 +240,7 @@ st_levelpg:
         ldx #>s_experience
         jsr ui_kv
         lda st_max
-        cmp #FLOORS_DISK
+        cmp #FLOORS_TOP
         bcs :+
         jsr sb_line
         lda #'L'
@@ -800,13 +788,7 @@ perks:
         ldx PERK_I
         lda perk_cur,x
         bne @so
-        lda st_sp
-        sec
-        sbc NUM
-        sta st_sp
-        lda st_sp+1
-        sbc NUM+1
-        sta st_sp+1
+        jsr sp_sub
         jmp @bought
 @so:    lda st_so
         sec
@@ -838,13 +820,11 @@ perk_cost:
         sta NUM
         lda perkc_hi,y
         sta NUM+1
+        lda #0
+        sta NUM+2
         lda perk_cur,x
         bne @so
-        lda st_sp
-        cmp NUM
-        lda st_sp+1
-        sbc NUM+1
-        rts
+        jmp sp_ge
 @so:    lda st_so
         cmp NUM
         lda st_so+1
@@ -871,19 +851,12 @@ train:
         jsr sb_char
         lda #' '
         jsr sb_char
-        lda st_xp
-        sta NUM
-        lda st_xp+1
-        sta NUM+1
-        jsr sb_u16
+        jsr xp_num
+        jsr sb_u24
         lda #'/'
         jsr sb_char
-        ldx st_level
-        lda xpn_lo,x
-        sta NUM
-        lda xpn_hi,x
-        sta NUM+1
-        jsr sb_u16
+        jsr xpn_num
+        jsr sb_u24
         lda #<s_xp
         ldx #>s_xp
         jsr sb_str
@@ -895,7 +868,7 @@ train:
         sta COLOR
         ldx #0
 @o:     stx PERK_I
-        jsr train_xp            ; T0/T1 = XP of option X
+        jsr train_xp            ; TXP = XP of option X
         txa                     ; label buffer
         asl
         asl
@@ -920,25 +893,24 @@ train:
         lda #<s_plus
         ldx #>s_plus
         jsr sb_str
-        lda T0
+        lda TXP
         sta NUM
-        lda T1
+        lda TXP+1
         sta NUM+1
-        jsr sb_u16
+        lda TXP+2
+        sta NUM+2
+        jsr sb_u24
         lda #<s_xpfor
         ldx #>s_xpfor
         jsr sb_str
         jsr train_cost          ; NUM = XP × 4
-        jsr sb_u16
+        jsr sb_u24
         lda #<s_clipsword
         ldx #>s_clipsword
         jsr sb_str
         jsr sb_end
         ldy #0                  ; affordable?
-        lda st_sp
-        cmp NUM
-        lda st_sp+1
-        sbc NUM+1
+        jsr sp_ge
         bcs :+
         ldy #B_OFF
 :       ldx PERK_I
@@ -970,28 +942,24 @@ train:
         stx PERK_I
         jsr train_xp
         jsr train_cost
-        lda st_sp
-        sec
-        sbc NUM
-        sta st_sp
-        lda st_sp+1
-        sbc NUM+1
-        sta st_sp+1
-        lda T0
+        jsr sp_sub
+        lda TXP
         sta RXP
-        lda T1
+        lda TXP+1
         sta RXP+1
+        lda TXP+2
+        sta RXP+2
         jsr add_xp
         lda #SFX_GOOD
         jsr sfx
         jsr save_game
         jmp train
 
-; X = option (0 webinar 25%, 1 workshop 50%, 2 certification 100% of the XP still needed) -> T0/T1:
-; round(need × share), at least 1.
+; X = option (0 webinar 25%, 1 workshop 50%, 2 certification 100% of the XP still needed) -> TXP:
+; round(need × share), at least 1 (X kept).
 train_xp:
         stx T3
-        jsr xp_needed
+        jsr xp_needed           ; NUM
         ldx T3
         cpx #2
         beq @min1
@@ -1000,31 +968,46 @@ train_xp:
         beq :+
         lda #2
 :       clc
-        adc T0
-        sta T0
+        adc NUM
+        sta NUM
         bcc :+
-        inc T1
-:       lsr T1
-        ror T0
+        inc NUM+1
+        bne :+
+        inc NUM+2
+:       lsr NUM+2
+        ror NUM+1
+        ror NUM
         cpx #1
         beq @min1
-        lsr T1
-        ror T0
-@min1:  lda T0
-        ora T1
+        lsr NUM+2
+        ror NUM+1
+        ror NUM
+@min1:  lda NUM
+        ora NUM+1
+        ora NUM+2
         bne :+
-        inc T0
-:       ldx T3
+        inc NUM
+:       lda NUM
+        sta TXP
+        lda NUM+1
+        sta TXP+1
+        lda NUM+2
+        sta TXP+2
+        ldx T3
         rts
 
-; NUM = T0/T1 × 4 paperclips.
+; NUM = TXP × 4 paperclips.
 train_cost:
-        lda T0
+        lda TXP
+        asl
         sta NUM
-        lda T1
+        lda TXP+1
+        rol
         sta NUM+1
+        lda TXP+2
+        rol
+        sta NUM+2
         asl NUM
         rol NUM+1
-        asl NUM
-        rol NUM+1
+        rol NUM+2
         rts

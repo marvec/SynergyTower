@@ -2,20 +2,22 @@
 
 ; Load floor st_floor (floorNN file) to $8000 and apply the saved state: turnstile gate, task markers.
 load_floor:
+        lda st_floor            ; its disk side in the drive
+        jsr ensure_side
         jsr set_loadbuf
-        ldx st_floor
-        lda floor_t-1,x
+        lda st_floor
+        sec
+        sbc dir + DIR_FIRST
+        tax
+        lda dir + DIR_FLOOR_T,x
         pha
-        lda floor_s-1,x
+        lda dir + DIR_FLOOR_S,x
         tax
         pla
         jsr fl_load
         bcc :+
         jmp disk_error
-:       lda #<LOADBUF
-        sta SRC
-        lda #>LOADBUF
-        sta SRC+1
+:       jsr slot_src
         lda #<FL_MAP
         sta DST
         lda #>FL_MAP
@@ -199,7 +201,7 @@ update_markers:
         lda st_floor
         cmp st_max
         bne @put
-        cmp #FLOORS_DISK
+        cmp #FLOORS_TOP
         bcs @put                ; no floor above on this disk
         lda #CH_UP
         ldx #5
@@ -374,7 +376,14 @@ interact:
         cmp #ACTOR_BOARD
         bne @talk
         jmp quest_board
-@talk:  lda NEAR
+@talk:  lda QACT                ; the feedback search: the colleague to find, or hints
+        beq @say
+        lda QKIND
+        beq @say
+        jsr fb_talk
+        bcc @say
+        rts
+@say:   lda NEAR
         jmp talk
 :       ldx QACT                ; a quest: its station leads to the desk part, the rest waits
         beq :+
@@ -649,7 +658,7 @@ talk:
         jsr rand
         cmp #102                ; 40%
         bcs @common
-        lda #LINES_DEPT
+        lda dir + DIR_LINES_DEPT
         jsr rand_mod
         clc
         adc #LINES_COMMON
@@ -671,13 +680,17 @@ talk:
         lda TMP
         sta recent
         tax
-        lda lines_lo,x
-        sta T0
-        lda lines_hi,x
-        tax
-        lda T0
+        jsr line_addr
         jsr far_str             ; -> farbuf
+        lda st_max              ; the CEO decides their fate
+        cmp #FLOORS_TOP
+        bcc :+
         ldx TALK_A
+        lda akind,x
+        cmp #ACTOR_COLLEAGUE
+        bne :+
+        jmp fate_dialog
+:       ldx TALK_A
         jsr actor_who
         lda #<farbuf
         ldx #>farbuf

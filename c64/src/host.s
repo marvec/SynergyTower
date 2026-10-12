@@ -32,7 +32,10 @@ play_station:
 :       jsr host_run
         jsr pay_out
         jsr result_page
-        jsr enter_floor
+        lda HOST_CEO            ; the board is calling: the ending
+        beq :+
+        jsr run_ending
+:       jsr enter_floor
         lda HOST_CHECKIN
         beq @done
         lda #<s_welcomeaboard
@@ -65,17 +68,33 @@ pay_out:
         lda st_stars-1,x
         clc
         adc HOST_STARS
-        sta st_stars-1,x
+        bcc :+
+        lda #$ff
+:       sta st_stars-1,x
+        lda #0                  ; the floor-40 quota: CEO (state.js completeTask ceoUnlocked)
+        sta HOST_CEO
+        cpx #FLOORS_TOP
+        bne @noceo
+        lda st_ceo
+        bne @noceo
+        lda #FLOORS_TOP
+        jsr quota
+        cmp st_stars + FLOORS_TOP - 1
+        beq @ceo
+        bcs @noceo              ; (quota > stars)
+@ceo:   lda #1
+        sta st_ceo
+        sta HOST_CEO
+@noceo:
         ldx HOST_I              ; personal best
-        jsr station_best_index
         lda #0
         sta HOST_BEST
-        lda st_best,y
+        jsr best_get
         bmi :+
         cmp HOST_STARS
         bcs :++
 :       lda HOST_STARS
-        sta st_best,y
+        jsr best_set
         inc HOST_BEST
 :       ldx HOST_I              ; cooldown
         jsr station_cd_ptr
@@ -125,9 +144,7 @@ play_review:
         cmp #REVIEW_PASS
         bcc @fail
         ldx st_max
-        lda st_reviews
-        ora bit_tab-1,x
-        sta st_reviews
+        jsr review_pass
         lda #<st_revcd
         ldx #>st_revcd
         jsr floor_dl_ptr
@@ -173,10 +190,10 @@ host_run:
         ldy #10
         jsr print_center
         ldx HOST_G              ; already in memory?
-        lda game_t,x
+        lda dir + DIR_GAME_T,x
         cmp LOADED
         bne @load
-        lda game_s,x
+        lda dir + DIR_GAME_S,x
         cmp LOADED+1
         beq @ready
 @load:  lda #3
@@ -185,26 +202,8 @@ host_run:
         lda #<s_loading
         ldx #>s_loading
         jsr print_center
-        jsr set_loadbuf
         ldx HOST_G
-        lda game_t,x
-        sta LOADED
-        lda game_s,x
-        sta LOADED+1
-        tax
-        lda LOADED
-        jsr fl_load
-        bcc :+
-        jmp disk_error
-:       lda #<LOADBUF
-        sta SRC
-        lda #>LOADBUF
-        sta SRC+1
-        lda #<OVERLAY
-        sta DST
-        lda #>OVERLAY
-        sta DST+1
-        jsr lz_unpack
+        jsr game_overlay
 @ready: lda #<textbuf           ; ready page: name, help, coffee
         ldx #>textbuf
         jsr sb_start
@@ -267,7 +266,7 @@ host_run:
         lda #0
         sta $c6
         lda MG_DIFF
-        ldx #0                  ; department: lobby (floors 1-5)
+        ldx dir + DIR_DEPTNO    ; department (DEPARTMENTS order: 0 lobby .. 7 exec)
         jsr MG_INIT
 @frame: jsr wait_frame
         jsr read_input
@@ -341,29 +340,61 @@ countdown:
         bpl @n
         rts
 
+; The CEO ending overlay (on the side with floor 40), then the floor's song again.
+run_ending:
+        lda dir + DIR_END_AT
+        sta OVL_AT
+        lda dir + DIR_END_AT + 1
+        sta OVL_AT+1
+        lda dir + DIR_END_T
+        ldx dir + DIR_END_S
+        jsr load_overlay
+        jsr plain_screen
+        jsr OVERLAY
+        lda #0
+        sta LOADED              ; (a mini-game goes there next)
+        sta LOADED+1
+        ldx #SONG_FLOOR
+        jmp play_song
+
+; X = game: its overlay into the slot (unless it is there).
+game_overlay:
+        lda dir + DIR_GAME_ATL,x
+        sta OVL_AT
+        lda dir + DIR_GAME_ATH,x
+        sta OVL_AT+1
+        lda dir + DIR_GAME_S,x
+        pha
+        lda dir + DIR_GAME_T,x
+        tay
+        pla
+        tax
+        tya
+        jmp load_overlay
+
 ; RUN/STOP during a game: "Give up? Coffee is not refunded." C=1 to give up. The game's screen comes back.
 pause_game:
         lda $d015
         pha
         lda #0
         sta $d015
-        ldx #0                  ; keep the screen and colours in the load buffer
+        ldx #0                  ; keep the screen in the other screen buffer, the colours in the spill area
 :       lda SCREEN,x
-        sta LOADBUF,x
+        sta SCREEN2,x
         lda SCREEN+$100,x
-        sta LOADBUF+$100,x
+        sta SCREEN2+$100,x
         lda SCREEN+$200,x
-        sta LOADBUF+$200,x
+        sta SCREEN2+$200,x
         lda SCREEN+$300,x
-        sta LOADBUF+$300,x
+        sta SCREEN2+$300,x
         lda COLRAM,x
-        sta LOADBUF+$400,x
+        sta SPILL,x
         lda COLRAM+$100,x
-        sta LOADBUF+$500,x
+        sta SPILL+$100,x
         lda COLRAM+$200,x
-        sta LOADBUF+$600,x
+        sta SPILL+$200,x
         lda COLRAM+$300,x
-        sta LOADBUF+$700,x
+        sta SPILL+$300,x
         inx
         bne :-
         lda #<s_paused
@@ -383,21 +414,21 @@ pause_game:
         jsr ui_run
         sta T3
         ldx #0
-:       lda LOADBUF,x
+:       lda SCREEN2,x
         sta SCREEN,x
-        lda LOADBUF+$100,x
+        lda SCREEN2+$100,x
         sta SCREEN+$100,x
-        lda LOADBUF+$200,x
+        lda SCREEN2+$200,x
         sta SCREEN+$200,x
-        lda LOADBUF+$300,x
+        lda SCREEN2+$300,x
         sta SCREEN+$300,x
-        lda LOADBUF+$400,x
+        lda SPILL,x
         sta COLRAM,x
-        lda LOADBUF+$500,x
+        lda SPILL+$100,x
         sta COLRAM+$100,x
-        lda LOADBUF+$600,x
+        lda SPILL+$200,x
         sta COLRAM+$200,x
-        lda LOADBUF+$700,x
+        lda SPILL+$300,x
         sta COLRAM+$300,x
         inx
         bne :-
@@ -603,7 +634,14 @@ result_page:
 :       lda #<s_quotalift
         ldx #>s_quotalift
         jsr ui_str
-@btn:   lda #<s_continue
+@btn:   lda HOST_CEO
+        beq :+
+        lda #7
+        sta COLOR
+        lda #<s_board
+        ldx #>s_board
+        jsr ui_str
+:       lda #<s_continue
         ldx #>s_continue
         ldy #0
         jsr ui_btn

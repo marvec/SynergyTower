@@ -1,20 +1,33 @@
 ; Name Badge Memory (src/minigames/memory.js) as a disk-loaded overlay at $4000.
-; 6 pairs on a 4 × 3 grid. Flip two badges at a time; the score is pairs found × turn efficiency.
+; All badges show for a moment, then turn face down; flip two at a time and match the colleague pairs.
+; Score = pairs found / pairs × turn efficiency: past ceil(1.6 × pairs) turns every extra turn costs
+; 1 / (2.5 × pairs), down to × 0.3.
+; Difficulty (d = MG_DIFF / 255):           d = 0      d = 1
+;   pairs (grid)   6 (4×3), 8 (4×4), 10 (5×4), 12 (6×4) for round(3d) = 0..3
+;   memorise       2.5 - 1.7d s              2.5 s      0.8 s
+;   time limit     min(85, pairs × (6 - 1.4d) + 10) s   46 s (6 pairs)   65 s (12 pairs)
+; A badge: the role (by department, X at init) in its top edge, hair + face, the name. On the 6-column grid the
+; badges are 6 wide, so the 7-letter roles (Courier, Recruit, Payroll) are left out there.
 
 .include "api.inc"
 
-PAIRS    = 6
-CARDS    = PAIRS * 2
-COLS     = 4
-CARD_W   = 9
-CARD_H   = 6
-TOTAL    = 46 * 50              ; frames: min(85, pairs * 6 + 10) seconds at difficulty 0
-BAR_W    = 38
-BAR_STEP = 60                   ; frames per timer-bar cell (TOTAL / BAR_W)
-HIDE_T   = 40                   ; 0.8 s before a wrong pair turns back
-ALLOWED  = 10                   ; ceil(pairs * 1.6) turns before the score drops
+MAX_PAIRS = 12
+MAX_CARDS = MAX_PAIRS * 2
+CARD_H    = 5
+HIDE_T    = 40                  ; 0.8 s before a wrong pair turns back
+EFF_MIN   = 77                  ; 0.3 × 255
+.if .defined(AUTOPLAY)
+BOT_EVERY = 16                  ; the bot flips a badge every 16 frames
+.endif
 
 .zeropage
+diff:     .res 1
+dept:     .res 1
+pairs:    .res 1
+ncards:   .res 1
+cols:     .res 1
+cw:       .res 1                ; badge width
+layout:   .res 1                ; 0..3
 cursor:   .res 1
 open_cnt: .res 1
 open:     .res 2
@@ -22,11 +35,7 @@ turns:    .res 1
 found:    .res 1
 peek:     .res 1
 hide_t:   .res 1
-elapsed:  .res 2
-bar_len:  .res 1
-bar_acc:  .res 1
 done:     .res 1
-dept:     .res 1
 cx:       .res 1                ; card position while drawing
 cy:       .res 1
 ci:       .res 1
@@ -37,16 +46,48 @@ t3:       .res 1
 right:    .res 1
 bottom:   .res 1
 ysave:    .res 1
+m_a:      .res 1
+m_b:      .res 1
+m_lo:     .res 1
+.if .defined(AUTOPLAY)
+bot_t:    .res 1
+.endif
 
 .segment "CODE"
         jmp init
         jmp frame
         .word s_name, s_help
 
+.include "mgkit.s"
+
 ; A = difficulty, X = department
 init:
-        stx dept
-        lsr                     ; peek: 2.5 s at difficulty 0, ~1.2 s at the top
+        sta diff
+        cpx #8
+        bcc :+
+        ldx #0
+:       stx dept
+        ; layout = round(3d): 1 from D 43, 2 from 128, 3 from 213
+        ldx #0
+:       lda diff
+        cmp lay_step,x
+        bcc :+
+        inx
+        cpx #3
+        bne :-
+:       stx layout
+        lda lay_pairs,x
+        sta pairs
+        asl
+        sta ncards
+        lda lay_cols,x
+        sta cols
+        lda lay_cw,x
+        sta cw
+        ; memorise: 125 - 85d frames
+        lda diff
+        ldy #85
+        jsr mulr
         eor #$ff
         sec
         adc #125
@@ -57,14 +98,44 @@ init:
         sta turns
         sta found
         sta hide_t
-        sta elapsed
-        sta elapsed+1
         sta done
-        lda #BAR_W
-        sta bar_len
-        lda #BAR_STEP
-        sta bar_acc
-        ; pick PAIRS distinct names: partial Fisher-Yates over 0..25
+.if .defined(AUTOPLAY)
+        sta bot_t
+.endif
+        ; badge positions, row by row
+        ldy layout
+        lda lay_y0,y
+        sta cy
+        lda lay_x0,y
+        sta cx
+        lda #0
+        sta t0                  ; column
+        tax                     ; card
+@pos:   lda cx
+        sta card_x,x
+        lda cy
+        sta card_y,x
+        inc t0
+        lda t0
+        cmp cols
+        bne @same
+        lda #0                  ; next row
+        sta t0
+        lda lay_x0,y
+        sta cx
+        lda cy
+        clc
+        adc lay_py,y
+        sta cy
+        bne @nx
+@same:  lda cx
+        clc
+        adc lay_px,y
+        sta cx
+@nx:    inx
+        cpx ncards
+        bne @pos
+        ; pick the pairs' names: partial Fisher-Yates over the 26 names
         ldx #NAMES-1
 :       txa
         sta name_pool,x
@@ -75,10 +146,11 @@ init:
         lda #NAMES
         sec
         sbc t0                  ; remaining
-        jsr rand_mod
+        jsr API_RMOD
         clc
         adc t0
         tay
+        ldx t0
         lda name_pool,y         ; swap pool[i] and pool[j]
         pha
         lda name_pool,x
@@ -93,7 +165,7 @@ init:
         ldx t0
         sta person_hair,x
         inx
-        cpx #PAIRS
+        cpx pairs
         bne @pick
         ; deal: two of each, then shuffle
         ldx #0
@@ -103,14 +175,15 @@ init:
         lda #0
         sta state,x
         inx
-        cpx #CARDS
+        cpx ncards
         bne :-
-        ldx #CARDS-1
+        ldx ncards
+        dex
 @shuf:  stx t0
         txa
         clc
         adc #1
-        jsr rand_mod
+        jsr API_RMOD
         tay
         ldx t0
         lda cards,x
@@ -121,31 +194,92 @@ init:
         sta cards,y
         dex
         bne @shuf
-        ; screen
-        lda #7
-        sta COLOR
-        ldx #1
-        ldy #0
-        lda #<s_name
-        sta PTR
-        lda #>s_name
-        sta PTR+1
-        jsr API_PRINT
+        ; screen: the clock is full while you memorise
+        text 1, 0, s_name, 7
         jsr draw_counts
-        lda #5
-        sta COLOR
-        lda #BAR_W
-        sta FILL_W
-        lda #1
-        sta FILL_H
-        ldx #1
-        ldy #1
-        lda #CH_BLOCK
-        jsr API_FILL
+        jsr time_limit
+        jsr timer_start
         jsr draw_all
         lda #<s_memorize
         ldx #>s_memorize
-        jmp footer
+        jsr footer
+        jmp draw_peek
+
+; A/X = frames: min(85 s, pairs × (300 - 70d) + 500)
+time_limit:
+        lda diff
+        ldy #70
+        jsr mulr
+        eor #$ff
+        sec
+        adc #<300               ; 300 - 70d (230..300)
+        sta t0
+        lda #>300
+        sbc #0
+        sta t1
+        lda #<500
+        sta t2
+        lda #>500
+        sta t3
+        ldx pairs
+:       lda t2
+        clc
+        adc t0
+        sta t2
+        lda t3
+        adc t1
+        sta t3
+        dex
+        bne :-
+        lda t3                  ; (never above 85 s with these curves, but keep the cap)
+        cmp #>4250
+        bcc @ok
+        bne @cap
+        lda t2
+        cmp #<4250
+        bcc @ok
+@cap:   lda #<4250
+        ldx #>4250
+        rts
+@ok:    lda t2
+        ldx t3
+        rts
+
+; A × Y -> A = round(A × Y / 256)
+mulr:   jsr mul8
+        ldx m_lo
+        cpx #$80
+        adc #0
+        rts
+
+; A × Y -> A = high byte, m_lo = low byte (X = 0)
+mul8:   sta m_a
+        sty m_b
+        lda #0
+        ldx #8
+@l:     lsr m_a
+        bcc :+
+        clc
+        adc m_b
+:       ror
+        ror m_lo
+        dex
+        bne @l
+        rts
+
+; "Memorize! N" while the badges show (N = seconds left, rounded up)
+draw_peek:
+        lda peek
+        ldx #'0'
+:       inx
+        sec
+        sbc #50
+        beq :+
+        bcs :-
+:       txa
+        ldx #(40 - 11) / 2 + 10
+        ldy #24
+        jmp API_PUTC
 
 ; One frame. C=1 when the game is over.
 frame:
@@ -156,35 +290,19 @@ frame:
 :       lda peek
         beq @play
         dec peek
-        bne @wait
-        jsr draw_all            ; peek over: everything turns face down
+        beq :+
+        lda #7
+        sta COLOR
+        jsr draw_peek
+        clc
+        rts
+:       jsr draw_all            ; peek over: everything turns face down
         lda #<s_play
         ldx #>s_play
         jsr footer
-@wait:  clc
+        clc
         rts
-@play:  inc elapsed
-        bne :+
-        inc elapsed+1
-:       dec bar_acc
-        bne :+
-        lda #BAR_STEP
-        sta bar_acc
-        lda bar_len
-        beq :+
-        dec bar_len
-        ldx bar_len
-        inx
-        ldy #1
-        lda #0
-        sta COLOR
-        lda #' '
-        jsr API_PUTC
-:       lda elapsed+1
-        cmp #>TOTAL
-        bcc :+
-        lda elapsed
-        cmp #<TOTAL
+@play:  jsr timer_tick
         bcc :+
         jmp finish
 :       lda hide_t
@@ -206,7 +324,7 @@ frame:
         beq :+
         ldx cursor
         inx
-        cpx #CARDS
+        cpx ncards
         bcc @setc
         ldx #0
         beq @setc
@@ -216,26 +334,27 @@ frame:
         ldx cursor
         dex
         bpl @setc
-        ldx #CARDS-1
-        bne @setc
+        ldx ncards
+        dex
+        jmp @setc
 :       lda JOYP
         and #J_DOWN
         beq :+
         lda cursor
         clc
-        adc #COLS
-        cmp #CARDS
+        adc cols
+        cmp ncards
         bcc @seta
-        sbc #CARDS
+        sbc ncards
         jmp @seta
 :       lda JOYP
         and #J_UP
         beq @fire
         lda cursor
         sec
-        sbc #COLS
+        sbc cols
         bcs @seta
-        adc #CARDS
+        adc ncards
 @seta:  tax
 @setc:  stx cursor
 @moved:
@@ -256,16 +375,18 @@ frame:
         rts
 
 .ifdef AUTOPLAY
-; Perfect player (test builds): every 12 frames point the cursor at the right badge and press fire.
+; Perfect player (test builds): every BOT_EVERY frames point the cursor at the right badge and press fire.
 ; C=1 when it moved the cursor (JOYP fire is set).
 bot:    lda #0
         sta JOYP
         lda hide_t
         bne @no
-        lda elapsed
-        and #15
-        cmp #8
+        inc bot_t
+        lda bot_t
+        cmp #BOT_EVERY
         bne @no
+        lda #0
+        sta bot_t
         lda open_cnt
         beq @first
         ldx open                ; find the partner of the open badge
@@ -278,14 +399,14 @@ bot:    lda #0
         cmp t3
         beq @hit
 @skip:  iny
-        cpy #CARDS
+        cpy ncards
         bne :-
         beq @no
 @first: ldy #0
 :       lda state,y
         beq @hit
         iny
-        cpy #CARDS
+        cpy ncards
         bne :-
 @no:    clc
         rts
@@ -340,7 +461,7 @@ flip:
         jsr API_SFX
         jsr draw_counts
         lda found
-        cmp #PAIRS
+        cmp pairs
         bne @out
         jmp finish
 @miss:  lda #HIDE_T
@@ -371,58 +492,59 @@ hide_open:
         sta hide_t
         rts
 
-; score = base[found] × max(77, 255 - 17 × max(0, turns - ALLOWED)) / 256
+; score = found × 255 / pairs × eff, eff = max(77, 255 - extra × 102 / pairs) / 256, extra = turns past
+; ceil(1.6 × pairs)
 finish:
+        ldx layout
         lda turns
         sec
-        sbc #ALLOWED
+        sbc lay_allow,x
         bcs :+
         lda #0
-:       cmp #11
+:       cmp #31                 ; (30 extra turns already floor the efficiency)
         bcc :+
-        lda #11
-:       sta t0
-        asl
-        asl
-        asl
-        asl
-        adc t0                  ; × 17
+        lda #31
+:       ldy #102
+        jsr mul8                ; A:m_lo = extra × 102
+        jsr div_pairs           ; / pairs
         eor #$ff
         sec
-        adc #255                ; 255 - 17 × extra
-        cmp #77
+        adc #255
+        bcc @floor              ; (more than 255: below zero)
+        cmp #EFF_MIN
         bcs :+
-        lda #77
-:       sta t0
-        ldx found
-        lda base_tab,x
-        sta t1
-        ; t1 × t0 -> high byte in A
-        lda #0
-        ldx #8
-@mul:   lsr t1
-        bcc :+
-        clc
-        adc t0
-:       ror
-        ror t2
-        dex
-        bne @mul
+@floor: lda #EFF_MIN
+:       sta t3
+        lda found
+        ldy #255
+        jsr mul8
+        jsr div_pairs           ; base = found × 255 / pairs
+        ldy t3
+        jsr mulr
         sta MG_SCORE
         lda #1
         sta done
         sec
         rts
 
-; A = n (1..255) -> A = random 0..n-1
-rand_mod:
-        sta t1
-        jsr API_RAND
-:       cmp t1
+; A:m_lo / pairs -> A (quotient must fit 8 bits; else 255)
+div_pairs:
+        cmp pairs
         bcc :+
-        sbc t1
-        jmp :-
-:       rts
+        lda #255
+        rts
+:       ldx #8
+@div:   asl m_lo
+        rol
+        bcs @sub
+        cmp pairs
+        bcc :+
+@sub:   sbc pairs
+        inc m_lo
+:       dex
+        bne @div
+        lda m_lo
+        rts
 
 draw_all:
         lda #0
@@ -431,26 +553,19 @@ draw_all:
         jsr draw_card
         inc ci
         lda ci
-        cmp #CARDS
+        cmp ncards
         bne :-
         rts
 
 ; A = card index
 draw_card:
         sta ci
-        pha
-        and #COLS-1
         tax
-        lda col_x,x
+        lda card_x,x
         sta cx
-        pla
-        lsr
-        lsr
-        tax
-        lda row_y,x
+        lda card_y,x
         sta cy
-        ; frame colour: cursor yellow, matched green, face up white, face down blue
-        ldx ci
+        ; frame colour: cursor yellow, matched green, face up white, face down blue; all white while memorising
         lda #7
         ldy peek
         bne :+
@@ -465,8 +580,9 @@ draw_card:
 @col:   sta COLOR
         lda cx
         clc
-        adc #CARD_W-1
+        adc cw
         sta right
+        dec right
         lda cy
         clc
         adc #CARD_H-1
@@ -478,19 +594,25 @@ draw_card:
         ldx right
         lda #CH_TR
         jsr putc
+        ldx right
         ldy bottom
         lda #CH_BR
         jsr putc
         ldx cx
         lda #CH_BL
         jsr putc
-        lda #CARD_W-2
-        sta FILL_W
+        ldx cw
+        dex
+        dex
+        stx FILL_W
         lda #1
         sta FILL_H
+        ldx cx
         inx
         lda #CH_B
         jsr fill
+        ldx cx
+        inx
         ldy cy
         lda #CH_T
         jsr fill
@@ -499,27 +621,26 @@ draw_card:
         lda #CARD_H-2
         sta FILL_H
         iny
-        dex
+        ldx cx
         lda #CH_L
         jsr fill
         ldx right
         lda #CH_R
         jsr fill
         ; interior
-        lda #CARD_W-2
-        sta FILL_W
+        ldx cw
+        dex
+        dex
+        stx FILL_W
         lda #CARD_H-2
         sta FILL_H
-        ldx cx
-        inx
-        ldy cy
-        iny
-        lda ci
-        tax
+        ldx ci
         lda state,x
         ora peek
         ldx cx
         inx
+        ldy cy
+        iny
         cmp #0
         bne @face
         lda #6
@@ -543,27 +664,33 @@ draw_card:
         ; person: hair + face in the middle of the badge
         ldx ci
         lda cards,x
-        sta t0                  ; person 0..5
+        sta t0                  ; person
         tax
         lda person_hair,x
         sta COLOR
-        lda cx
+        lda cw
+        lsr
         clc
-        adc #3
-        tax
+        adc cx
+        sta t2
+        dec t2                  ; cx + cw / 2 - 1
+        ldx t2
         ldy cy
         iny
         lda #CH_HAIRL
         jsr putc
+        ldx t2
         inx
         lda #CH_HAIRR
         jsr putc
         lda #7
         sta COLOR
         iny
+        ldx t2
+        inx
         lda #CH_FACER
         jsr putc
-        dex
+        ldx t2
         lda #CH_FACEL
         jsr putc
         ; name (white, green when matched)
@@ -588,9 +715,7 @@ draw_card:
         clc
         adc #3
         jsr print_in_card
-        ; role: roles[dept][person % 4]
-        lda #3
-        sta COLOR
+        ; role in the top edge: roles[dept][person % 4], if it fits the badge
         lda dept
         asl
         asl
@@ -606,9 +731,18 @@ draw_card:
         lda #>roles
         adc #0
         sta PTR+1
+        ldy #0
+:       lda (PTR),y
+        beq :+
+        iny
+        bne :-
+:       cpy cw
+        beq :+
+        bcc :+
+        rts
+:       lda #3
+        sta COLOR
         lda cy
-        clc
-        adc #4
         ; fall through
 
 ; A = row: print PTR centred inside the current card.
@@ -623,7 +757,7 @@ print_in_card:
 :       tya
         eor #$ff
         sec
-        adc #CARD_W
+        adc cw
         lsr
         clc
         adc cx
@@ -631,33 +765,59 @@ print_in_card:
         ldy t1
         jmp API_PRINT
 
+; "Pairs f/p  Turns t" at the right of the title row
 draw_counts:
+        lda #21
+        sta FILL_W
+        lda #1
+        sta FILL_H
+        ldx #19
+        ldy #0
+        lda #' '
+        jsr API_FILL
         lda #1
         sta COLOR
-        ldx #22
-        ldy #0
         lda #<s_pairs
         sta PTR
         lda #>s_pairs
         sta PTR+1
+        ldx #19
+        ldy #0
         jsr API_PRINT
-        ldx #28
+        ldx #25
         ldy #0
         lda found
         jsr API_NUM
-        ldx #32
+        ldx #26
+        lda found
+        cmp #10
+        bcc :+
+        inx
+:       stx t0
+        lda #'/'
         ldy #0
+        jsr API_PUTC
+        ldx t0
+        inx
+        ldy #0
+        lda pairs
+        jsr API_NUM
         lda #<s_turns
         sta PTR
         lda #>s_turns
         sta PTR+1
+        ldx #32
+        ldy #0
         jsr API_PRINT
         ldx #38
         ldy #0
         lda turns
-        jmp API_NUM
+        cmp #100
+        bcc :+
+        lda #99
+:       jmp API_NUM
 
-; API calls that keep X and Y.
+; API calls that keep Y.
 putc:   sty ysave
         jsr API_PUTC
         ldy ysave
@@ -667,49 +827,26 @@ fill:   sty ysave
         ldy ysave
         rts
 
-; A/X = string: centred on the bottom row.
-footer:
-        sta PTR
-        stx PTR+1
-        lda #0
-        sta COLOR
-        lda #40
-        sta FILL_W
-        lda #1
-        sta FILL_H
-        ldx #0
-        ldy #24
-        lda #' '
-        jsr API_FILL
-        ldy #0
-:       lda (PTR),y
-        beq :+
-        iny
-        bne :-
-:       tya
-        eor #$ff
-        sec
-        adc #40
-        lsr
-        tax
-        lda #7
-        sta COLOR
-        ldy #24
-        jmp API_PRINT
-
 .rodata
 s_name:     .byte "Name Badge Memory", 0
 s_help:     .byte "Flip two badges at a time. Match pairs!", 0
-s_memorize: .byte "Memorize!", 0
-s_play:     .byte "Joystick or keys + FIRE to flip", 0
-s_pairs:    .byte "Pairs  /6", 0
-s_turns:    .byte "Turns   ", 0
+s_memorize: .byte "Memorize!  ", 0
+s_play:     .byte "Joystick + FIRE to flip", 0
+s_pairs:    .byte "Pairs", 0
+s_turns:    .byte "Turns", 0
 s_id:       .byte "ID", 0
-col_x:      .byte 1, 11, 21, 31
-row_y:      .byte 3, 10, 17
 frame_col:  .byte 6, 1, 5       ; face down, face up, matched
 hair_tab:   .byte 2, 7, 1, 4, 3, 5, 2, 1
-base_tab:   .byte 0, 42, 85, 127, 170, 212, 255
+; layouts for round(3d) = 0..3
+lay_step:   .byte 43, 128, 213
+lay_pairs:  .byte 6, 8, 10, 12
+lay_allow:  .byte 10, 13, 16, 20 ; ceil(1.6 × pairs)
+lay_cols:   .byte 4, 4, 5, 6
+lay_cw:     .byte 9, 9, 7, 6    ; badge width
+lay_px:     .byte 10, 10, 8, 6  ; column pitch
+lay_x0:     .byte 1, 1, 1, 2
+lay_py:     .byte 6, 5, 5, 5    ; row pitch (3 rows: rows 4, 10, 16; 4 rows: 3, 8, 13, 18)
+lay_y0:     .byte 4, 3, 3, 3
 
 ; From src/minigames/memory.js (NAMES, ROLES). 5 bytes per name, 8 per role.
 NAMES = 26
@@ -758,7 +895,9 @@ roles:
 
 .bss
 name_pool:   .res NAMES
-person_name: .res PAIRS
-person_hair: .res PAIRS
-cards:       .res CARDS
-state:       .res CARDS             ; 0 down, 1 up, 2 matched
+person_name: .res MAX_PAIRS
+person_hair: .res MAX_PAIRS
+cards:       .res MAX_CARDS
+state:       .res MAX_CARDS         ; 0 down, 1 up, 2 matched
+card_x:      .res MAX_CARDS
+card_y:      .res MAX_CARDS

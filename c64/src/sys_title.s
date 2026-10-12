@@ -83,7 +83,7 @@ title_main:
         lda #1
         rts
 
-; Your hair style's four frames (down, up, left, right) for the floor's hair sprite: to $fd00 (pointers 244-247,
+; Your hair style's four frames (down, up, left, right) for the floor's hair sprite: to $fe00 (pointers 248-251,
 ; RAM under the KERNAL that no overlay uses).
 hair_to_floor:
         lda #$ff                ; (the badge made sprite 0 the only multicolour one)
@@ -97,7 +97,7 @@ hair_to_floor:
         sta p0
         ldy #0
 :       lda (p0),y
-        sta $fd00,y
+        sta $fe00,y
         iny
         bne :-
         rts

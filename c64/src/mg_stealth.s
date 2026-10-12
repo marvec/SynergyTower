@@ -1,16 +1,20 @@
 ; Boss Alert (src/minigames/stealth.js) as a disk-loaded overlay at $4000.
 ; Colleagues walk past your cubicle; press FIRE to alt-tab to the spreadsheet just before the BOSS (dark
-; suit, red tie) passes your desk. False alarms cost half a dodge. Difficulty 0 (floor 1): 8 walkers, 3 of
-; them the boss, one every ~3.2 s, the work screen stays up 1.6 s.
-; Walkers are expanded sprites; the boss frames come with the overlay (gen/boss.bin -> $e300).
+; suit, red tie) passes your desk. False alarms cost half a dodge: score = (dodged - falses / 2) / bosses.
+; Difficulty d = MG_DIFF / 255 (JS byDiff(d, a, b) = a + (b - a) × d):
+;   d = 0: 8 walkers, 3 of them the boss, one every ~3.2 s (× 0.7-1.3), 70 px/s (of 480), the work screen
+;          stays up 1.6 s, nobody else in a suit
+;   d = 1: 15 walkers, 6 bosses (max(3, 0.4 n)), every ~2.3 s, 130 px/s, 0.9 s, 60% of the others in a suit
+;          (with a blue / green / brown / grey tie)
+; Time: until the last walker is through (+ 1 s), at most 60 s. No department content.
+; Walkers are expanded sprites; the boss frames (worn by the suits too) come with the overlay
+; (gen/boss.bin -> $e300).
 
 .include "api.inc"
 .include "gen/chars.inc"
 
-WALKERS   = 8
-BOSSES    = 3
+WALKERS   = 15                  ; at most
 SLOTS     = 7                   ; sprites 0-6 walk, sprite 7 stands in the legend
-WORK_T    = 80                  ; 1.6 s
 DESK_X    = 160                 ; sprite x where a walker's middle passes the desk
 NEAR_X    = 100                 ; a boss this close makes FIRE a good call
 WALK_Y    = 117                 ; feet on the corridor floor (screen row 13)
@@ -35,6 +39,18 @@ t2:       .res 1
 spawn_t:  .res 2
 xmsb:     .res 1
 enable:   .res 1
+n_w:      .res 1                ; walkers
+bosses:   .res 1
+iv:       .res 1                ; frames between walkers (before the random factor)
+work_dur: .res 1
+dsuit:    .res 1                ; chance / 256 that a colleague wears a suit
+sp_base:  .res 2                ; walking speed, 1/256 px per frame
+bd_a:     .res 2                ; bydiff
+bd_b:     .res 2
+bd_m:     .res 2
+bd_p:     .res 3
+bd_t:     .res 1
+bd_h:     .res 1
 
 .segment "CODE"
         jmp init
@@ -43,18 +59,55 @@ enable:   .res 1
 
 .include "mgkit.s"
 
+; A/X = byDiff(a, b), rounded (16 bit).
+.macro bydiff_w aa, bb
+        lda #<(aa)
+        sta bd_a
+        lda #>(aa)
+        sta bd_a+1
+        lda #<(bb)
+        sta bd_b
+        lda #>(bb)
+        sta bd_b+1
+        jsr bydiff
+.endmacro
+
 init:
-        lda #0
-        sta now
-        sta now+1
-        sta work_t
-        sta dodged
-        sta caught
-        sta falses
-        sta done
-        sta msg_t
-        sta flash_t
-        sta anim
+        sta MG_DIFF
+        lda #0                  ; zero page state (BSS too: the overlay stays loaded between plays)
+        ldx #<(bd_a - now)
+:       sta now,x
+        dex
+        bpl :-
+        ldx #<(bss_end - bss_start)
+:       sta bss_start-1,x
+        dex
+        bne :-
+        ; the difficulty curve
+        bydiff_w 8, 15
+        sta n_w
+        asl                     ; bosses = max(3, round(0.4 n)) = (4 n + 5) / 10
+        asl
+        adc #5
+        ldx #0
+:       cmp #10
+        bcc :+
+        sbc #10
+        inx
+        bne :-
+:       cpx #3
+        bcs :+
+        ldx #3
+:       stx bosses
+        bydiff_w 160, 115       ; walkers come every 3.2 .. 2.3 s (× 0.7-1.3)
+        sta iv
+        bydiff_w 80, 45         ; the spreadsheet stays up 1.6 .. 0.9 s
+        sta work_dur
+        bydiff_w 0, 154         ; colleagues in a suit: 0 .. 60%
+        sta dsuit
+        bydiff_w 239, 444       ; 70 .. 130 px/s of the browser's 480, in 1/256 px per frame of 320
+        sta sp_base
+        stx sp_base+1
         ; boss frames into the sprite area
         ldx #0
 :       lda boss_frames,x
@@ -65,15 +118,9 @@ init:
         sta $e400,x
         inx
         bpl :-
-        ; which walkers are the boss: pick BOSSES of WALKERS
-        ldx #WALKERS-1
-        lda #0
-:       sta w_boss,x
-        sta w_state,x
-        dex
-        bpl :-
-        ldy #BOSSES
-:       lda #WALKERS
+        ; which walkers are the boss: pick `bosses` of n_w
+        ldy bosses
+:       lda n_w
         jsr API_RMOD
         tax
         lda w_boss,x
@@ -82,33 +129,64 @@ init:
         sta w_boss,x
         dey
         bne :-
-        ; spawn times, directions, speeds, shirts
+        ; spawn times, directions, speeds, shirts / suits
         lda #60
         sta spawn_t
         lda #0
         sta spawn_t+1
+        sta total
+        sta total+1
         ldx #0
 @w:     stx t0
         lda spawn_t
         sta w_spawn_lo,x
         lda spawn_t+1
         sta w_spawn_hi,x
-        lda #97                 ; next one 112-208 frames later (3.2 s × 0.7-1.3)
-        jsr API_RMOD
-        clc
-        adc #112
-        adc spawn_t
-        sta spawn_t
-        bcc :+
-        inc spawn_t+1
-:       lda #53                 ; speed 203-255 / 256 px per frame (70 px/s × 0.85-1.07, scaled to 320 px;
-        jsr API_RMOD            ; the speed is one byte, so the top of the browser's range is cut off)
-        clc
-        adc #203
+        ; speed = base × (0.85 .. 1.15)
+        lda sp_base
+        sta bd_m
+        lda sp_base+1
+        sta bd_m+1
+        lda #218
+        ldx #77
+        jsr vary
+        ldy t0
+        sta w_speed,y
+        txa
+        sta w_speedhi,y
         ldx t0
-        sta w_speed,x
-        jsr API_RAND
+        ; the end of his walk: spawn + 347 px / speed; the timer runs to the last one's (+ 1 s)
+        lda #<88747
+        sta dv
+        lda #>88747
+        sta dv+1
+        lda #^88747
+        sta dv+2
+        lda w_speed,x
+        sta dsr
+        lda w_speedhi,x
+        sta dsr+1
+        jsr div24
+        ldx t0
+        lda dv
+        clc
+        adc w_spawn_lo,x
+        sta t1
+        lda dv+1
+        adc w_spawn_hi,x
+        sta t2
+        lda t1
+        cmp total
+        lda t2
+        sbc total+1
+        bcc :+
+        lda t1
+        sta total
+        lda t2
+        sta total+1
+:       jsr API_RAND
         and #1
+        ldx t0
         sta w_dir,x             ; 0 = walking right, 1 = left
         lda #6
         jsr API_RMOD
@@ -118,19 +196,57 @@ init:
         sta w_col,x
         lda w_boss,x
         beq :+
+        sta w_suit,x
         lda #2                  ; the boss's tie: red
         sta w_col,x
-:       inx
-        cpx #WALKERS
-        bne @w
-        ; total = last spawn + the slowest crossing (~450 frames)
-        lda spawn_t
+        bne @next
+:       jsr API_RAND            ; a colleague in a suit (and a tie that isn't red)?
+        cmp dsuit
+        bcs @next
+        ldx t0
+        lda #1
+        sta w_suit,x
+        lda #4
+        jsr API_RMOD
+        tay
+        lda tie_tab,y
+        ldx t0
+        sta w_col,x
+@next:  lda iv                  ; the next one interval × (0.7 .. 1.3) later
+        sta bd_m
+        lda #0
+        sta bd_m+1
+        lda #179
+        ldx #154
+        jsr vary
         clc
-        adc #<450
+        adc spawn_t
+        sta spawn_t
+        txa
+        adc spawn_t+1
+        sta spawn_t+1
+        ldx t0
+        inx
+        cpx n_w
+        beq :+
+        jmp @w
+:       ; total = min(60 s, the last walk's end + 1 s)
+        lda total
+        clc
+        adc #50
         sta total
-        lda spawn_t+1
-        adc #>450
+        bcc :+
+        inc total+1
+:       lda total
+        cmp #<(60 * 50)
+        lda total+1
+        sbc #>(60 * 50)
+        bcc :+
+        lda #<(60 * 50)
+        sta total
+        lda #>(60 * 50)
         sta total+1
+:
         ; sprites: all expanded, multicolour, walkers off for now
         lda #$ff
         sta $d017
@@ -356,7 +472,7 @@ draw_dodged:
         jsr API_PUTC
         ldx #37
         ldy #0
-        lda #BOSSES
+        lda bosses
         jmp API_NUM
 
 draw_status:
@@ -443,10 +559,11 @@ frame:
         jmp @work
 :       lda #SFX_BLIP
         jsr API_SFX
-@work:  lda #WORK_T
+@work:  lda work_dur
         sta work_t
         jsr draw_monitor
-@out:   ldx #WALKERS-1          ; everybody gone?
+@out:   ldx n_w                 ; everybody gone?
+        dex
 :       lda w_state,x
         cmp #2
         bne :+
@@ -458,7 +575,8 @@ frame:
 
 ; Spawn, move and retire walkers; check the boss as he passes the desk.
 walk:
-        ldx #WALKERS-1
+        ldx n_w
+        dex
 :       stx t2
         jsr walk_one
         ldx t2
@@ -513,7 +631,7 @@ walk_one:
         adc w_speed,x
         sta w_frac,x
         lda w_xlo,x
-        adc #0
+        adc w_speedhi,x
         sta w_xlo,x
         lda w_xhi,x
         adc #0
@@ -529,7 +647,7 @@ walk_one:
         sbc w_speed,x
         sta w_frac,x
         lda w_xlo,x
-        sbc #0
+        sbc w_speedhi,x
         sta w_xlo,x
         lda w_xhi,x
         sbc #0
@@ -585,7 +703,8 @@ boss_passes:
 
 ; C=1 if a boss who hasn't passed yet is within NEAR_X of the desk.
 boss_near:
-        ldx #WALKERS-1
+        ldx n_w
+        dex
 @b:     lda w_state,x
         cmp #1
         bne @next
@@ -636,10 +755,11 @@ place_sprites:
 @s:     lda w_state,x
         cmp #1
         bne @next
-        txa
-        cmp #SLOTS
+        txa                     ; slot = walker mod 7 (walkers 7 apart never overlap)
+:       cmp #SLOTS
         bcc :+
         sbc #SLOTS
+        bcs :-
 :       sta t0                  ; slot
         asl
         tay
@@ -675,7 +795,7 @@ place_sprites:
         clc
         adc t1
         sta t1
-        lda w_boss,x
+        lda w_suit,x            ; the boss and the other suits: the suit frames
         beq :+
         lda #BOSS_PTR
         .byte $2c
@@ -684,7 +804,7 @@ place_sprites:
         adc t1
         sta SCREEN + $3f8,y
 @next:  inx
-        cpx #WALKERS
+        cpx n_w
         bne @s
         lda xmsb                ; the legend boss (sprite 7) sits left of x 256
         sta $d010
@@ -696,7 +816,8 @@ place_sprites:
 ; Perfect player (test builds): alt-tab when a boss is 40 px from the desk and the screen shows solitaire.
 bot:    lda work_t
         bne @no
-        ldx #WALKERS-1
+        ldx n_w
+        dex
 @b:     lda w_state,x
         cmp #1
         bne @n
@@ -715,30 +836,183 @@ bot:    lda work_t
 @no:    rts
 .endif
 
-; score = clamp(2 × dodged - false alarms, 0, 6) × 255 / 6
+; score = clamp(2 × dodged - false alarms, 0, 2 × bosses) × 255 / (2 × bosses)
 finish:
         lda #0
         sta $d015
         sta $d017
         sta $d01d
         sta $d020
+        sta MG_SCORE
+        lda #1
+        sta done
+        lda bosses
+        asl
+        sta dsr
+        lda #0
+        sta dsr+1
         lda dodged
         asl
         sec
         sbc falses
-        bcs :+
-        lda #0
-:       bpl :+
-        lda #0
-:       cmp #7
+        bcc @out                ; negative: 0
+        beq @out
+        cmp dsr
         bcc :+
-        lda #6
-:       tax
-        lda score_tab,x
-        sta MG_SCORE
-        lda #1
-        sta done
+        lda dsr
+:       sta bd_m+1              ; × 255 = × 256 - × 1
+        lda #0
         sec
+        sbc bd_m+1
+        sta dv
+        lda bd_m+1
+        sbc #0
+        sta dv+1
+        lda #0
+        sta dv+2
+        jsr div24
+        lda dv
+        sta MG_SCORE
+@out:   sec
+        rts
+
+; A/X = round(bd_a + (bd_b - bd_a) × MG_DIFF / 255), 16 bit.
+bydiff:
+        lda bd_b
+        sec
+        sbc bd_a
+        sta bd_m
+        lda bd_b+1
+        sbc bd_a+1
+        sta bd_m+1
+        php                     ; N: b < a
+        bpl :+
+        lda #0
+        sec
+        sbc bd_m
+        sta bd_m
+        lda #0
+        sbc bd_m+1
+        sta bd_m+1
+:       lda MG_DIFF             ; p = |b - a| × diff (24 bit)
+        sta t1
+        jsr mul16x8
+        ; p / 255 ~ (p + p / 256 + 128) / 256 = p2:(p1 + p2) + carry of (p0 + p1 + 128)
+        lda #0
+        sta bd_h
+        lda bd_p
+        clc
+        adc #$80
+        bcc :+
+        inc bd_h
+        clc
+:       adc bd_p+1
+        bcc :+
+        inc bd_h
+:       lda bd_p+1
+        clc
+        adc bd_p+2
+        sta bd_m
+        lda bd_p+2
+        adc #0
+        sta bd_m+1
+        lda bd_m
+        clc
+        adc bd_h
+        sta bd_m
+        bcc :+
+        inc bd_m+1
+:       plp
+        bpl :+
+        lda #0
+        sec
+        sbc bd_m
+        sta bd_m
+        lda #0
+        sbc bd_m+1
+        sta bd_m+1
+:       lda bd_m
+        clc
+        adc bd_a
+        pha
+        lda bd_m+1
+        adc bd_a+1
+        tax
+        pla
+        rts
+
+; A/X = bd_m × (A + random(0 .. X - 1)) / 256 (factors over 255 in two steps).
+vary:   sta t1
+        stx t2
+        jsr mul16x8
+        lda bd_p+1
+        pha
+        lda bd_p+2
+        pha
+        lda t2
+        jsr API_RMOD
+        sta t1
+        jsr mul16x8
+        pla
+        tax
+        pla
+        clc
+        adc bd_p+1
+        pha
+        txa
+        adc bd_p+2
+        tax
+        pla
+        rts
+
+; bd_m (16 bit) × t1 -> bd_p (24 bit; bd_p+1/+2 = the product / 256).
+mul16x8:
+        lda t1
+        sta bd_t
+        lda #0
+        sta bd_p
+        sta bd_p+1
+        sta bd_p+2
+        ldy #8
+@l:     lsr bd_t
+        bcc :+
+        lda bd_p+1
+        clc
+        adc bd_m
+        sta bd_p+1
+        lda bd_p+2
+        adc bd_m+1
+        sta bd_p+2
+:       ror bd_p+2
+        ror bd_p+1
+        ror bd_p
+        dey
+        bne @l
+        rts
+
+; dv (24 bit) / dsr (16 bit) -> dv, remainder in rem.
+div24:
+        lda #0
+        sta rem
+        sta rem+1
+        ldx #24
+@l:     asl dv
+        rol dv+1
+        rol dv+2
+        rol rem
+        rol rem+1
+        lda rem
+        sec
+        sbc dsr
+        tay
+        lda rem+1
+        sbc dsr+1
+        bcc @n
+        sta rem+1
+        sty rem
+        inc dv
+@n:     dex
+        bne @l
         rts
 
 .rodata
@@ -762,11 +1036,12 @@ mon_col:     .byte 5 | 8, 1 | 8
 mon_char:    .byte MC_CARDS, MC_GRID
 door_x:      .byte 2, 15, 28
 shirt_tab:   .byte 6, 5, 7, 3, 4, 1
+tie_tab:     .byte 6, 5, 9, 12      ; the other suits' ties: blue, green, brown, grey
 bit_tab:     .byte 1, 2, 4, 8, 16, 32, 64, 128
-score_tab:   .byte 0, 43, 85, 128, 170, 213, 255
 boss_frames: .incbin "gen/boss.bin"
 
 .bss
+bss_start:
 w_spawn_lo:  .res WALKERS
 w_spawn_hi:  .res WALKERS
 w_xlo:       .res WALKERS
@@ -778,3 +1053,9 @@ w_boss:      .res WALKERS
 w_col:       .res WALKERS
 w_state:     .res WALKERS       ; 0 waiting, 1 walking, 2 gone
 w_checked:   .res WALKERS
+w_speedhi:   .res WALKERS
+w_suit:      .res WALKERS
+dv:          .res 3
+dsr:         .res 2
+rem:         .res 2
+bss_end:

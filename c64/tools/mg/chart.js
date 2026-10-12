@@ -1,8 +1,39 @@
 // Magic Chart content for the C64 overlay (src/data/mg-chart.js): the department's chart titles and the labels of
-// the mystery controls. A label is printed in the bottom border of its 13-column control box (11 columns).
+// the mystery controls. A label is printed in the bottom border of its control box: 11 columns with 3 controls,
+// 8 / 6 / 4 with 4 / 5 / 6 controls, so every label also has shortened forms (SHORT); the full label of the
+// focused control is shown above the panel.
 import { CHART_TITLES, SLIDER_LABELS, KNOB_LABELS, SWITCH_LABELS } from '../../../src/data/mg-chart.js';
 
 const LABEL_MAX = 11;
+const WIDTHS = [11, 8, 6, 4]; // box label columns for 3, 4, 5, 6 controls
+// shortened labels [8, 6, 4 columns] where the full one does not fit
+const SHORT = {
+  Synergy: ['Synergy', 'Synrgy', 'Syn.'],
+  'Font size': ['Fontsize', 'Font', 'Font'],
+  Buzzwords: ['Buzzword', 'Buzz', 'Buzz'],
+  Optimism: ['Optimism', 'Optim.', 'Opt.'],
+  'Y-axis zoom': ['Y-zoom', 'Y-zoom', 'Zoom'],
+  'Logo size': ['Logosize', 'Logo', 'Logo'],
+  Caffeine: ['Caffeine', 'Coffee', 'Caf.'],
+  'Fiscal year': ['Fiscal', 'Fiscal', 'FY'],
+  Colour: ['Colour', 'Colour', 'Col.'],
+  Vibes: ['Vibes', 'Vibes', 'Vibe'],
+  Gridlines: ['Gridline', 'Grid', 'Grid'],
+  Outlook: ['Outlook', 'Outlk', 'Outl'],
+  Rounding: ['Rounding', 'Round', 'Rnd.'],
+  '3D effect': ['3D fx', '3D fx', '3D'],
+  'Log scale': ['Logscale', 'Log', 'Log'],
+  'Dark mode': ['Darkmode', 'Dark', 'Dark'],
+  'Cherry-pick': ['Cherry', 'Cherry', 'Pick'],
+  'Skip Q2': ['Skip Q2', 'SkipQ2', 'NoQ2'],
+  Forecast: ['Forecast', 'Fcast', 'Fcst'],
+};
+/** The label for a box of `w` columns: full if it fits, else its short form. */
+function fit(l, wi) {
+  const s = wi === 0 || l.length <= WIDTHS[wi] ? l : SHORT[l]?.[wi - 1];
+  if (!s || s.length > WIDTHS[wi]) throw new Error(`chart: no ${WIDTHS[wi]}-column form of the label ${l}`);
+  return s;
+}
 const TITLE_MAX = 24; // the monitor's title row, left of the slope readout
 
 const str = (s) => {
@@ -25,9 +56,12 @@ export function dataAsm({ dept = 'lobby' } = {}) {
   let first = 0;
   out.push(`kind_first: .byte ${kinds.map((k) => ((first += k.length), first - k.length)).join(', ')}`);
   out.push(`kind_count: .byte ${kinds.map((k) => k.length).join(', ')}`);
-  out.push(`lab_lo: .byte ${labels.map((_, i) => `<cb${i}`).join(', ')}`);
-  out.push(`lab_hi: .byte ${labels.map((_, i) => `>cb${i}`).join(', ')}`);
-  out.push(`lab_len: .byte ${labels.map((l) => l.length).join(', ')}`);
-  labels.forEach((l, i) => out.push(`cb${i}: .byte ${str(l)}`));
+  // full labels (also row 15), then the forms for 10, 8 and 6-column boxes: lab_base_tab in the overlay
+  const forms = WIDTHS.flatMap((_, wi) => labels.map((l) => fit(l, wi)));
+  out.push(`L_COUNT = ${labels.length}`);
+  out.push(`lab_lo: .byte ${forms.map((_, i) => `<cb${i}`).join(', ')}`);
+  out.push(`lab_hi: .byte ${forms.map((_, i) => `>cb${i}`).join(', ')}`);
+  out.push(`lab_len: .byte ${forms.map((l) => l.length).join(', ')}`);
+  forms.forEach((l, i) => out.push(`cb${i}: .byte ${str(l)}`));
   return out.join('\n') + '\n';
 }

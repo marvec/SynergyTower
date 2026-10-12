@@ -1,29 +1,31 @@
 ; Coffee Crossing (src/minigames/frogger.js) as a disk-loaded overlay at $4000.
 ; Carry a full cup from the kitchen to your desk across office lanes of speed-walking managers, rolling
-; chairs, mail carts, Roombas and people carrying boxes. A collision spills 22% of the cup (stunned 0.6 s,
-; then back to the last safe row; an empty cup sends you back to the kitchen). The "Quick question?"
-; colleague homes in on your lane and freezes you for 1.5 s. Difficulty 0 (floor 1): 3 lanes, a median,
-; 3 lanes; 2 cups in 50 s; your desk is 5 tiles wide; traffic 8% faster after each cup.
-; Score = coffee delivered / 2 cups. Content: gen/mg_frogger_data.s (tools/mg/frogger.js).
+; chairs, mail carts, Roombas, people carrying boxes and (d >= 0.4) dogs. A collision spills part of the cup
+; (stunned 0.6 s, then back to the last safe row; an empty cup sends you back to the kitchen). The "Quick
+; question?" colleague homes in on your lane and freezes you for 1.5 s. Traffic is 8% faster after each cup.
+; Difficulty 0: 3 lanes, a median, 3 lanes; 2 cups in 50 s; 22% spilled; desk 5 tiles wide; 4 median decor;
+;   traffic 26 px/s × kind, ~2 per lane; the colleague walks 20 px/s and tries a lane hop every ~3.5 s.
+; Difficulty 1: 4 + 4 lanes (from d = 0.5, with 3 cups); 45 s; 30% spilled; desk 3 tiles; 6 decor; traffic
+;   50 px/s, ~3.4 per lane (at most 3 here: two sprite sets of 3); the colleague 32 px/s, a hop every ~2 s.
+; Score = coffee delivered / cups required. Content: gen/mg_frogger_data.s (tools/mg/frogger.js).
 ;
-; The field is the browser's 24 × 9 tiles at 3/4 scale: 12 × 16 px tiles on chars 2-37, rows 3-20.
-; Traffic is sprites 2-7, two per lane: lanes 1-3 use them first, then a raster poll between the halves
-; (line 137) moves them to lanes 5-7. The side walls are black hires blocks in front of the traffic
-; (sprite priority), so people walk in and out of the field as in the browser.
+; The field is the browser's 24 × 9 (11) tiles at 3/4 scale: 12 × 16 px tiles on chars 2-37, rows 3-20
+; (rows 2-23 with 11 rows; the status then moves to the header and the messages to the footer row).
+; You are sprite 0, the colleague sprite 1. Traffic: sprites 2-4 on the even lanes, 5-7 on the odd ones;
+; after the frame's logic, raster polls re-use each set two lanes further down once the lane above it has
+; been drawn. The side walls are black hires blocks in front of the traffic (sprite priority), so people
+; walk in and out of the field as in the browser.
 
 .include "api.inc"
 .include "gen/chars.inc"
 
 COLS      = 24                  ; tiles across
-ROWS      = 9                   ; your desk, 3 lanes, median, 3 lanes, kitchen
-MEDIAN    = 4
-KITCHEN   = 8
-LANES     = 6
-REQUIRED  = 2                   ; cups
-TOTAL_T   = 50 * 50
-SPILL_AMT = 22                  ; % of a cup per collision
-SLOT_W    = 5                   ; your desk, in tiles
-DECOR_N   = 4                   ; blocked tiles on the median
+MAXL      = 8                   ; lanes: 3 + 3, or 4 + 4 from d = 0.5
+PER       = 3                   ; traffic per lane, at most (one sprite set)
+MAXO      = MAXL * PER
+MAXR      = 11                  ; rows: your desk, lanes, median, lanes, kitchen
+BIG_FROM  = 128                 ; d >= 0.5: 4 + 4 lanes, 3 cups
+DOG_FROM  = 102                 ; d >= 0.4: dogs (and a second manager) join the lane pool
 HOP_T     = 5                   ; 0.1 s per hop
 STUN_T    = 30
 FREEZE_T  = 75
@@ -35,35 +37,36 @@ INV_CHAT  = 25
 REP_FIRST = 11                  ; a held direction hops again after 0.22 s, then every 0.14 s
 REP_NEXT  = 7
 MSG_T     = 60
-STAT_Y    = 21                  ; status row: coffee, cups
-MSG_Y     = 22                  ; floating messages
+STAT_Y    = 21                  ; 9 rows: status row (coffee, cups) ...
+MSG_Y     = 22                  ; ... and floating messages; 11 rows: header and footer row instead
 NOTE_T    = 150                 ; the department note, 3 s
 LOOP      = 324                 ; traffic wraps over the field + 18 px on each side (x 0-323)
-BASE_SPD  = 100                 ; 26 JS px/s, in 1/256 px per frame at 3/4 scale
+FIELD_R   = 18 + 288            ; traffic x of the field's right edge
+BASE_SPD  = 100                 ; 26 JS px/s, in 1/256 px per frame at 3/4 scale (+ 92 at d = 1)
 ROOMBA_CYC = 242                ; a Roomba crawls at 1/5 speed for 43 of every 242 frames
 ROOMBA_SLOW = 43
-QQ_SPD    = 77                  ; 20 JS px/s
+QQ_SPD    = 77                  ; 20 JS px/s (+ 46 at d = 1)
 QQ_LEAVE  = 269                 ; 70 JS px/s
 QQ_HOME   = 105                 ; turns towards you within this distance on your lane
 QQ_HIT    = 6
 QQ_TELE   = 28                  ; the '!' before a lane hop, 0.55 s
-QQ_GONE   = 150                 ; 3 s away after a chat
+QQ_GONE   = 150                 ; 3 s away after a chat (- 60 at d = 1)
+QQ_SHIFT  = 175                 ; 3.5 s between lane hop tries (- 75 at d = 1), × 0.8-1.2
 FX        = 2                   ; field: chars 2-37 ...
-FY        = 3                   ; ... rows 3-20, two per tile
 SPR_X     = 10                  ; sprite x = traffic x + SPR_X (field px + 28)
-SPR_Y     = 67                  ; sprite y on tile row 0 (feet 3 px above the row's bottom)
-MUX_LINE  = 137                 ; lanes 1-3 sprites end by here, lanes 5-7 start at 147
 P_SHIRT   = 14
 Q_SHIRT   = 5
+DOG_COL   = 8
 PTR_DOWN  = ($e000 - $c000) / 64        ; person frames: down, up, left, right × 3
 PTR_BOXES = ($e300 - $c000) / 64        ; ours: boxes, chair, cart right, cart left, Roomba, Roomba + cat
+PTR_DOG   = PTR_BOXES + 5               ; (the dog takes the cat's frame when dogs are about)
 K_MANAGER = 0
 K_CHAIR   = 1
 K_CART    = 2
 K_ROOMBA  = 3
 K_BOXES   = 4
+K_DOG     = 5
 B_MARGIN  = 4                   ; bot: extra px of room it wants
-
 .zeropage
 zp_first:
 t0:       .res 1
@@ -122,19 +125,24 @@ sp:       .res 2
 .include "mgkit.s"
 
 ; ---- setup -------------------------------------------------------------------------------------------
+; A = difficulty 0-255 (d = A / 255)
 init:
+        tay
         ldx #zp_last - zp_first - 1
         lda #0
 :       sta zp_first,x
         dex
         bpl :-
-        ldx #bss_end - bss_start
-:       sta bss_start-1,x
-        dex
+        tax                     ; (BSS: up to 512 bytes)
+:       sta bss_start,x
+        sta bss_start+256,x
+        inx
         bne :-
+        sty dif
         lda #$ff
         sta bub_row
         sta mk_col
+        jsr setup_diff
         ; our sprite frames under the KERNAL
         ldx #0
 :       lda frog_frames,x
@@ -145,7 +153,14 @@ init:
         sta $e400,x
         inx
         bpl :-
-        lda #$ff
+        lda dog_on              ; dogs about: the dog replaces the Roomba's cat
+        beq :++
+        ldx #63
+:       lda dog_frame,x
+        sta $c000 + 64 * PTR_DOG,x
+        dex
+        bpl :-
+:       lda #$ff
         sta $d01c               ; all multicolour
         lda #0                  ; (on with the first frame's positions)
         sta $d015
@@ -157,8 +172,8 @@ init:
         sta $d025
         lda #10
         sta $d026
-        ; median decor: DECOR_N distinct tiles
-        lda #DECOR_N
+        ; median decor: decor_n distinct tiles
+        lda decor_n
         sta t1
 :       lda #COLS
         jsr API_RMOD
@@ -176,7 +191,7 @@ init:
         bne :-
         jsr make_lanes
         ; the colleague comes in from one side
-        lda #LANES
+        lda nlanes
         jsr API_RMOD
         tax
         lda lane_row,x
@@ -189,12 +204,12 @@ init:
         sta q_lx
         lda q_start_hi,x
         sta q_lx+1
-        lda #175                ; 3.5 s to the first lane hop
+        lda q_base              ; the first lane hop try
         sta q_shift
         ; you, in the kitchen
         lda #COLS/2
         sta p_col
-        lda #KITCHEN
+        lda kitchen
         sta p_row
         sta p_last
         lda #100
@@ -205,13 +220,17 @@ init:
         ; screen
         text 1, 0, s_name, 7
         jsr draw_cups_header
-        lda #FY
+        lda fy
         sta t4
+        lda rows
+        asl
+        adc fy
+        sta t5                  ; past the field's last char row
 :       ldy t4
         jsr draw_char_row
         inc t4
         lda t4
-        cmp #FY + 2 * ROWS
+        cmp t5
         bne :-
         jsr draw_status
         lda #<s_keys
@@ -224,9 +243,152 @@ init:
         lda #NOTE_T
         sta msg_t
         jsr build_sprites
-        lda #<TOTAL_T
-        ldx #>TOTAL_T
+        lda #<2500              ; 50 s, 45 s at d = 1
+        sec
+        sbc dif
+        pha
+        lda #>2500
+        sbc #0
+        tax
+        pla
         jmp timer_start
+
+; The difficulty's settings (byDiff over d = dif / 255) and the layout that goes with them.
+setup_diff:
+        ldx #0                  ; 3 + 3 lanes, 2 cups, rows 3-20 ...
+        lda dif
+        cmp #BIG_FROM
+        bcc :+
+        inx                     ; ... or 4 + 4 lanes, 3 cups, rows 2-23
+:       stx big
+        lda half_tab,x          ; lanes per side
+        sta median
+        inc median              ; (the median's row: half + 1)
+        asl
+        sta nlanes
+        adc #3
+        sta rows
+        sta kitchen
+        dec kitchen
+        lda req_tab,x
+        sta required
+        lda fy_tab,x
+        sta fy
+        lda msg_tab,x
+        sta msg_row
+        lda stat_tab,x
+        sta stat_row
+        lda fy                  ; sprite y on row 0: feet 3 px above the row's bottom
+        asl
+        asl
+        asl
+        adc #43
+        ldx #0
+:       sta row_y,x
+        clc
+        adc #16
+        inx
+        cpx #MAXR
+        bne :-
+        ldx #MAXR - 1           ; lane numbers: rows 1 .. kitchen - 1 except the median
+        lda #$ff
+:       sta row_lane,x
+        dex
+        bpl :-
+        ldx #0
+        ldy #1
+:       cpy median
+        beq :+
+        tya
+        sta lane_row,x
+        txa
+        sta row_lane,y
+        inx
+:       iny
+        cpy kitchen
+        bcc :--
+        ; desk 5 / 4 / 3 tiles and 4 / 5 / 6 median decor (round(5 - 2 d), round(4 + 2 d))
+        ldx #5
+        lda dif
+        cmp #64
+        bcc :+
+        dex
+        cmp #192
+        bcc :+
+        dex
+:       stx slot_w
+        txa
+        eor #$ff
+        sec
+        adc #9
+        sta decor_n
+        lda dif                 ; spilled per collision: 22 + 8 d %
+        lsr
+        lsr
+        lsr
+        lsr
+        lsr
+        clc
+        adc #22
+        sta spill_amt
+        lda dif                 ; dogs from d = 0.4
+        cmp #DOG_FROM
+        lda #0
+        rol
+        sta dog_on
+        lda dif                 ; traffic: 100 + 0.36 A (26 -> 50 JS px/s)
+        lsr
+        lsr
+        sta t0                  ; A / 4
+        lsr
+        sta t1                  ; A / 8
+        lsr
+        lsr
+        lsr                     ; A / 64
+        eor #$ff
+        sec
+        adc t0
+        clc
+        adc t1
+        adc #BASE_SPD
+        sta base_spd
+        lda t1                  ; the colleague: 77 + 0.19 A (20 -> 32 JS px/s)
+        lsr
+        clc
+        adc t1
+        adc #QQ_SPD
+        sta qspd_lo
+        lda #0
+        sta qspd_hi
+        lda #<QQ_LEAVE
+        sta qspd_lo+1
+        lda #>QQ_LEAVE
+        sta qspd_hi+1
+        lda t1                  ; lane hop tries: 175 - 0.29 A frames (3.5 -> 2 s)
+        lsr
+        lsr
+        sta t2                  ; A / 32
+        lsr
+        lsr
+        clc
+        adc t2
+        adc t0
+        eor #$ff
+        sec
+        adc #QQ_SHIFT
+        sta q_base
+        lda t1                  ; away after a chat: 150 - 0.23 A frames (3 -> 1.8 s)
+        lsr
+        lsr
+        lsr
+        eor #$ff
+        sec
+        adc t0
+        eor #$ff
+        sec
+        adc #QQ_GONE
+        sta q_gone_t
+        rts
 
 ; Lane kinds (never twice in a row), alternating directions, speeds and the traffic on them.
 make_lanes:
@@ -237,28 +399,28 @@ make_lanes:
         sta t2                  ; previous kind
         ldx #0
 @ln:    stx t1
-        lda #5
+:       lda #5                  ; from the pool (+ dog, manager at d >= 0.4), not the previous kind
+        clc
+        adc dog_on
+        adc dog_on
         jsr API_RMOD
+        tax
+        lda kind_pool,x
         cmp t2
-        bne :+
-        lda #4                  ; one of the other four
-        jsr API_RMOD
-        cmp t2
-        bcc :+
-        adc #0                  ; (C = 1: +1)
-:       ldx t1
+        beq :-
+        ldx t1
         sta ln_kind,x
         sta t2
         lda t3
         sta ln_dir,x
         eor #1
         sta t3
-        ; speed = BASE_SPD × 0.88-1.12 × the kind's factor (both / 128)
+        ; speed = base × 0.88-1.12 × the kind's factor (both / 128), 16 bit
         lda #31                 ; × (113..143) / 128
         jsr API_RMOD
         clc
         adc #113
-        ldx #BASE_SPD
+        ldx base_spd
         jsr mul8
         lda prod
         asl
@@ -276,136 +438,224 @@ make_lanes:
         rol
         ldx t1
         sta ln_spd,x
+        lda #0
+        rol
+        sta ln_spdh,x
         jsr place_lane
         ldx t1
         inx
-        cpx #LANES
+        cpx nlanes
         bne @ln
         rts
 
-; Traffic of lane t1: two, evenly spaced with ±12% jitter (a cart lane has one 74% of the time).
+; Traffic of lane t1: n = round((2 + 1.4 d) × the kind's density × 0.85-1.15), 1-3 (the browser allows 4),
+; evenly spaced around the loop with ±12% jitter.
 place_lane:
-        lda t1
-        asl
-        sta t0                  ; its first obstacle
+        lda dif                 ; (2 + 1.4 d) × 16 = 32 + 0.086 A
+        lsr
+        lsr
+        lsr
+        lsr
+        sta t0
+        lsr
+        clc
+        adc t0
+        sta t0
+        lda dif
+        lsr
+        lsr
+        lsr
+        lsr
+        lsr
+        lsr
+        lsr
+        eor #$ff
+        sec
+        adc t0
+        clc
+        adc #32
+        ldy t1
+        ldx ln_kind,y
+        ldy kind_dens,x
         tax
+        tya
+        jsr mul8                ; × density / 128
+        lda prod
+        asl
+        lda prod+1
+        rol
+        sta t4
+        lda #39                 ; × (109..147) / 128
+        jsr API_RMOD
+        clc
+        adc #109
+        ldx t4
+        jsr mul8
+        lda prod
+        asl
+        lda prod+1
+        rol
+        clc
+        adc #8                  ; round (sixteenths)
+        lsr
+        lsr
+        lsr
+        lsr
+        bne :+
+        lda #1
+:       cmp #PER + 1
+        bcc :+
+        lda #PER
+:       ldx t1
+        sta ln_n,x
+        tay
+        lda spacing_lo-1,y
+        sta sp
+        lda spacing_hi-1,y
+        sta sp+1
+        lda jitter_w-1,y
+        sta t5
+        ; offset: random 0 .. spacing - 1 (16 bit: two bytes, the high one only when spacing > 255)
+        lda sp+1
+        beq :+
+        lda #2                  ; 0-323: 0-161 + 0/162
+        jsr API_RMOD
+        tax
+        lda #162
+        jsr API_RMOD
+        clc
+        adc off_hi_tab,x
+        sta t4
+        lda #0
+        adc #0
+        sta t3
+        jmp @have
+:       lda sp
+        jsr API_RMOD
+        sta t4
+        lda #0
+        sta t3
+@have:  ldx t1                  ; entries lane × 3 ..
+        lda lane3,x
+        sta t0
+        lda #0
+        sta t2                  ; obstacle number
+@ob:    ldx t0
         lda #1
         sta o_used,x
-        sta o_used+1,x
-        ldy t1
-        lda ln_kind,y
-        cmp #K_CART
-        bne @two
-        jsr API_RAND
-        cmp #67
-        bcc @two
-        ldx t0
-        lda #0
-        sta o_used+1,x
-        lda #162                ; anywhere on the loop
-        jsr API_RMOD
-        sta t4
-        jsr API_RAND
-        and #1
-        beq :+
-        lda t4
+        lda t1
+        sta o_lane,x
+        and #1                  ; its hardware sprite's bit: 2 + k (even lanes), 5 + k (odd lanes)
+        tay
+        lda hw_first,y
         clc
-        adc #162
-        sta t4
-        lda #0
-        rol
-:       ldx t0
-        sta o_xhi,x
-        lda t4
-        sta o_xlo,x
-        jmp @extra
-@two:   lda #162
-        jsr API_RMOD
-        sta t4                  ; offset
-        ldx t0
-        jsr @jitter
-        lda t4
-        clc
-        adc #162
-        sta t4
-        ldx t0
-        inx
-        lda #0
-        rol
-        jsr @jitter_hi
-@extra: lda t1
+        adc t2
+        tay
+        lda bit_tab,y
+        sta o_bit,x
+        ; x = offset + k × spacing + jitter (-w..w), wrapped into 0..LOOP-1
+        lda t5
         asl
-        tax
-        jsr @one
-        inx
-@one:   stx t0
-        lda #ROOMBA_CYC
+        clc
+        adc #1
+        jsr API_RMOD
+        ldx t0
+        sec
+        sbc t5
+        ldy #0
+        bcs :+
+        dey                     ; negative
+:       clc
+        adc t4
+        sta o_xlo,x
+        tya
+        adc t3
+        sta o_xhi,x
+        bpl :+
+        lda o_xlo,x             ; below 0: + LOOP
+        clc
+        adc #<LOOP
+        sta o_xlo,x
+        lda o_xhi,x
+        adc #>LOOP
+        sta o_xhi,x
+        jmp @wrapped
+:       cmp #>LOOP              ; LOOP or more: - LOOP
+        bcc @wrapped
+        bne :+
+        lda o_xlo,x
+        cmp #<LOOP
+        bcc @wrapped
+:       lda o_xlo,x
+        sec
+        sbc #<LOOP
+        sta o_xlo,x
+        lda o_xhi,x
+        sbc #>LOOP
+        sta o_xhi,x
+@wrapped:
+        lda #ROOMBA_CYC         ; Roomba pause cycle / dog stride phase
         jsr API_RMOD
         ldx t0
         sta o_ph,x
-        jsr API_RAND
+        lda #60                 ; the dog's first yap in 1.2-2.4 s
+        jsr API_RMOD
+        clc
+        adc #60
         ldx t0
-        cmp #77                 ; 30%: the office cat rides along
+        sta o_yap,x
+        lda #0                  ; 30%: the office cat rides along (no cat while dogs are about)
+        ldx dog_on
+        bne :+
+        jsr API_RAND
+        cmp #77
         lda #0
         rol
         eor #1
+:       ldx t0
         sta o_cat,x
-        rts
-; x of obstacle X = t4 (+ 256 × A) + jitter -19..19, wrapped into 0..LOOP-1
-@jitter:
-        lda #0
-@jitter_hi:
-        stx t0
-        sta t5
-        lda #39
-        jsr API_RMOD
-        sec
-        sbc #19
-        ldx #0
-        bcs :+
-        dex                     ; negative
-:       clc
-        adc t4
-        tay
-        txa
-        adc t5
-        bpl :+
-        tax                     ; below 0: + LOOP
-        tya
+        inc t0
+        lda t4                  ; next: + spacing
         clc
-        adc #<LOOP
-        tay
-        txa
-        adc #>LOOP
-        bne @set
-:       cmp #>LOOP              ; LOOP or more: - LOOP
-        bcc @set
-        cpy #<LOOP
-        bcc @set
-        tax
-        tya
-        sbc #<LOOP
-        tay
-        txa
-        sbc #>LOOP
-@set:   ldx t0
-        sta o_xhi,x
-        tya
-        sta o_xlo,x
-        rts
+        adc sp
+        sta t4
+        lda t3
+        adc sp+1
+        sta t3
+        inc t2
+        lda t2
+        ldx t1
+        cmp ln_n,x
+        bcs :+
+        jmp @ob
+:       rts
 
-; New desk position: slot 1-18, and the screen columns whose middle lies in it.
+; New desk position: slot 1 .. 23 - width, and the screen columns whose middle lies in it.
 new_slot:
-        lda #COLS - SLOT_W - 1
+        lda #COLS - 1
+        sec
+        sbc slot_w
         jsr API_RMOD
         clc
         adc #1
         sta slot
+.if .defined(AUTOPLAY)
+        ; (test builds: again if every tile of the desk has decor in front of it, which the bot can't do)
+        tax
+        ldy slot_w
+:       lda decor,x
+        beq :+
+        inx
+        dey
+        bne :-
+        beq new_slot
+:       lda slot
+.endif
         asl
         asl
         sta t0
         asl
-        adc t0                  ; × 12 (at most 216)
+        adc t0                  ; × 12 (at most 240)
         sta t0
         clc
         adc #3
@@ -415,10 +665,11 @@ new_slot:
         clc
         adc #FX
         sta sl_c0
-        lda t0
+        ldx slot_w
+        lda w12_tab-3,x         ; + width × 12 + 3, 9 bits
         clc
-        adc #63
-        ror                     ; 9 bits
+        adc t0
+        ror
         lsr
         lsr
         clc
@@ -432,7 +683,7 @@ frame:
         beq :+
         sec
         rts
-:       jsr show_front          ; you, the colleague, lanes 1-3 (built last frame)
+:       jsr show_front          ; you, the colleague, lanes 0-1 (built last frame)
         inc anim
         jsr msg_tick
         jsr timer_tick
@@ -483,26 +734,24 @@ frame:
         rts
 @draw:  jsr draw_marker
         jsr build_sprites
-        jsr mux_wait
-        ldx #6                  ; lanes 5-7
-        jsr write_wave
+        jsr mux_lanes           ; lanes 2.. as the beam passes the lanes above
         clc
         rts
 
 ; ---- traffic -----------------------------------------------------------------------------------------
 traffic:
-        ldx #2 * LANES - 1
+        ldx #MAXO - 1
 @o:     lda o_used,x
         bne :+
         jmp @next
-:       txa
-        lsr
-        tay
+:       ldy o_lane,x
         lda ln_spd,y
         sta t1
+        lda ln_spdh,y
+        sta t2
         lda ln_kind,y
         cmp #K_ROOMBA
-        bne @move
+        bne @dog
         inc o_ph,x
         lda o_ph,x
         cmp #ROOMBA_CYC
@@ -511,45 +760,54 @@ traffic:
         sta o_ph,x
 :       cmp #ROOMBA_SLOW
         bcs @move
-        lda t1                  ; × 3/16
+        lsr t2                  ; × 3/16
+        ror t1
+        lsr t2
+        ror t1
+        lsr t2
+        ror t1
+        lda t1
         lsr
-        lsr
-        lsr
-        sta t2
-        lsr
-        adc t2
+        adc t1
         sta t1
+        lda #0
+        sta t2
+        beq @move
+@dog:   cmp #K_DOG
+        bne @move
+        jsr dog_step
 @move:  lda ln_dir,y
         bne @left
         lda o_frac,x
         clc
         adc t1
         sta o_frac,x
-        bcc @next
-        inc o_xlo,x
-        bne :+
+        lda o_xlo,x
+        adc t2
+        sta o_xlo,x
+        bcc :+
         inc o_xhi,x
-:       lda o_xhi,x             ; reached LOOP (one px per frame at most): back to 0
+:       lda o_xhi,x             ; reached LOOP: - LOOP
         beq @next
         lda o_xlo,x
         cmp #<LOOP
         bcc @next
-        lda #0
+        sbc #<LOOP
         sta o_xlo,x
+        lda #0
         sta o_xhi,x
         beq @next
 @left:  lda o_frac,x
         sec
         sbc t1
         sta o_frac,x
-        bcs @next
         lda o_xlo,x
-        bne :+
+        sbc t2
+        sta o_xlo,x
+        bcs @next
         dec o_xhi,x
-:       dec o_xlo,x
-        lda o_xhi,x
         bpl @next
-        lda o_xlo,x             ; -1: LOOP - 1
+        lda o_xlo,x             ; below 0: + LOOP
         clc
         adc #<LOOP
         sta o_xlo,x
@@ -561,13 +819,90 @@ traffic:
         jmp @o
 :       rts
 
+; Dog X (lane Y, both kept): speed t1/t2 × (1 + 0.55 sin(3 t + phase)); now and then a yap near you.
+dog_step:
+        stx t3
+        sty t4
+        dec o_yap,x
+        bne @speed
+        lda #61                 ; next yap in 1.2-2.4 s
+        jsr API_RMOD
+        clc
+        adc #60
+        ldx t3
+        sta o_yap,x
+        lda msg_t               ; (only when no other message is up)
+        bne @speed
+        ldy t4
+        lda lane_row,y          ; within 2 rows of you
+        sec
+        sbc p_row
+        bcs :+
+        eor #$ff
+        adc #1
+:       cmp #3
+        bcs @speed
+        lda o_xhi,x             ; and on the field
+        bne :+
+        lda o_xlo,x
+        cmp #18
+        bcc @speed
+        bcs @yap
+:       lda o_xlo,x
+        cmp #<FIELD_R
+        bcs @speed
+@yap:   lda #3
+        jsr API_RMOD
+        tax
+        lda yap_lo,x
+        pha
+        lda yap_hi,x
+        tax
+        pla
+        ldy #15
+        jsr message
+@speed: ldx t3
+        lda anim                ; phase: 2.5 steps (of 256) per frame
+        and #1
+        clc
+        adc #2
+        adc o_ph,x
+        sta o_ph,x
+        lsr
+        lsr
+        tay
+        lda dog_sin,y           ; f = 128 + 70 sin
+        sta t5
+        tax
+        lda t1
+        jsr mul8                ; lo × f
+        lda #0
+        sta t1
+        lda t2
+        beq :+
+        lda prod+1              ; + hi × f × 256 (hi is 0 or 1)
+        clc
+        adc t5
+        sta prod+1
+        rol t1
+:       asl prod                ; / 128
+        rol prod+1
+        rol t1
+        lda t1
+        sta t2
+        lda prod+1
+        sta t1
+        ldx t3
+        ldy t4
+        rts
+
 ; ---- the quick-question colleague --------------------------------------------------------------------
 update_qq:
         lda q_gone
         beq @here
         dec q_gone
         bne @rts
-        lda #LANES              ; back on a random lane, from a random side
+        lda nlanes              ; back on a random lane, from a random side
         jsr API_RMOD
         tax
         lda lane_row,x
@@ -607,10 +942,20 @@ update_qq:
         jmp @move
 @count: dec q_shift
         bne @move
-        lda #71                 ; next try in 2.8-4.2 s
+        lda q_base              ; next try in base × 0.8-1.2: base × 0.8 + rand(base × 0.4)
+        ldx #102
+        jsr mul8
+        ldx prod+1
+        inx
+        txa
         jsr API_RMOD
+        sta t3
+        lda q_base
+        ldx #205
+        jsr mul8
+        lda prod+1
         clc
-        adc #140
+        adc t3
         sta q_shift
         lda p_row               ; one lane towards you, if you are 3 rows away or less
         sec
@@ -663,7 +1008,7 @@ update_qq:
         bcc @in
 @out:   lda q_leave
         beq @turn
-        lda #QQ_GONE
+        lda q_gone_t
         sta q_gone
         rts
 @turn:  lda q_dir
@@ -757,7 +1102,8 @@ hit_qq:
         sta t2
 :       lda p_row
         asl
-        adc #FY - 1
+        adc fy
+        sbc #0                  ; (C = 0: - 1)
         sta bub_row
         tay
         ldx t2
@@ -874,9 +1220,9 @@ hop:
         jsr API_SFX
         lda p_row
         beq deliver
-        cmp #MEDIAN
+        cmp median
         beq :+
-        cmp #KITCHEN
+        cmp kitchen
         bne @rts
 :       sta p_last
         rts
@@ -885,7 +1231,7 @@ hop:
 is_free:
         cpx #COLS
         bcs @no
-        cpy #ROWS
+        cpy rows
         bcs @no
         cpy #0
         bne @med
@@ -894,10 +1240,10 @@ is_free:
         txa
         sec
         sbc slot
-        cmp #SLOT_W
+        cmp slot_w
         bcs @no
         bcc @yes
-@med:   cpy #MEDIAN
+@med:   cpy median
         bne @yes
         lda decor,x
         bne @no
@@ -935,7 +1281,7 @@ deliver:
         jsr draw_status
         jsr draw_cups_header
         lda ndel
-        cmp #REQUIRED
+        cmp required
         bcc :+
         jmp finish
 :       lda #CELEB_T
@@ -944,24 +1290,30 @@ deliver:
 
 ; Refill: traffic 8% faster, a new desk.
 next_round:
-        ldx #LANES - 1
-:       lda ln_spd,x            ; × (1 + 1/16 + 1/64)
-        lsr
-        lsr
-        lsr
-        lsr
-        sta t1
+        ldx nlanes
+        dex
+:       lda ln_spdh,x           ; × (1 + 1/16 + 1/64), 16 bit
+        sta t2
+        lda ln_spd,x
+        ldy #4
+@sh:    lsr t2
+        ror
+        dey
+        bne @sh
+        sta t1                  ; / 16 (fits a byte)
         lsr
         lsr
         clc
         adc t1
         adc ln_spd,x
         sta ln_spd,x
-        dex
-        bpl :-
+        bcc :+
+        inc ln_spdh,x
+:       dex
+        bpl :--
         lda #COLS/2
         sta p_col
-        lda #KITCHEN
+        lda kitchen
         sta p_row
         sta p_last
         lda #100
@@ -972,9 +1324,10 @@ next_round:
         sta hop_t
         sta p_face
         jsr new_slot
-        ldy #FY
+        ldy fy
         jsr draw_char_row
-        ldy #FY + 1
+        ldy fy
+        iny
         jsr draw_char_row
         lda #SFX_BLIP
         jsr API_SFX
@@ -994,8 +1347,12 @@ collide:
         ldx p_row
         lda row_lane,x
         bmi @rts                ; not a lane
-        asl
         tax
+        lda lane3,x
+        tax
+        jsr hit_test
+        bcs spill
+        inx
         jsr hit_test
         bcs spill
         inx
@@ -1036,9 +1393,7 @@ hit_test:
         eor #$ff
         adc #0
 :       bne @no
-        txa
-        lsr
-        tay
+        ldy o_lane,x
         lda ln_kind,y
         tay
         lda kind_hit,y
@@ -1051,7 +1406,7 @@ hit_test:
 spill:
         lda coffee
         sec
-        sbc #SPILL_AMT
+        sbc spill_amt
         bcs :+
         lda #0
 :       sta coffee
@@ -1076,7 +1431,7 @@ spill:
 after_stun:
         lda coffee
         bne @back
-        lda #KITCHEN            ; empty cup: back to the kitchen for a refill
+        lda kitchen             ; empty cup: back to the kitchen for a refill
         sta p_row
         sta p_last
         lda #100
@@ -1136,14 +1491,11 @@ calc_pl:
 :       rts
 
 ; ---- sprites -----------------------------------------------------------------------------------------
-; Registers for you (0), the colleague (1) and traffic entries 0-11 (lanes 1-3: 0-5, lanes 5-7: 6-11; entry
-; k is hardware sprite 2 + k mod 6).
+; Registers for you (0), the colleague (1) and the traffic entries (lane × 3 + k: sprite set 2-4 or 5-7).
 build_sprites:
         jsr calc_pl
         lda #0
         sta msb_pq
-        sta msb_w
-        sta msb_w+1
         ; you: x = pl + SPR_X, minus the rest of the hop
         lda pl
         clc
@@ -1253,30 +1605,29 @@ build_sprites:
         adc side_ptr,x
 @qptr:  sta q_ptr
 @traffic:
-        ldx #2 * LANES - 1
+        ldx nlanes              ; per-lane MSB bits, filled below
+        lda #0
+:       sta ln_msb-1,x
+        dex
+        bne :-
+        ldx #MAXO - 1
 @o:     lda o_used,x
         bne @on
         sta s_x,x               ; parked in the border
         jmp @next
-@on:    lda o_xlo,x
+@on:    ldy o_lane,x
+        sty t2
+        lda o_xlo,x
         clc
         adc #SPR_X
         sta s_x,x
         lda o_xhi,x
         adc #0
         beq :+
-        ldy #0
-        cpx #6
-        bcc @w1
-        iny
-@w1:    lda msb_w,y
-        ora bit_of,x
-        sta msb_w,y
-:       txa
-        lsr
-        tay                     ; lane
-        lda lane_row,y
-        sty t2
+        lda ln_msb,y
+        ora o_bit,x
+        sta ln_msb,y
+:       lda lane_row,y
         tay
         lda row_y,y
         sta s_y,x
@@ -1295,7 +1646,7 @@ build_sprites:
         ldy t2
         rts
 
-kind_jmp: .word k_manager-1, k_chair-1, k_cart-1, k_roomba-1, k_boxes-1
+kind_jmp: .word k_manager-1, k_chair-1, k_cart-1, k_roomba-1, k_boxes-1, k_dog-1
 
 k_manager:                      ; dark suit, walking fast
         lda ln_dir,y
@@ -1327,6 +1678,14 @@ k_roomba:
 :       lda #PTR_BOXES + 4
         ldy #5
         bne k_set
+k_dog:                          ; trots: bobs a pixel with its stride
+        lda o_ph,x
+        and #$20
+        beq :+
+        dec s_y,x
+:       lda #PTR_DOG
+        ldy #DOG_COL
+        bne k_set
 k_boxes:                        ; one frame, bobbing as it walks
         lda anim
         lsr
@@ -1344,7 +1703,7 @@ k_set:  sta s_ptr,x
         sta s_col,x
         rts
 
-; Sprites 0, 1 and traffic entries 0-5, at the start of the frame (above the field).
+; Sprites 0, 1 and lanes 0-1 at the start of the frame (above the field).
 show_front:
         lda #$ff
         sta $d015
@@ -1364,53 +1723,79 @@ show_front:
         sta SCREEN + $3f9
         lda #Q_SHIRT
         sta $d028
-        lda msb_pq              ; (wave 2 keeps these, not the next frame's)
+        lda msb_pq              ; (the lanes add theirs)
         sta msb_now
         ldx #0
+        jsr write_lane
+        ldx #1
         ; fall through
 
-; X = 0 (entries 0-5) or 6 (entries 6-11) into hardware sprites 2-7.
-write_wave:
-        stx t0
-        ldy #2
-:       lda s_ptr,x
+; X = lane: its 3 entries into its sprite set (2-4 for even lanes, 5-7 for odd ones), and its MSB bits.
+write_lane:
+        stx wl_l
+        lda lane3,x
+        tax                     ; first entry
+        lda wl_l
+        and #1
+        tay
+        lda hw_first,y
+        tay                     ; first sprite
+        lda #PER
+        sta wl_n
+@s:     lda s_ptr,x
         sta SCREEN + $3f8,y
         lda s_col,x
         sta $d027,y
-        inx
-        iny
-        cpy #8
-        bne :-
-        ldx t0
-        ldy #4
-:       lda s_x,x
+        sty wl_y
+        tya
+        asl
+        tay
+        lda s_x,x
         sta $d000,y
         lda s_y,x
         sta $d001,y
+        ldy wl_y
         inx
         iny
-        iny
-        cpy #16
-        bne :-
-        ldx #0
-        lda t0
-        beq :+
-        inx
-:       lda msb_w,x
-        ora msb_now
+        dec wl_n
+        bne @s
+        lda wl_l
+        and #1
+        tay
+        lda msb_now
+        and msb_keep,y          ; this set's bits from this lane
+        ldx wl_l
+        ora ln_msb,x
+        sta msb_now
         sta $d010
         rts
 
-; Wait until the beam is between the halves (lines MUX_LINE-249 of this frame).
-mux_wait:
-:       lda $d011
+; Lanes 2 .. nlanes-1: each one's sprite set is re-used once the beam is past the lane two rows up
+; (its sprites end 21 lines below their top), before this lane's sprites start.
+mux_lanes:
+        ldx #2
+@l:     cpx nlanes
+        bcs @rts
+        stx wl_i
+        lda lane_row-2,x
+        tay
+        lda row_y,y
+        clc
+        adc #21
+        sta wl_line
+:       lda $d011               ; wait for lines wl_line-249 of this frame
         bmi :-
         lda $d012
-        cmp #MUX_LINE
+        cmp wl_line
         bcc :-
         cmp #250
         bcs :-
-        rts
+        ldx wl_i
+        jsr write_lane
+        ldx wl_i
+        inx
+        bne @l
+@rts:   rts
 
 ; ---- screen ------------------------------------------------------------------------------------------
 ; The '?' over the colleague ('!' before a lane hop), unless chatting or leaving.
@@ -1438,7 +1823,8 @@ draw_marker:
         sta t1
         lda q_row
         asl
-        adc #FY - 1
+        adc fy
+        sbc #0                  ; (C = 0: - 1)
         sta t2
         ldx #'?'
         lda q_tele
@@ -1511,24 +1897,28 @@ draw_char_row:
         sta mk_col
         lda dr_row
 :
-        cmp #FY
+        cmp fy
         bne @rts
-        lda sl_c1               ; MY DESK, centred on the desk
-        sec
-        sbc sl_c0
+        lda sl_c1               ; MY DESK, centred on the desk, kept on the field
+        clc
+        adc sl_c0
         sec
         sbc #7
         lsr
-        clc
-        adc sl_c0
-        tax
+        cmp #FX
+        bcs :+
+        lda #FX
+:       cmp #FX + 36 - 7
+        bcc :+
+        lda #FX + 36 - 7
+:       tax
         lda #<s_mydesk
         sta PTR
         lda #>s_mydesk
         sta PTR+1
         lda #7
         sta COLOR
-        ldy #FY
+        ldy fy
         jmp API_PRINT
 @rts:   rts
 
@@ -1540,7 +1930,7 @@ bg_cell:
         bcs @wall
         tya
         sec
-        sbc #FY
+        sbc fy
         lsr
         sta b_row
         lda #0
@@ -1548,9 +1938,9 @@ bg_cell:
         sta b_low               ; 1 = the tile's lower char row
         ldy b_row
         beq @goal
-        cpy #KITCHEN
+        cpy kitchen
         beq @kitchen
-        cpy #MEDIAN
+        cpy median
         beq @median
         lda #8
         sta COLOR
@@ -1612,9 +2002,13 @@ bg_cell:
         lda desk_ch,y
         rts
 
-; Status row: the coffee in your cup and the cups so far.
+; Status row: the coffee in your cup and the cups so far (11 rows: just the coffee, in the header).
 draw_status:
-        text 1, STAT_Y, s_coffee, 7
+        lda big
+        beq :+
+        text 18, 0, s_cup, 7
+        jmp @pct
+:       text 1, STAT_Y, s_coffee, 7
         lda coffee              ; bar of 10 cells: full, half, empty
         sta t1
         ldx #0
@@ -1649,7 +2043,7 @@ draw_status:
         inx
         cpx #10
         bne @cell
-        lda #0
+@pct:   lda #0
         sta buf_i
         lda coffee
         jsr buf_num
@@ -1666,7 +2060,11 @@ draw_status:
         ldx #2
 :       stx COLOR
         ldx #19
-        jsr print_buf
+        lda big
+        beq :+
+        ldx #22
+        jmp print_buf
+:       jsr print_buf
         text 26, STAT_Y, s_cups, 7
         ldx #0
 @cup:   stx t2
@@ -1718,11 +2116,11 @@ draw_status:
         jsr print_buf
 @ncup:  ldx t2
         inx
-        cpx #REQUIRED
+        cpx required
         bne @cup
         rts
 
-; buf at column X of row STAT_Y, padded to 4 chars.
+; buf at column X of the status row, padded to 4 chars.
 print_buf:
         stx t3
 :       ldy buf_i
@@ -1740,7 +2138,7 @@ print_buf:
         lda #>buf
         sta PTR+1
         ldx t3
-        ldy #STAT_Y
+        ldy stat_row
         jmp API_PRINT
 
 ; "Cups 1/2" top right.
@@ -1756,10 +2154,10 @@ draw_cups_header:
         jsr API_PUTC
         ldx #39
         ldy #0
-        lda #REQUIRED
+        lda required
         jmp API_NUM
 
-; A/X = message, Y = colour: centred on row MSG_Y for MSG_T frames.
+; A/X = message, Y = colour: centred on the message row for MSG_T frames.
 message_ptr:
         lda PTR
         ldx PTR+1
@@ -1768,7 +2166,7 @@ message:
         pha
         txa
         pha
-        lda #MSG_Y
+        lda msg_row
         ldx #1
         jsr clear_rows
         lda t0
@@ -1776,7 +2174,7 @@ message:
         pla
         tax
         pla
-        ldy #MSG_Y
+        ldy msg_row
         jsr API_CENTER
         lda #MSG_T
         sta msg_t
@@ -1793,7 +2191,12 @@ msg_tick:
         beq :+
         dec msg_t
         bne :+
-        lda #MSG_Y
+        lda big                 ; (11 rows: the footer comes back)
+        beq @clr
+        lda #<s_keys
+        ldx #>s_keys
+        jmp footer
+@clr:   lda #MSG_Y
         ldx #1
         jmp clear_rows
 :       rts
@@ -1894,17 +2297,20 @@ bot:
         ora done
         bne @rts
         jsr calc_pl
-        ldy #4                  ; target: a desk tile that is free on the median, middle first
-:       lda slot
+        lda slot_w              ; target: a desk tile that is free on the median, middle first
+        lsr
         clc
-        adc tgt_off,y
+        adc slot
         tax
         lda decor,x
-        beq :+
-        dey
-        bpl :-
-:       lda p_row
-        cmp #KITCHEN
+        beq @tgt
+        ldx slot
+:       lda decor,x
+        beq @tgt
+        inx
+        bne :-
+@tgt:   lda p_row
+        cmp kitchen
         bne @up
         cpx p_col
         beq @up
@@ -1938,8 +2344,12 @@ lane_safe:
         lda row_lane,y
         bmi @safe
         sty b_row
-        asl
         tax
+        lda lane3,x
+        tax
+        jsr ob_safe
+        bcc @rts
+        inx
         jsr ob_safe
         bcc @rts
         inx
@@ -1969,10 +2379,7 @@ ob_safe:
         bne :+
         sec
         rts
-:
-        txa
-        lsr
-        tay
+:       ldy o_lane,x
         lda ln_dir,y            ; d = how far you are ahead of it, around the loop
         bne @l
         lda pl
@@ -1997,12 +2404,30 @@ ob_safe:
         lda b_d+1
         adc #>LOOP
 :       sta b_d+1
-        lda ln_spd,y            ; reach = speed × 16 (or 32) frames
-        lsr
-        lsr
-        lsr
-        lsr
+        lda ln_spdh,y           ; reach = speed × 16 (or 32) frames (16 bit / 16)
         sta b_r
+        lda ln_spd,y
+        lsr b_r
+        ror
+        lsr b_r
+        ror
+        lsr b_r
+        ror
+        lsr b_r
+        ror
+        sta b_r
+        lda ln_kind,y           ; a dog may trot 1.55 × as fast: × 1.625
+        cmp #K_DOG
+        bne :+
+        lda b_r
+        lsr
+        sta b_t
+        lsr
+        lsr
+        adc b_t
+        adc b_r
+        sta b_r
+:
         lda b_long
         beq :+
         asl b_r
@@ -2035,21 +2460,39 @@ ob_safe:
         rts
 .endif
 
-; score = (cup 1 + cup 2) × 255 / 200 = sum × 51 / 40
+; score = sum of the cups' % × 255 / (100 × required) = sum × 51 / (20 × required)
 finish:
         lda #0
         sta $d015
         sta $d01b
         sta $d020
-        lda cups
+        sta t2                  ; sum, 16 bit
+        sta t3
+        ldx required
+:       lda cups-1,x
         clc
-        adc cups+1
+        adc t2
+        sta t2
+        bcc :+
+        inc t3
+:       dex
+        bne :--
+        lda t2                  ; × 51: lo × 51 + hi × 51 × 256
         ldx #51
         jsr mul8
+        lda t3
+        beq :+
+        lda prod+1
+        clc
+        adc #51
+        sta prod+1
+:       ldx required            ; ÷ (20 × required)
+        lda div_tab-2,x
+        sta t1
         ldx #0
 @d:     lda prod
         sec
-        sbc #40
+        sbc t1
         tay
         lda prod+1
         sbc #0
@@ -2058,6 +2501,7 @@ finish:
         sty prod
         inx
         bne @d
+        dex                     ; (255 at most)
 @q:     stx MG_SCORE
         lda #1
         sta done
@@ -2071,6 +2515,7 @@ s_keys:     .byte "Joystick hops (hold = keep going)", 0
 s_cupsof:   .byte "Cups", 0
 s_mydesk:   .byte "MY DESK", 0
 s_coffee:   .byte "COFFEE", 0
+s_cup:      .byte "Cup", 0
 s_cups:     .byte "CUPS", 0
 s_pct:      .byte "%", 0
 s_now:      .byte "now", 0
@@ -2078,13 +2523,32 @@ s_later:    .byte "...", 0
 s_deliv:    .byte "% delivered! ", 0
 s_refill:   .byte "Refill! Next cup.", 0
 s_empty:    .byte "Cup empty! Back to the kitchen.", 0
-lane_row:   .byte 1, 2, 3, 5, 6, 7
-row_lane:   .byte $ff, 0, 1, 2, $ff, 3, 4, 5, $ff
-row_y:      .repeat ROWS, i
-            .byte SPR_Y + 16 * i
+s_yap1:     .byte "Yap!", 0
+s_yap2:     .byte "Woof!", 0
+s_yap3:     .byte "Yip!", 0
+yap_lo:     .byte <s_yap1, <s_yap2, <s_yap3
+yap_hi:     .byte >s_yap1, >s_yap2, >s_yap3
+half_tab:   .byte 3, 4          ; lanes per side: d < 0.5, d >= 0.5
+req_tab:    .byte 2, 3          ; cups
+fy_tab:     .byte 3, 2          ; the field's first screen row
+msg_tab:    .byte MSG_Y, 24
+stat_tab:   .byte STAT_Y, 0
+div_tab:    .byte 40, 60        ; 20 × cups
+w12_tab:    .byte 3 * 12 + 3, 4 * 12 + 3, 5 * 12 + 3        ; desk widths × 12 + 3
+kind_pool:  .byte K_MANAGER, K_CHAIR, K_CART, K_ROOMBA, K_BOXES, K_DOG, K_MANAGER
+kind_spd:   .byte 186, 141, 77, 70, 102, 205    ; speed factor × 128: manager, chair, cart, Roomba, boxes, dog
+kind_dens:  .byte 128, 128, 90, 141, 128, 102   ; density × 128
+kind_hit:   .byte 6, 7, 14, 7, 8, 7             ; collision: half width + 4 JS px, × 3/4
+spacing_lo: .byte <LOOP, <(LOOP / 2), <(LOOP / 3)     ; by traffic count 1-3
+spacing_hi: .byte >LOOP, >(LOOP / 2), >(LOOP / 3)
+jitter_w:   .byte LOOP * 12 / 100, LOOP * 6 / 100, LOOP * 4 / 100  ; ±12% of the spacing
+off_hi_tab: .byte 0, 162
+lane3:      .repeat MAXL, i     ; first entry of each lane
+            .byte PER * i
             .endrep
-kind_spd:   .byte 186, 141, 77, 70, 102 ; speed factor × 128: manager, chair, cart, Roomba, boxes
-kind_hit:   .byte 6, 7, 14, 7, 8        ; collision: half width + 4 JS px, × 3/4
+hw_first:   .byte 2, 5          ; first hardware sprite of the even / odd lanes' set
+msb_keep:   .byte %11100011, %00011111
+bit_tab:    .byte 1, 2, 4, 8, 16, 32, 64, 128
 dir_dx:     .byte 0, 0, $ff, 1
 dir_dy:     .byte $ff, 1, 0, 0
 dir_bit:    .byte J_UP, J_DOWN, J_LEFT, J_RIGHT
@@ -2093,9 +2557,6 @@ side_ptr:   .byte PTR_DOWN + 9, PTR_DOWN + 6       ; walking right, left
 hop_dx:     .byte 0, 2, 5, 7, 10, 12    ; px of the hop still to go, by frames left
 hop_dy:     .byte 0, 3, 6, 10, 13, 16
 hop_arc:    .byte 0, 2, 3, 3, 2, 0
-bit_of:     .byte 4, 8, 16, 32, 64, 128, 4, 8, 16, 32, 64, 128
-qspd_lo:    .byte QQ_SPD, <QQ_LEAVE
-qspd_hi:    .byte 0, >QQ_LEAVE
 q_start_lo: .byte <10, <313     ; 10 JS px outside the field: walking right / left
 q_start_hi: .byte >10, >313
 q_back_lo:  .byte <9, <315      ; 12 JS px outside
@@ -2110,7 +2571,6 @@ kit_col:    .byte 8, 1|8
 desk_ch:    .byte MC_C, MC_GRID, MC_C
 desk_col:   .byte 2|8, 3|8, 2|8
 cup_col:    .byte 31, 36
-tgt_off:    .byte 4, 0, 3, 1, 2 ; tried from the end: middle, left, right, edges
 char_tile:  .repeat 36, i       ; the tile under the middle of each field column
             .byte (8 * i + 4) / 12
             .endrep
@@ -2129,20 +2589,30 @@ row_hi:     .repeat 25, i
 .bss
 bss_start:
 decor:      .res COLS           ; median: 0 free, else 1 plant, 2 cabinet, 3 cooler, 4 printer
-ln_kind:    .res LANES
-ln_dir:     .res LANES          ; 0 right, 1 left
-ln_spd:     .res LANES          ; 1/256 px per frame
-o_used:     .res 2 * LANES
-o_xlo:      .res 2 * LANES      ; 0..LOOP-1 (field px + 18)
-o_xhi:      .res 2 * LANES
-o_frac:     .res 2 * LANES
-o_ph:       .res 2 * LANES      ; Roomba pause cycle
-o_cat:      .res 2 * LANES
-s_x:        .res 2 * LANES      ; sprite registers for the traffic
-s_y:        .res 2 * LANES
-s_ptr:      .res 2 * LANES
-s_col:      .res 2 * LANES
-msb_w:      .res 2
+ln_kind:    .res MAXL
+ln_dir:     .res MAXL           ; 0 right, 1 left
+ln_spd:     .res MAXL           ; 1/256 px per frame ...
+ln_spdh:    .res MAXL           ; ... + px
+ln_n:       .res MAXL           ; traffic on it, 1-3
+ln_msb:     .res MAXL           ; its sprites' x MSB bits this frame
+o_used:     .res MAXO           ; traffic entries: lane × 3 + k
+o_lane:     .res MAXO
+o_bit:      .res MAXO           ; its hardware sprite's bit
+o_xlo:      .res MAXO           ; 0..LOOP-1 (field px + 18)
+o_xhi:      .res MAXO
+o_frac:     .res MAXO
+o_ph:       .res MAXO           ; Roomba pause cycle, dog stride phase
+o_cat:      .res MAXO
+o_yap:      .res MAXO           ; frames to the dog's next yap
+s_x:        .res MAXO           ; sprite registers for the traffic
+s_y:        .res MAXO
+s_ptr:      .res MAXO
+s_col:      .res MAXO
+row_y:      .res MAXR           ; sprite y on each row
+row_lane:   .res MAXR           ; lane number of each row, $ff = not a lane
+lane_row:   .res MAXL
+qspd_lo:    .res 2              ; the colleague's speed: walking, leaving
+qspd_hi:    .res 2
 msb_pq:     .res 1
 msb_now:    .res 1
 p_sx:       .res 1
@@ -2152,7 +2622,29 @@ p_scol:     .res 1
 q_sx:       .res 1
 q_sy:       .res 1
 q_ptr:      .res 1
-cups:       .res REQUIRED       ; % delivered
+cups:       .res 3              ; % delivered
+dif:        .res 1              ; difficulty 0-255
+big:        .res 1              ; 1: 4 + 4 lanes, 11 rows (d >= 0.5)
+rows:       .res 1
+median:     .res 1
+kitchen:    .res 1
+nlanes:     .res 1
+fy:         .res 1              ; the field's first screen row
+msg_row:    .res 1
+stat_row:   .res 1
+required:   .res 1              ; cups
+slot_w:     .res 1              ; your desk's width
+decor_n:    .res 1
+spill_amt:  .res 1              ; % per collision
+dog_on:     .res 1
+base_spd:   .res 1              ; traffic speed before the kind's factor
+q_base:     .res 1              ; frames between the colleague's lane hop tries
+q_gone_t:   .res 1              ; frames away after a chat
+wl_l:       .res 1              ; write_lane / mux_lanes
+wl_n:       .res 1
+wl_y:       .res 1
+wl_i:       .res 1
+wl_line:    .res 1
 buf:        .res 41
 buf_i:      .res 1
 bn:         .res 1
@@ -2166,4 +2658,4 @@ b_d:        .res 2
 b_r:        .res 1
 b_t:        .res 1
 bss_end:
-.assert bss_end - bss_start < 256, error, "BSS too big for the clearing loop"
+.assert bss_end - bss_start <= 512, error, "BSS too big for the clearing loop"

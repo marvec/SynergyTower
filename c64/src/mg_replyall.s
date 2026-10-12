@@ -1,17 +1,25 @@
 ; Reply-All Apocalypse (src/minigames/replyall.js) as a disk-loaded overlay at $4000.
 ; Someone mailed ALL STAFF. Delete the reply-alls (RE:) before they multiply and the inbox overflows, but leave the
-; starred important mail alone: it files itself away once read. Difficulty 0-0.17 (floors 1-2): 32-33 s, a fresh
-; reply-all every ~1.7 s (× 0.6-1.4), each surviving reply breeds another at 3.5 %/s, 3 starred mails (4 from
-; d 0.125) read in ~7 s, no lookalike subjects (from d 0.45), starred rows stand out (yellow subject).
+; starred important mail alone: it files itself away once read.
+; Difficulty (d = MG_DIFF / 255), d=0 -> d=1:
+;   round length 32 s -> 40 s; a fresh reply-all every 1.7 s -> 0.8 s (× U(0.6, 1.4)); each surviving reply breeds
+;   another at 3.5 %/s -> 6.5 %/s; starred mails 3 -> 7 (round(3 + 4 d)), read in 7 s -> 5 s;
+;   from d 0.45 lookalikes ("RE: " + a starred subject, sometimes with "?") at 10 % + 30 % × d of the reply-alls;
+;   from d 0.5 the starred rows no longer stand out (subject white instead of yellow): only the star and the
+;   sender's colour give them away.
 ; 12 rows fit; above that the overflow meter fills (0.3 + 0.07 × extra mails per s, drains 0.2 per s) and a full
 ; meter ends the round at half score. Score = deleted / reply-alls (× 0.5 if overflowed) - 0.2 per starred mail
-; deleted - 0.02 per press on an empty inbox. Content: src/data/mg-replyall.js, lobby topics (gen/mg_replyall_data.s).
+; deleted - 0.02 per press on an empty inbox. Content: src/data/mg-replyall.js, the department's thread topics
+; (gen/mg_replyall_data.s).
 
 .include "api.inc"
 
 CAP       = 12                  ; visible rows
 MAX_MAILS = CAP + 7             ; reply-alls stop arriving here
-MAXM      = MAX_MAILS + 5       ; + the starred ones, which arrive regardless
+VIP_MAX   = 7                   ; round(byDiff(d, 3, 7)) starred mails
+MAXM      = MAX_MAILS + VIP_MAX ; + the starred ones, which arrive regardless
+LOOK_D    = 115                 ; lookalike subjects from d 0.45
+TINT_D    = 128                 ; starred subjects in yellow below d 0.5
 DUR_BASE  = 32 * 50             ; byDiff(d, 32, 40) s
 ARR_BASE  = 85                  ; byDiff(d, 1.7, 0.8) s between fresh reply-alls
 FIRST_ARR = 45                  ; 0.9 s
@@ -72,6 +80,8 @@ arr_int:  .res 1
 mult:     .res 1
 vip_n:    .res 1                ; starred mails this round
 vip_next: .res 1
+look:     .res 1                ; lookalike chance / 256, 0 = none
+tint:     .res 1                ; 1: starred subjects in yellow
 life:     .res 2                ; base reading time
 ov:       .res 2
 anim:     .res 1
@@ -106,8 +116,15 @@ bot_t:    .res 1
 ; A = difficulty
 init:
         sta t0
-        lsr                     ; duration: 32 s + 1.5 × A frames
+        lsr                     ; duration: 32 s + (1.5 + 1/16) × A frames (40 s at A = 255)
+        sta t1
+        lda t0
+        lsr
+        lsr
+        lsr
+        lsr
         clc
+        adc t1
         adc t0
         sta t1
         lda #0
@@ -132,20 +149,35 @@ init:
         sec
         adc #ARR_BASE
         sta arr_int
-        lda t1                  ; breeding 46 + A / 8 per 65536 frames
+        lda t1                  ; breeding 46 + 5/32 × A per 65536 frames (0.035 -> 0.065 per s)
+        lsr
+        lsr
         clc
+        adc t1
         adc #MULT_BASE
         sta mult
-        ldx #3                  ; round(byDiff(d, 3, 7)) starred mails: 4 from d 0.125
+        ldx #3                  ; round(byDiff(d, 3, 7)) starred mails: one more from d 0.125, 0.375, ...
         lda t0
-        cmp #32
+:       cmp vip_steps-3,x
         bcc :+
         inx
+        cpx #VIP_MAX
+        bne :-
 :       stx vip_n
-        lda t0                  ; reading time 350 - 0.375 × A frames
+        lda t0                  ; reading time 350 - 0.39 × A frames
         lsr
         lsr
         sta t2
+        lsr
+        clc
+        adc t2
+        sta t2
+        lda t0
+        lsr
+        lsr
+        lsr
+        lsr
+        lsr
         lsr
         clc
         adc t2
@@ -157,6 +189,34 @@ init:
         lda #>LIFE_BASE
         sbc #0
         sta life+1
+        ; lookalikes ("RE: " + a starred subject) from d 0.45: chance 0.1 + 0.3 d = (26 + 0.297 × A) / 256
+        lda #0
+        sta look
+        lda t0
+        cmp #LOOK_D
+        bcc :+
+        lsr
+        lsr
+        sta t1
+        lda t0
+        lsr
+        lsr
+        lsr
+        lsr
+        lsr
+        sta t2
+        lsr
+        clc
+        adc t2
+        adc t1
+        adc #26
+        sta look
+:       ldx #1                  ; starred rows stand out (yellow subject) below d 0.5
+        lda t0
+        cmp #TINT_D
+        bcc :+
+        dex
+:       stx tint
         lda #0
         sta count
         sta cursor
@@ -388,7 +448,23 @@ add_junk:
         jsr API_RMOD
         ldx count
         sta m_what,x
-        inc count
+        lda #0
+        sta m_look,x
+        lda look                ; a lookalike: "RE: " + a starred subject (+ "?" half the time)
+        beq @add
+        jsr API_RAND
+        cmp look
+        bcs @add
+        lda #SUBJECT_COUNT
+        jsr API_RMOD
+        ldx count
+        sta m_what,x
+        jsr API_RAND
+        and #1
+        clc
+        adc #1
+        sta m_look,x
+@add:   inc count
         lda #1
         sta dirty
 @out:   rts
@@ -456,6 +532,8 @@ remove:
         sta m_what,x
         lda m_depth+1,x
         sta m_depth,x
+        lda m_look+1,x
+        sta m_look,x
         lda m_age_lo+1,x
         sta m_age_lo,x
         lda m_age_hi+1,x
@@ -977,7 +1055,10 @@ draw_row:
         jsr API_PRINT
         jsr buf_reset
         ldx k
-        lda m_depth,x
+        lda m_look,x
+        beq :+
+        jmp @look
+:       lda m_depth,x
         cmp #3
         bcs @deep
         lda #<s_re
@@ -1006,7 +1087,23 @@ draw_row:
         tax
         lda reply_lo,y
         jsr buf_s
-        lda #TEXT_W
+        jmp @fit
+@look:  lda #<s_re              ; lookalike: "RE: " + a starred subject (+ "?")
+        ldx #>s_re
+        jsr buf_s
+        ldx k
+        ldy m_what,x
+        lda subject_hi,y
+        tax
+        lda subject_lo,y
+        jsr buf_s
+        ldx k
+        lda m_look,x
+        cmp #2
+        bne @fit
+        lda #'?'
+        jsr buf_c
+@fit:   lda #TEXT_W
         jsr buf_fit
         lda #1
         sta COLOR
@@ -1037,8 +1134,11 @@ draw_row:
         sta PTR
         lda subject_hi,y
         sta PTR+1
+        lda #1                  ; yellow while starred rows are tinted (d < 0.5), then plain white
+        ldx tint
+        beq :+
         lda #7
-        sta COLOR
+:       sta COLOR
         ldx #COL_TEXT
         ldy t2
         jsr API_PRINT
@@ -1474,6 +1574,7 @@ s_reb2:     .byte "]: ", 0
 s_plus1:    .byte "+1", 0
 s_savedf:   .byte "Saved!", 0
 s_empty:    .byte "empty", 0
+vip_steps:  .byte 32, 96, 160, 224     ; A where round(3 + 4 d) steps up
 load_cells: .repeat MAXM, I     ; min(BAR_W, round(count × BAR_W / CAP))
             .byte (I * BAR_W * 2 + CAP) / (CAP * 2) * (I <= CAP) + BAR_W * (I > CAP)
             .endrepeat
@@ -1489,8 +1590,9 @@ m_age_lo:   .res MAXM + 1
 m_age_hi:   .res MAXM + 1
 m_life_lo:  .res MAXM + 1
 m_life_hi:  .res MAXM + 1
-vip_t_lo:   .res 4
-vip_t_hi:   .res 4
+vip_t_lo:   .res VIP_MAX
+vip_t_hi:   .res VIP_MAX
+m_look:     .res MAXM + 1       ; reply-all: 0 plain, 1 lookalike, 2 lookalike with "?"
 topic:      .res 1
 recip:      .res 4
 buf:        .res 48

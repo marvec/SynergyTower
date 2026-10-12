@@ -3,13 +3,8 @@
 ; Promotion from st_max (checked by the panel): fee, next floor, signing bonus, coffee top-up.
 do_promotion:
         ldx st_max
-        lda st_sp
-        sec
-        sbc fee_lo,x
-        sta st_sp
-        lda st_sp+1
-        sbc fee_hi,x
-        sta st_sp+1
+        jsr fee_num
+        jsr sp_sub
         lda st_floor
         sta RIDE_FROM
         inc st_max
@@ -26,9 +21,10 @@ do_promotion:
 :       jsr coffee_tick
         jsr save_game
         jsr ride_anim
+        jsr load_floor          ; (the card shows the new floor's economy, from its header)
         lda #0
         jsr promo_card
-        jmp arrive
+        jmp arrive2
 
 ; A = floor: ride there (an unlocked floor).
 ride_to:
@@ -53,14 +49,16 @@ warp:
         sta st_max
         jsr save_game
         jsr ride_anim
+        jsr load_floor
         lda #1
         jsr promo_card
-        jmp arrive
+        jmp arrive2
 :       jsr save_game
         jsr ride_anim
 ; Into the floor: load it, place everyone, banner.
 arrive:
         jsr load_floor
+arrive2:
         jsr init_actors
         jsr enter_floor
         jmp arrival_banner
@@ -347,16 +345,14 @@ promo_card:
         jsr sb_str
         lda st_perks + PERK_PLANT
         asl
-        clc
-        adc st_floor
         tax
         stx RIDE_K              ; (sb_num uses X)
-        lda pcd_min-1,x
+        lda FL_HDR + HDR_PCD,x
         jsr sb_num
         lda #'-'
         jsr sb_char
         ldx RIDE_K
-        lda pcd_max-1,x
+        lda FL_HDR + HDR_PCD + 1,x
         jsr sb_num
         lda #<s_min
         ldx #>s_min
@@ -374,3 +370,225 @@ promo_card:
         ldy #0
         jsr ui_btn
         jmp ui_run
+
+; ---- the floor picker (the browser's 10 × 4 grid of floor buttons) ----------------------------------------------
+; Joystick moves, FIRE rides to an unlocked floor, RUN/STOP or <- goes back to the floor.
+GRID_X = 5                      ; first column, 3 columns per floor
+GRID_Y = 5                      ; first row, 2 rows per ten floors
+
+floor_grid:
+        lda #<s_elevator
+        ldx #>s_elevator
+        jsr ui_open
+        lda #15
+        sta COLOR
+        ldy #3
+        lda #<s_gridhelp
+        ldx #>s_gridhelp
+        jsr print_center
+        lda st_floor
+        sta GRID_F
+        ldx #FLOORS_TOP         ; all the numbers
+@all:   stx LIFT_F
+        jsr grid_cell
+        ldx LIFT_F
+        dex
+        bne @all
+        lda GRID_F              ; (the cursor's cell again: its neighbour cleared the left marker)
+        sta LIFT_F
+        jsr grid_cell
+@sel:   jsr grid_info
+@loop:  jsr wait_frame
+        jsr read_input
+        jsr getkey
+        cmp #3                  ; RUN/STOP
+        beq @back0
+        cmp #95                 ; <-
+        bne :+
+@back0: jmp enter_floor
+:       lda JOYP
+        beq @loop
+        ldx GRID_F
+        stx LIFT_F
+        lsr                     ; J_UP
+        bcc :+
+        lda GRID_F
+        sec
+        sbc #10
+        beq @loop
+        bcc @loop
+        sta GRID_F
+        bne @moved
+:       lsr                     ; J_DOWN
+        bcc :+
+        lda GRID_F
+        clc
+        adc #10
+        cmp #FLOORS_TOP + 1
+        bcs @loop
+        sta GRID_F
+        bcc @moved
+:       lsr                     ; J_LEFT
+        bcc :+
+        dec GRID_F
+        bne @moved
+        lda #FLOORS_TOP
+        sta GRID_F
+        bne @moved
+:       lsr                     ; J_RIGHT
+        bcc :+
+        inc GRID_F
+        lda GRID_F
+        cmp #FLOORS_TOP + 1
+        bcc @moved
+        lda #1
+        sta GRID_F
+        bne @moved
+:       lsr                     ; J_FIRE
+        bcc @loop
+        lda GRID_F
+        cmp st_max
+        beq :+
+        bcs @deny               ; locked
+:       cmp st_floor
+        beq @deny               ; here already
+        jmp ride_to
+@deny:  lda #SFX_BAD
+        jsr sfx
+        jmp @loop
+@moved: lda #SFX_BLIP
+        jsr sfx
+        jsr grid_cell           ; the old cell without the cursor
+        lda GRID_F
+        sta LIFT_F
+        jsr grid_cell
+        jmp @sel
+
+; LIFT_F = floor: its number in the grid, in its department's colour (a lock past st_max), the cursor around it.
+grid_cell:
+        lda LIFT_F
+        sec
+        sbc #1
+        ldy #GRID_Y - 2         ; row = GRID_Y + (f - 1) / 10 × 2
+:       iny
+        iny
+        sec
+        sbc #10
+        bcs :-
+        adc #10                 ; column = GRID_X + (f - 1) mod 10 × 3
+        sta T2
+        asl
+        adc T2
+        adc #GRID_X - 1
+        tax
+        stx T2
+        sty T3
+        lda #7                  ; the cursor: > <
+        sta COLOR
+        lda LIFT_F
+        cmp GRID_F
+        beq :+
+        lda #' '
+        .byte $2c
+:       lda #'>'
+        jsr putc
+        lda LIFT_F
+        cmp GRID_F
+        beq :+
+        lda #' '
+        .byte $2c
+:       lda #'<'
+        ldx T2
+        inx
+        inx
+        inx
+        ldy T3
+        jsr putc
+        lda LIFT_F              ; the number (a lock when not reached yet)
+        cmp st_max
+        beq :+
+        bcc :+
+        lda #6
+        sta COLOR
+        lda #' '
+        ldx T2
+        inx
+        ldy T3
+        jsr putc
+        lda #CH_LOCK
+        jmp putc_next
+:       ldx LIFT_F
+        lda grid_col-1,x
+        cpx st_floor
+        bne :+
+        lda #1                  ; you are here: white
+:       sta COLOR
+        lda LIFT_F
+        ldx T2
+        inx
+        ldy T3
+        cmp #10
+        bcs :+
+        pha
+        lda #' '
+        jsr putc
+        pla
+        jmp print_num_next
+:       jmp print_num
+
+; The floor under the cursor: "Floor 12: Name" and what FIRE would do.
+grid_info:
+        lda #0
+        sta COLOR
+        lda #36
+        sta FILL_W
+        lda #3
+        sta FILL_H
+        lda #' '
+        ldx #2
+        ldy #15
+        jsr fill
+        jsr sb_line
+        lda #<s_floor
+        ldx #>s_floor
+        jsr sb_str
+        lda GRID_F
+        jsr sb_num
+        lda #<s_colon
+        ldx #>s_colon
+        jsr sb_str
+        ldx GRID_F
+        lda fname_lo-1,x
+        pha
+        lda fname_hi-1,x
+        tax
+        pla
+        jsr sb_str
+        jsr sb_end
+        lda #7
+        sta COLOR
+        ldy #15
+        jsr print_line_center
+        lda #<s_youarehere2
+        ldx #>s_youarehere2
+        ldy GRID_F
+        cpy st_floor
+        beq @say
+        cpy st_max
+        beq :+
+        bcs @lock
+:       lda #<s_firerides
+        ldx #>s_firerides
+        bne @say
+@lock:  lda #<s_notyet
+        ldx #>s_notyet
+@say:   pha
+        lda #15
+        sta COLOR
+        pla
+        ldy #17
+        jmp print_center
+
+; floor -> its department's colour (hires: 0-7)
+grid_col: .byte 7, 7, 7, 7, 7, 3, 3, 3, 3, 3, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4
+          .byte 6, 6, 6, 6, 6, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 7, 7, 7, 7, 7

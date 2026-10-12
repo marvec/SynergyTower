@@ -1,16 +1,19 @@
 ; Desk Plant Survival (src/minigames/plant.js) as a disk-loaded overlay at $4000.
 ; Keep the desk plant alive through one fiscal quarter (13 weeks in 45 s): water and light must stay inside
 ; their green bands, pests must be sprayed, and office events meddle every ~9 s. Health rises while all is
-; well and drops for every need out of its band (damage × 0.85 at floors 1-2, difficulty 0). Score = health
+; well and drops for every need out of its band (damage × 0.85 at difficulty 0). Score = health
 ; averaged over the quarter with weight 0.5 -> 1.5 (later weeks count more); a dead plant scores at most 0.3.
+; Difficulty (byDiff, d 0 -> 1): quarter 45 -> 55 s, water drain 0.04 -> 0.062/s, light 0.06 -> 0.09/s,
+; a pest every 4.6 -> 2.4 s, an event every 9 -> 5.5 s, damage × 0.85 -> 1.15, weekends 2 -> 2.5 s.
+; The motivational poster says the department's word (POSTER in plant.js).
 ; Content: src/data/mg-plant.js and the plant shapes of plant.js (gen/mg_plant_data.s).
 
 .include "api.inc"
 .include "gen/chars.inc"
 
 ; ---- rules (1.0 = 32768 for water, light and health; rates per frame)
-Q_T        = 2250               ; the quarter: 45 s
-WEEK_T     = 173                ; Q / 13
+Q_T        = 2250               ; the quarter: 45 s at d 0 (+ 2 × round(250 d) frames: 55 s at d 1)
+WEEK_T     = 173                ; Q / 13 (+ round(39 d))
 W_LO       = 11469              ; water band 0.35-0.78, rot above 0.9, max 1.05
 W_HI       = 25559
 W_ROT      = 29491
@@ -27,8 +30,10 @@ COFFEE_ADD = 9830               ; events: +0.3, +0.25, light +0.35
 INTERN_ADD = 8192
 WINDOW_ADD = 11469
 SPRAY_HURT = 1638               ; spraying the monitor: health -0.05
-DRAIN      = 26                 ; water -0.04/s
-LIGHT_RATE = 39                 ; light ±0.06/s
+DRAIN      = 26                 ; water -0.04/s (41: -0.062/s at d 1)
+DRAIN1     = 41
+LIGHT_RATE = 39                 ; light ±0.06/s (±0.09/s at d 1)
+LIGHT1     = 59
 DH_GOOD    = 16                 ; health +0.025/s per need in its band
 DH_DRY     = 26                 ; -0.04/s (+ 0.25 × the shortfall) when too dry
 DH_OUT     = 20                 ; -0.03/s (+ 0.45 / 0.25 × the excess) for the other misses
@@ -36,21 +41,30 @@ DH_BUG     = 14                 ; -0.022/s per pest
 DH_CLEAN   = 10                 ; +0.015/s without pests
 WATER_CD   = 15                 ; 0.3 s
 SPRAY_CD   = 20                 ; 0.4 s
-BUG_FIRST  = 150                ; first pest after 3 s, then every 4.6 s × 0.7-1.3
+BUG_FIRST  = 150                ; first pest after 3 s, then every 4.6 s × 0.7-1.3 (2.4 s at d 1)
 BUG_MIN    = 161
+BUG_MIN1   = 84
 BUG_RANGE  = 139
-EV_FIRST   = 315                ; first event after 6.3 s, then every 9 s × 0.8-1.25, none in the last 3 s
+BUG_RANGE1 = 72
+EV_FIRST   = 315                ; first event after 0.7 × 9 s, then every 9 s × 0.8-1.25 (5.5 s at d 1),
+EV_FIRST_D = 122                ; none in the last 3 s; EV_FIRST/EV_MIN minus round(EV_*_D × d)
 EV_MIN     = 360
+EV_MIN_D   = 140
 EV_RANGE   = 203
-EV_LAST    = Q_T - 150
+EV_RANGE1  = 124
+EV_END     = 150
 BANNER_T   = 140                ; 2.8 s
 AC_T       = 350                ; 7 s: water drains at 40 %
 HEAT_T     = 300                ; 6 s: water drains twice as fast
-WEEKEND_T  = 100                ; 2 s: no actions, water drains × 1.5
+WEEKEND_T  = 100                ; 2 s: no actions, water drains × 1.5 (2.5 s at d 1)
+WEEKEND1   = 125
+DMG0       = 218                ; damage × 0.85 (/256), + round(76 d): × 1.15 at d 1
+DMG_D      = 76
 WET_T      = 125
 FLOAT_T    = 50
 MAX_BUGS   = 10
 W_STEP     = 3728               ; weight 64 -> 192 (/128) over the quarter, in 1/65536 per frame
+W_STEP_D   = 226                ; - 3 × round(226 d): 3050 for the 55 s quarter
 
 EV_AC      = 0                  ; event kinds (tools/mg/plant.js)
 EV_COFFEE  = 1
@@ -105,6 +119,8 @@ done:     .res 1
 ; ---------------------------------------------------------------- setup
 
 init:
+        sta diff
+        jsr difficulty
         ldx #bss_end - bss_start - 1
         lda #0
 :       sta bss_start,x
@@ -142,13 +158,20 @@ init:
         sta bug_t
         lda #>BUG_FIRST
         sta bug_t+1
+        lda #0
+        ldx #EV_FIRST_D
+        jsr byd
+        sta t0
         lda #<EV_FIRST
+        sec
+        sbc t0
         sta ev_t
         lda #>EV_FIRST
+        sbc #0
         sta ev_t+1
         lda #1
         sta week
-        lda #WEEK_T
+        lda p_week
         sta week_t
         lda #$ff
         sta lastkey
@@ -177,9 +200,142 @@ init:
         lda #>cap_first
         sta cap_ptr+1
         jsr draw_week
-        lda #<Q_T
-        ldx #>Q_T
+        lda p_q
+        ldx p_q+1
         jmp timer_start
+
+; The difficulty's parameters (p_*) from diff.
+difficulty:
+        lda #0                  ; quarter: Q_T + 2 × round(250 d)
+        ldx #250
+        jsr byd
+        asl
+        sta t0
+        lda #0
+        rol
+        sta t1
+        lda t0
+        clc
+        adc #<Q_T
+        sta p_q
+        lda t1
+        adc #>Q_T
+        sta p_q+1
+        lda p_q                 ; no events in the last 3 s
+        sec
+        sbc #EV_END
+        sta p_evlast
+        lda p_q+1
+        sbc #0
+        sta p_evlast+1
+        lda #WEEK_T
+        ldx #WEEK_T + 39
+        jsr byd
+        sta p_week
+        lda #DRAIN
+        ldx #DRAIN1
+        jsr byd
+        sta p_drain
+        lda #LIGHT_RATE
+        ldx #LIGHT1
+        jsr byd
+        sta p_light
+        lda #BUG_MIN
+        ldx #BUG_MIN1
+        jsr byd
+        sta p_bugmin
+        lda #BUG_RANGE
+        ldx #BUG_RANGE1
+        jsr byd
+        sta p_bugrange
+        lda #EV_RANGE
+        ldx #EV_RANGE1
+        jsr byd
+        sta p_evrange
+        lda #0
+        ldx #EV_MIN_D
+        jsr byd
+        sta t0
+        lda #<EV_MIN
+        sec
+        sbc t0
+        sta p_evmin
+        lda #>EV_MIN
+        sbc #0
+        sta p_evmin+1
+        lda #WEEKEND_T
+        ldx #WEEKEND1
+        jsr byd
+        sta p_weekend
+        lda #0
+        ldx #DMG_D
+        jsr byd
+        clc
+        adc #DMG0
+        sta p_dmg
+        lda #0
+        adc #0
+        sta p_dmg+1
+        lda #0                  ; weight step: W_STEP - 3 × round(226 d)
+        ldx #W_STEP_D
+        jsr byd
+        sta t0
+        asl
+        sta t1
+        lda #0
+        rol
+        sta t2
+        lda t1
+        clc
+        adc t0
+        sta t1
+        bcc :+
+        inc t2
+:       lda #<W_STEP
+        sec
+        sbc t1
+        sta p_wstep
+        lda #>W_STEP
+        sbc t2
+        sta p_wstep+1
+        rts
+
+; byDiff: A = value at d 0, X = value at d 1 -> A = a + round((b - a) × d)
+byd:
+        sta t0
+        stx t1
+        cpx t0
+        bcc @down
+        txa
+        sec
+        sbc t0
+        jsr @mul
+        clc
+        adc t0
+        rts
+@down:  lda t0
+        sec
+        sbc t1
+        jsr @mul
+        sta t1
+        lda t0
+        sec
+        sbc t1
+        rts
+@mul:   ldx diff                ; A = round(A × diff / 255)
+        jsr mul8
+        lda d_num
+        clc
+        adc #127
+        sta d_num
+        bcc :+
+        inc d_num+1
+:       lda d_num+1             ; x / 255 = (x + (x >> 8) + 1) >> 8
+        sec
+        adc d_num
+        lda d_num+1
+        adc #0
+        rts
 
 ; A/Y = deck, X = size: 0..X-1 shuffled (Fisher-Yates).
 deal:   sta sp
@@ -248,6 +404,17 @@ draw_scene:
         ldx #VIT_X - 1
         ldy #4
         jsr API_BOX
+        lda #6                  ; the motivational poster: "<dept word> is fun"
+        sta COLOR
+        lda #10
+        sta FILL_W
+        lda #4
+        sta FILL_H
+        ldx #1
+        ldy #13
+        jsr API_BOX
+        text POSTER_X, 14, poster_word, 7
+        text 3, 15, s_isfun, 3
         text 13, 5, s_q3, 2
         text VIT_X, 5, s_vitals, 7
         text VIT_X, 6, s_water, 1
@@ -1098,9 +1265,9 @@ frame:
         bne :+
         jmp die
 :       lda now
-        cmp #<Q_T
+        cmp p_q
         lda now+1
-        sbc #>Q_T
+        sbc p_q+1
         bcc :+
         jmp quarter_end
 :
@@ -1168,7 +1335,7 @@ timers:
 week_tick:
         dec week_t
         bne @out
-        lda #WEEK_T
+        lda p_week
         sta week_t
         lda week
         cmp #13
@@ -1208,7 +1375,7 @@ week_tick:
 
 ; Water drains (slower with the AC on, faster in a heatwave or a weekend); light follows the blinds.
 needs:
-        lda #DRAIN
+        lda p_drain
         ldx ac_t
         bne :+
         ldx ac_t+1
@@ -1243,7 +1410,7 @@ needs:
         beq @dark
         lda light
         clc
-        adc #LIGHT_RATE
+        adc p_light
         sta light
         bcc :+
         inc light+1
@@ -1257,7 +1424,7 @@ needs:
 @out:   rts
 @dark:  lda light
         sec
-        sbc #LIGHT_RATE
+        sbc p_light
         tax
         lda light+1
         sbc #0
@@ -1277,10 +1444,10 @@ spawns:
         lda bug_t
         ora bug_t+1
         bne @ev
-        lda #BUG_RANGE
+        lda p_bugrange
         jsr API_RMOD
         clc
-        adc #BUG_MIN
+        adc p_bugmin
         sta bug_t
         lda #0
         adc #0
@@ -1297,16 +1464,16 @@ spawns:
         ora ev_t+1
         bne @out
 @fire:  lda now
-        cmp #<EV_LAST
+        cmp p_evlast
         lda now+1
-        sbc #>EV_LAST
+        sbc p_evlast+1
         bcs @out
-        lda #EV_RANGE
+        lda p_evrange
         jsr API_RMOD
         clc
-        adc #<EV_MIN
+        adc p_evmin
         sta ev_t
-        lda #>EV_MIN
+        lda p_evmin+1
         adc #0
         sta ev_t+1
         jmp fire_event
@@ -1411,7 +1578,7 @@ ev_coffee:
         ldx #>COFFEE_ADD
         jmp add_water
 ev_weekend:
-        lda #WEEKEND_T
+        lda p_weekend
         sta weekend_t
         rts
 ev_window:
@@ -1574,7 +1741,7 @@ grow:
         lda #>H_MAX
         sta health+1
 :       rts
-@hurt:  lda loss                ; x = net loss, × 218 / 256 (0.85)
+@hurt:  lda loss                ; x = net loss, × p_dmg / 256 (0.85-1.15)
         sec
         sbc gain
         sta t0
@@ -1582,26 +1749,35 @@ grow:
         sbc gain+1
         sta t1
         lda t0
-        ldx #218
+        ldx p_dmg
         jsr mul8
         lda d_num+1
         sta t2
         lda t1
-        ldx #218
+        ldx p_dmg
         jsr mul8
         lda d_num
         clc
         adc t2
-        sta t0
+        sta t2
         lda d_num+1
         adc #0
-        sta t1
-        lda health
+        sta t3
+        lda p_dmg+1             ; × 1.x: + x
+        beq :+
+        lda t2
+        clc
+        adc t0
+        sta t2
+        lda t3
+        adc t1
+        sta t3
+:       lda health
         sec
-        sbc t0
+        sbc t2
         sta health
         lda health+1
-        sbc t1
+        sbc t3
         sta health+1
         bcs :+
         lda #0
@@ -1654,10 +1830,10 @@ mul009: lda t0
 ; acc += health × weight, the weight growing from 0.5 to 1.5 over the quarter.
 weigh:  lda w_frac
         clc
-        adc #<W_STEP
+        adc p_wstep
         sta w_frac
         lda w_frac+1
-        adc #>W_STEP
+        adc p_wstep+1
         sta w_frac+1
         bcc :+
         inc w_int
@@ -1903,10 +2079,10 @@ acc_score:
         rol d_num+1
         lda d_num
         sec
-        sbc #<Q_T
+        sbc p_q
         tay
         lda d_num+1
-        sbc #>Q_T
+        sbc p_q+1
         bcc @n
         sta d_num+1
         sty d_num
@@ -1926,6 +2102,7 @@ s_name:      .byte "Desk Plant Survival", 0
 s_help:      .byte "Keep water and light in the bands.", 0
 s_keys:      .byte "Keys 1-3, or left/right + FIRE", 0
 s_week:      .byte "Week ", 0
+s_isfun:     .byte "is fun", 0
 s_of13:      .byte "/13", 0
 s_colon:     .byte ": ", 0
 s_q3:        .byte "Q3", 0
@@ -2015,6 +2192,19 @@ shown_btn:   .res 1
 shown_wet:   .res 1
 bug_cell:    .res MAX_BUGS      ; row × 16 + column
 bss_end:
+diff:        .res 1             ; set by init, then the parameters (not cleared with the rest)
+p_q:         .res 2             ; the quarter, frames
+p_evlast:    .res 2
+p_evmin:     .res 2
+p_dmg:       .res 2
+p_wstep:     .res 2
+p_week:      .res 1
+p_drain:     .res 1
+p_light:     .res 1
+p_bugmin:    .res 1
+p_bugrange:  .res 1
+p_evrange:   .res 1
+p_weekend:   .res 1
 cg_deck:     .res CG_COUNT
 cb_deck:     .res CB_COUNT
 ev_deck:     .res EV_COUNT

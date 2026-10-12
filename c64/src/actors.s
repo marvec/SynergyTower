@@ -43,6 +43,15 @@ init_actors:
         sta aanim,x
         sta asteps,x
         sta apause,x
+        sty T0                  ; fired by the CEO: not here any more
+        stx T1
+        jsr fired_bit
+        and st_fired,y
+        beq :+
+        ldx T1
+        jsr actor_gone
+:       ldy T0
+        ldx T1
         tya
         clc
         adc #HDR_NPC_SIZE
@@ -64,6 +73,37 @@ init_actors:
         sta acol,x
         inc nact
         jmp hair_sync
+
+; X = actor (1..): Y = its byte in st_fired (this floor's two, then actor - 1 >> 3), A = its bit.
+fired_bit:
+        dex
+        txa
+        and #7
+        tay
+        lda bit_tab,y
+        pha
+        txa
+        lsr
+        lsr
+        lsr
+        sta T2
+        lda st_floor
+        asl
+        sec
+        sbc #2
+        clc
+        adc T2
+        tay
+        pla
+        rts
+
+; X = actor: gone (parked in the top wall row, where nobody sees or reaches it).
+actor_gone:
+        lda #0
+        sta ay,x
+        lda #1
+        sta astill,x
+        rts
 
 ; The hair actor follows you, one line lower (so it sorts in front of you), with your facing's frame:
 ; pointer 244 + facing = facing × 3 + abase.

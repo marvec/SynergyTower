@@ -1,38 +1,42 @@
 ; Cable Spaghetti (src/minigames/cables.js) as a disk-loaded overlay at $4000.
 ; The server-room patch panel is wired all wrong: re-patch every cable to the socket with its colour.
-; Connecting a port to a socket swaps the two cable ends, so the wiring stays a permutation. Difficulty 0
-; (floor 1): 5 cables in distinct colours, no PROD cable, no striped twins, no blinking LEDs, 45 s.
-; Score = patched / 5 - 0.2 per mistake beyond the first + 5 % of the time left when all are patched.
+; Connecting a port to a socket swaps the two cable ends, so the wiring stays a permutation.
+; Difficulty curve (d = MG_DIFF / 255):
+;   d = 0: 5 cables in distinct colours, 45 s
+;   cables round(byDiff(d, 5, 8)); a striped twin of a colour from d 0.45, two from 0.85; a PROD cable (already
+;   right, never to be touched) from 0.55; blinking LEDs from 0.5; time byDiff(d, 45, 40) s
+; Score = patched / free cables - 0.2 per mistake beyond the free ones (1, or 2 from 6 cables) - 0.25 per PROD
+; touch, + 5 % of the time left when all are patched.
 ; Cables are drawn in quarter blocks (2 × 2 pixels per cell) into an off-screen buffer and copied over:
 ; tangled ones as Bézier curves, patched ones straight. Content: src/data/mg-cables.js (gen/mg_cables_data.s).
+; Differs from the JS: a twin is the same colour as its cable but dashed, with a striped swatch (a text cell has
+; one colour); the PROD cable is red with yellow, its alarm flashes on row 2; from 7 cables the ports and
+; sockets are single rows with an arrow for the cursor instead of boxes; "it clicked" lines go to row 23.
 
 .include "api.inc"
 .include "gen/chars.inc"
 
-N         = 5                   ; cables
-FREE_MISS = 1                   ; mistakes that cost nothing (2 from 6 cables up)
+MAX_N     = 8
+FLOAT_T   = 45                  ; 0.9 s for the messages
 END_T     = 40                  ; 0.8 s from "All patched!" to the result
-FLOAT_T   = 45                  ; 0.9 s for the feedback texts
 SHAKE_T   = 6                   ; 0.12 s screen shake on a mistake
+PROD_SHAKE = 25                 ; 0.5 s on a PROD touch
+ALARM_T   = 42                  ; ~0.83 s alarm
 BLINK     = 8                   ; frames per blink of the picked cable
 TIME_T    = 45 * 50             ; minus the difficulty: byDiff(d, 45, 40) s
 
-ROW0      = 5                   ; screen row of port / socket 0
-ROW_STEP  = 4
 PORT_W    = 5                   ; port boxes: columns 0-4
-SOCK_X    = 21                  ; socket boxes: columns 21-39
-SOCK_W    = 19
-LABEL_X   = 24
+SOCK_X    = 19                  ; socket boxes: columns 19-39
+SOCK_W    = 21
+LABEL_X   = 22
 LED_X     = 38
 MSG_X     = 10                  ; row 23: "Moves" left, messages in columns 10-31, "Oops" right
 MSG_W     = 22
-FL_X      = 22                  ; feedback over a socket box: columns 22-38
-FL_W      = 17
 
 ; the cable area (quarter-block pixels: 2 per cell)
-AREA_C    = 5                   ; columns 5-20: plug, cable, plug
+AREA_C    = 5                   ; columns 5-18: plug, cable, plug
 AREA_R    = 4                   ; rows 4-22
-BW        = 16
+BW        = 14
 BH        = 19
 PX0       = 2 * AREA_C + 1      ; cable start: right half of the port plug
 PX3       = 2 * (AREA_C + BW - 1) ; cable end: left half of the socket plug
@@ -40,6 +44,11 @@ STEPS     = 16                  ; Bézier segments
 PTS       = STEPS + 1
 QB        = 240                 ; quarter blocks: QB + 1 top left, 2 top right, 4 bottom left, 8 bottom right
 HL_MAX    = 120                 ; cells remembered for the picked cable's blink
+
+K_PLAIN   = 0                   ; cable kinds
+K_TWIN    = 1
+K_PROD    = 2
+RED       = 3                   ; palette index of red (the PROD cable's)
 
 .zeropage
 px:       .res 1                ; plot position (quarter-block pixels)
@@ -68,6 +77,10 @@ cur:      .res 2                ; cursor row per column
 sel_side: .res 1                ; 0 none, 1 a port, 2 a socket
 sel_idx:  .res 1
 anim:     .res 1
+n:        .res 1                ; cables
+m:        .res 1                ; cables that can be patched (all but PROD)
+pix:      .res 1                ; pixels plotted on the current cable (dashes, PROD stripes)
+kind:     .res 1                ; the current cable's kind
 
 .segment "CODE"
         jmp init
@@ -76,7 +89,9 @@ anim:     .res 1
 
 .include "mgkit.s"
 
-; A = difficulty, X = department (only the lobby's labels are on the disk)
+; ---------------------------------------------------------------- setup
+
+; A = difficulty, X = department (the content is this department's anyway)
 init:
         sta diff
         lda #0
@@ -89,23 +104,139 @@ init:
         sta cur+1
         sta sel_side
         sta anim
-        ; colours: 5 of the 7 the C64 can show in a text cell
+        ; the difficulty's features
+        ldx #5                  ; cables: round(byDiff(d, 5, 8))
+        lda diff
+        cmp #43
+        bcc :+
+        inx
+        cmp #128
+        bcc :+
+        inx
+        cmp #213
+        bcc :+
+        inx
+:       stx n
+        stx m
+        ldx #0                  ; striped twins
+        cmp #115
+        bcc :+
+        inx
+        cmp #217
+        bcc :+
+        inx
+:       stx pairs
+        cmp #141                ; PROD from d 0.55
+        rol has_prod
+        lda has_prod
+        beq :+
+        dec m
+:       lda diff                ; blinking LEDs from d 0.5
+        cmp #128
+        rol blinky
+        lda #1                  ; free mistakes: 2 from 6 cables
+        ldx n
+        cpx #6
+        bcc :+
+        lda #2
+:       sta free_miss
+        ; rows: 4 apart (5 cables), 3 (6), 2 from 7 (no boxes), centred on row 13
+        ldx n
+        lda step_tab - 5,x
+        sta step
+        lda n                   ; first row = 13 - (n - 1) × step / 2
+        sec
+        sbc #1
+        tax
+        lda #0
+:       dex
+        bmi :+
+        clc
+        adc step
+        bne :-
+:       lsr
+        eor #$ff
+        sec
+        adc #13
+        ldx #0
+:       sta row_tab,x
+        pha
+        asl                     ; cable y at a port / socket: the cell's lower half
+        ora #1
+        sta py_tab,x
+        pla
+        clc
+        adc step
+        inx
+        cpx n
+        bne :-
+        ; colours: the bases from the 7 a text cell can show (not red when there is a PROD cable), then the twins
+        ; of the first bases, then PROD
         ldx #PALETTE - 1
 :       txa
         sta pool,x
         dex
         bpl :-
+        ldy #PALETTE
+        lda has_prod
+        beq :+
+        lda pool + PALETTE - 1  ; red out
+        sta pool + RED
+        dey
+:       tya
+        tax                     ; palette entries to pick from
+        lda m
+        sec
+        sbc pairs
+        sta bases
+        tay
         lda #0
-        ldx #PALETTE
-        ldy #N
         jsr pick
-        ldx #N - 1
+        ldx #0
 :       ldy pool,x
         lda palette,y
         sta cab_col,x
+        lda #K_PLAIN
+        sta cab_kind,x
+        inx
+        cpx bases
+        bne :-
+        ldy #0
+:       cpy pairs
+        beq :+
+        lda cab_col,y
+        sta cab_col,x
+        lda #K_TWIN
+        sta cab_kind,x
+        inx
+        iny
+        bne :-
+:       lda has_prod
+        beq :+
+        lda palette + RED
+        sta cab_col,x
+        lda #K_PROD
+        sta cab_kind,x
+:       ; the cables in random rows
+        jsr shuffle_n
+        ldx n
+        dex
+:       ldy pool,x
+        lda cab_col,y
+        sta tmp_col,x
+        lda cab_kind,y
+        sta tmp_kind,x
         dex
         bpl :-
-        ; labels: the department's + 12 generic ones, 5 of those
+        ldx n
+        dex
+:       lda tmp_col,x
+        sta cab_col,x
+        lda tmp_kind,x
+        sta cab_kind,x
+        dex
+        bpl :-
+        ; labels: the department's + 12 generic ones, n of those; PROD has its own
         ldx #D_DEPT + D_GEN - 1
 :       txa
         sta pool,x
@@ -117,16 +248,22 @@ init:
         jsr pick
         lda #0
         ldx #D_DEPT + 12
-        ldy #N
+        ldy n
         jsr pick
-        ldx #N - 1
-:       lda pool,x
-        sta cab_label,x
+        ldx n
         dex
-        bpl :-
+:       lda pool,x
+        ldy cab_kind,x
+        cpy #K_PROD
+        bne :+
+        lda #D_PROD
+:       sta cab_label,x
+        dex
+        bpl :--
         ; socket order: want[j] = the cable whose colour socket j shows, home[cable] = its socket
         jsr shuffle_n
-        ldx #N - 1
+        ldx n
+        dex
 :       lda pool,x
         sta want,x
         tay
@@ -134,33 +271,60 @@ init:
         sta home,y
         dex
         bpl :-
-        ; initial wiring: a derangement, every cable plugged into another cable's socket
-@der:   jsr shuffle_n
-        ldx #N - 1
-:       txa
-        cmp pool,x
+        ; initial wiring: PROD in its socket, the others a derangement (each in another cable's socket)
+        ldx #0
+        ldy #0
+:       lda cab_kind,x
+        cmp #K_PROD
+        bne @fr
+        lda home,x
+        sta cab_end,x
+        bpl @nf
+@fr:    txa
+        sta free_l,y
+        iny
+@nf:    inx
+        cpx n
+        bne :-
+@der:   ldx m                   ; pool = shuffled free cables, none in its own place
+        dex
+:       lda free_l,x
+        sta pool,x
+        dex
+        bpl :-
+        lda #0
+        ldx m
+        ldy m
+        jsr pick
+        ldx m
+        dex
+:       lda pool,x
+        cmp free_l,x
         beq @der
         dex
         bpl :-
-        ldx #N - 1
-:       ldy pool,x
+        ldx m
+        dex
+:       ldy pool,x              ; end[free[k]] = home[perm[k]]
         lda home,y
-        sta cab_end,x
+        ldy free_l,x
+        sta cab_end,y
         dex
         bpl :-
-        ; the tangle: two random control points per cable (x 14-37, y 8-45)
-        ldx #N - 1
+        ; the tangle: two random control points per cable (x 12-33, y 8-45)
+        ldx n
+        dex
 @ctl:   stx ctl_i
-        lda #24
+        lda #22
         jsr API_RMOD
         clc
-        adc #14
+        adc #12
         ldx ctl_i
         sta c1x,x
-        lda #24
+        lda #22
         jsr API_RMOD
         clc
-        adc #14
+        adc #12
         ldx ctl_i
         sta c2x,x
         lda #38
@@ -206,6 +370,8 @@ pick:
         sty fy_k
         lda #0
         sta fy_i
+        cpy #0
+        beq @out
 @p:     lda fy_cnt
         sec
         sbc fy_i
@@ -228,18 +394,19 @@ pick:
         lda fy_i
         cmp fy_k
         bne @p
-        rts
+@out:   rts
 
-; pool[0..N-1] = a random permutation of 0..N-1.
+; pool[0..n-1] = a random permutation of 0..n-1.
 shuffle_n:
-        ldx #N - 1
+        ldx n
+        dex
 :       txa
         sta pool,x
         dex
         bpl :-
         lda #0
-        ldx #N
-        ldy #N
+        ldx n
+        ldy n
         jmp pick
 
 ; ---------------------------------------------------------------- frame
@@ -255,8 +422,10 @@ frame:
         lda end_t
         beq @play
         dec end_t
-        bne @wait
-        lda #1                  ; all patched: score with the time bonus
+        beq :+
+        clc
+        rts
+:       lda #1                  ; all patched: score with the time bonus
         jmp finish
 @play:  jsr timer_tick
         bcc :+
@@ -284,7 +453,9 @@ frame:
         ldx col
         dec cur,x
         bpl @moved
-        lda #N - 1
+        lda n
+        sec
+        sbc #1
         sta cur,x
         bpl @moved
 :       lda JOYP
@@ -293,7 +464,7 @@ frame:
         ldx col
         inc cur,x
         lda cur,x
-        cmp #N
+        cmp n
         bcc @moved
         lda #0
         sta cur,x
@@ -317,35 +488,15 @@ frame:
 @wait:  clc
         rts
 
-; Timers of the feedback texts, the shake and the picked cable's blink.
+; Timers of the message, the shake, the alarm, the blinking LEDs and the picked cable's blink.
 effects:
-        ldx #N - 1
-@f:     lda float_t,x
-        beq @nf
-        dec float_t,x
-        bne @nf
-        stx t2
-        lda row_tab,x
-        sec
-        sbc #2
-        tay
-        lda #FL_W
-        sta FILL_W
-        lda #1
-        sta FILL_H
-        ldx #FL_X
-        lda #' '
-        jsr API_FILL
-        ldx t2
-@nf:    dex
-        bpl @f
         lda msg_t
         beq :+
         dec msg_t
         bne :+
         jsr clear_msg
 :       lda shake_t
-        beq @blink
+        beq @alarm
         dec shake_t
         lda #0
         ldx shake_t
@@ -354,6 +505,37 @@ effects:
         and #3
 :       ora #$18                ; multicolour text, 40 columns (as the host sets it)
         sta $d016
+@alarm: lda alarm_t             ; PROD alarm: row 2 flashes "PROD ALARM!", then the hint again
+        beq @leds
+        dec alarm_t
+        beq @hint
+        lda anim
+        and #7
+        bne @leds
+        ldx #2                  ; red / off every 8 frames
+        lda anim
+        and #8
+        beq :+
+        ldx #0
+:       stx COLOR
+        lda #2
+        ldx #1
+        jsr clear_rows
+        lda #<s_alarm
+        ldx #>s_alarm
+        ldy #2
+        jsr API_CENTER
+        jmp @leds
+@hint:  lda #2
+        ldx #1
+        jsr clear_rows
+        center 2, s_hint, 3
+@leds:  lda blinky
+        beq @blink
+        lda anim
+        and #3
+        bne @blink
+        jsr draw_leds
 @blink: lda hl_n
         beq @done
         lda anim
@@ -391,7 +573,12 @@ effects:
 act:
         lda aside
         bne @right
-        lda sel_side
+        ldx aidx                ; the PROD port: alarm
+        lda cab_kind,x
+        cmp #K_PROD
+        bne :+
+        jmp touch_prod
+:       lda sel_side
         cmp #2
         bne :+
         lda aidx                ; a socket was picked first: patch this port to it
@@ -419,7 +606,14 @@ act:
         lda #1
         sta col
         bne @changed
-@right: lda sel_side
+@right: lda aidx                ; the socket PROD is in: alarm
+        jsr owner
+        tax
+        lda cab_kind,x
+        cmp #K_PROD
+        bne :+
+        jmp touch_prod
+:       lda sel_side
         cmp #1
         bne :+
         lda sel_idx
@@ -451,6 +645,25 @@ act:
         sta cab_dirty
         rts
 
+; Hands off PROD: -0.25, alarm, the selection is dropped.
+touch_prod:
+        inc prod_hits
+        lda #0
+        sta sel_side
+        lda #1
+        sta ui_dirty
+        sta cab_dirty
+        lda #ALARM_T
+        sta alarm_t
+        lda #PROD_SHAKE
+        sta shake_t
+        lda #SFX_BAD
+        jsr API_SFX
+        lda #<s_prod
+        ldx #>s_prod
+        ldy #2
+        jmp message
+
 ; Patch cable ci to socket cj: it swaps ends with the cable plugged in there.
 connect:
         lda #0
@@ -465,6 +678,11 @@ connect:
         cmp ci
         bne :+
         jmp blip                ; already there
+:       tax
+        lda cab_kind,x
+        cmp #K_PROD
+        bne :+
+        jmp touch_prod
 :       ldx ci
         jsr is_ok
         sta was_i
@@ -516,7 +734,7 @@ connect:
 :       ldy #7
         jsr message
 @all:   jsr ok_count
-        cmp #N
+        cmp m
         bne @out
         lda #<s_all
         ldx #>s_all
@@ -526,7 +744,7 @@ connect:
         sta end_t
 @out:   rts
 
-; A = cable, Y = whether it was patched before: a newly patched one says so over its socket.
+; A = cable, Y = whether it was patched before: a newly patched one says so ("Click!").
 check_gain:
         tax
         cpy #0
@@ -535,34 +753,16 @@ check_gain:
         beq @no
         lda #1
         sta gained
-        lda cab_end,x
-        sta t2                  ; socket
         lda #CL_COUNT
         jsr API_RMOD
         tax
         lda cl_lo,x
-        sta PTR
-        lda cl_hi,x
-        sta PTR+1
-        lda #FL_W               ; centred over the socket box
-        sec
-        sbc cl_len,x
-        lsr
-        clc
-        adc #FL_X
         pha
-        ldx t2
-        lda #FLOAT_T
-        sta float_t,x
-        lda row_tab,x
-        sec
-        sbc #2
-        tay
-        lda #5
-        sta COLOR
-        pla
+        lda cl_hi,x
         tax
-        jmp API_PRINT
+        pla
+        ldy #5
+        jmp message
 @no:    rts
 
 ; X = cable -> A = 1 if it is in its own socket (X kept).
@@ -577,7 +777,8 @@ is_ok:
 
 ; A = socket -> A = the cable plugged into it.
 owner:
-        ldx #N - 1
+        ldx n
+        dex
 :       cmp cab_end,x
         beq :+
         dex
@@ -585,44 +786,37 @@ owner:
 :       txa
         rts
 
-; A = patched cables.
+; A = patched cables (PROD not counted).
 ok_count:
         lda #0
         sta t0
-        ldx #N - 1
-:       jsr is_ok
+        ldx n
+        dex
+:       lda cab_kind,x
+        cmp #K_PROD
+        beq :+
+        jsr is_ok
         clc
         adc t0
         sta t0
-        dex
-        bpl :-
+:       dex
+        bpl :--
         lda t0
         rts
 
 blip:   lda #SFX_BLIP
         jmp API_SFX
 
-; A = 1 to add the time bonus. score = patched × 51 - 51 × extra mistakes (+ cells left / 3, ~5 % of 255)
+; A = 1 to add the time bonus. score = patched × 255 / m - 51 per extra mistake - 64 per PROD touch
+; (+ cells left / 3, ~5 % of 255)
 finish:
         sta t2
         jsr ok_count
-        sta t0
-        asl                     ; × 51 = × 32 + × 16 + × 2 + × 1
-        asl
-        asl
-        asl
-        sta t1
-        asl
-        clc
-        adc t1
-        sta t1
-        lda t0
-        asl
-        adc t1
-        adc t0
-        sta acc
-        lda #0
+        ldx #255
+        jsr mul8
         sta acc+1
+        lda m
+        jsr div8                ; acc = patched × 255 / m
         lda t2
         beq @pen
         lda tm_cells
@@ -640,13 +834,25 @@ finish:
         inc acc+1
 @pen:   lda mistakes
         sec
-        sbc #FREE_MISS
-        bcc @clamp
-        beq @clamp
+        sbc free_miss
+        bcc @prod
+        beq @prod
         tax
 :       lda acc                 ; - 51 per extra mistake
         sec
         sbc #51
+        sta acc
+        lda acc+1
+        sbc #0
+        sta acc+1
+        bcc @zero
+        dex
+        bne :-
+@prod:  ldx prod_hits
+        beq @clamp
+:       lda acc                 ; - 64 per PROD touch
+        sec
+        sbc #64
         sta acc
         lda acc+1
         sbc #0
@@ -669,6 +875,39 @@ finish:
         sec
         rts
 
+; A × X -> A (high byte), acc (low byte).
+mul8:
+        stx t1
+        sta t0
+        lda #0
+        ldx #8
+@m:     lsr t1
+        bcc :+
+        clc
+        adc t0
+:       ror
+        ror acc
+        dex
+        bne @m
+        rts
+
+; acc (16 bit) / A -> acc.
+div8:
+        sta t0
+        lda #0
+        ldx #16
+@d:     asl acc
+        rol acc+1
+        rol
+        bcs @sub
+        cmp t0
+        bcc :+
+@sub:   sbc t0
+        inc acc
+:       dex
+        bne @d
+        rts
+
 .if .defined(AUTOPLAY)
 ; Perfect player (test builds): every 15 frames pick the first tangled port, then its own socket.
 bot:    inc bot_t
@@ -683,7 +922,7 @@ bot:    inc bot_t
 :       jsr is_ok
         beq :+
         inx
-        cpx #N
+        cpx n
         bne :-
         rts
 :       stx aidx
@@ -703,13 +942,16 @@ bot:    inc bot_t
 
 ; ---------------------------------------------------------------- drawing
 
-; Port and socket boxes: picked yellow, cursor cyan, others blue.
+; Port and socket boxes: picked yellow, cursor cyan, others blue (the PROD socket red). From 7 cables there are
+; no boxes: an arrow marks the cursor / the pick.
 draw_boxes:
         lda #0
         sta ui_dirty
-        lda #N - 1
+        lda n
+        sec
+        sbc #1
         sta t2
-@b:     ldx t2
+@b:     ldx t2                  ; port t2: its colour
         lda #6
         ldy cur
         cpy t2
@@ -726,30 +968,42 @@ draw_boxes:
         lda #7
 :       sta COLOR
         jsr box_at
+        ldx step
+        cpx #3
+        bcc @pmark
         ldx #0
         jsr API_BOX
-        ldx t2                  ; colour swatch
+        jmp @pswatch
+@pmark: lda #' '                ; no box: an arrow when not blue
+        ldx COLOR
+        cpx #6
+        beq :+
+        lda #CH_ARROW
+:       ldx #0
+        iny
+        jsr API_PUTC
+@pswatch:
+        ldx t2                  ; colour swatch: solid, striped (twin) or red / yellow (PROD)
         lda cab_col,x
         sta COLOR
-        lda #2
-        sta FILL_W
-        lda #1
-        sta FILL_H
+        ldy cab_kind,x
+        lda sw_char,y
         ldy row_tab,x
         ldx #1
-        lda #CH_BLOCK
-        jsr API_FILL
-        ldx t2                  ; LED and jack: green when patched, red when not
-        jsr is_ok
-        tax
-        lda led_col,x
-        sta COLOR
-        lda led_char,x
-        ldx t2
-        ldy row_tab,x
-        ldx #3
         jsr API_PUTC
         ldx t2
+        ldy cab_kind,x
+        cpy #K_PROD
+        bne :+
+        lda #7
+        sta COLOR
+:       lda sw_char,y
+        ldy row_tab,x
+        ldx #2
+        jsr API_PUTC
+        ldx t2
+        jsr draw_port_led
+        ldx t2                  ; the jack: green when patched, red when not
         jsr is_ok
         tax
         lda led_col,x
@@ -763,7 +1017,13 @@ draw_boxes:
         ; socket t2
         ldx t2
         lda #6
-        ldy cur+1
+        ldy want,x
+        lda cab_kind,y
+        cmp #K_PROD
+        lda #6
+        bcc :+
+        lda #2
+:       ldy cur+1
         cpy t2
         bne :+
         ldy col
@@ -777,6 +1037,9 @@ draw_boxes:
         bne :+
         lda #7
 :       sta COLOR
+        lda step
+        cmp #3
+        bcc @smark
         lda #SOCK_W
         sta FILL_W
         lda #3
@@ -785,7 +1048,19 @@ draw_boxes:
         dey
         ldx #SOCK_X
         jsr API_BOX
-        lda COLOR               ; the jack: a dark hole in the box's left side
+        jmp @jack
+@smark: lda #' '                ; no box: '<' for the cursor (cyan) / the pick (yellow)
+        ldx COLOR
+        cpx #3
+        beq :+
+        cpx #7
+        bne :++
+:       lda #'<'
+:       ldx t2
+        ldy row_tab,x
+        ldx #SOCK_X + SOCK_W - 1
+        jsr API_PUTC
+@jack:  lda COLOR               ; the jack: a dark hole in the box's left side
         ora #8
         sta COLOR
         ldx t2
@@ -797,15 +1072,25 @@ draw_boxes:
         ldy want,x
         lda cab_col,y
         sta COLOR
+        ldx cab_kind,y
+        lda sw_char,x
+        cpx #K_PROD
+        bne :+
+        lda #CH_BLOCK
+:       ldx t2
         ldy row_tab,x
         ldx #SOCK_X + 1
-        lda #CH_BLOCK
         jsr API_PUTC
-        lda #1
+        lda #1                  ; label: white, PROD red
         sta COLOR
         ldx t2
         ldy want,x
-        lda cab_label,y
+        lda cab_kind,y
+        cmp #K_PROD
+        bne :+
+        lda #2
+        sta COLOR
+:       lda cab_label,y
         tay
         lda dev_lo,y
         sta PTR
@@ -814,19 +1099,8 @@ draw_boxes:
         ldy row_tab,x
         ldx #LABEL_X
         jsr API_PRINT
-        ldx t2                  ; LED: yellow while the wrong cable is in, green when right
-        ldy want,x
-        ldx #7
-        lda cab_end,y
-        cmp home,y
-        bne :+
-        ldx #5
-:       stx COLOR
         ldx t2
-        ldy row_tab,x
-        ldx #LED_X
-        lda #CH_PIP
-        jsr API_PUTC
+        jsr draw_sock_led
         dec t2
         bmi :+
         jmp @b
@@ -842,11 +1116,92 @@ box_at:
         dey
         rts
 
-; "Patched n/5" on the title row; "Moves n" and "Oops n" on row 23.
+; Blinking LEDs (from d 0.5): every port and socket LED again.
+draw_leds:
+        ldx n
+        dex
+:       stx t2
+        jsr draw_port_led
+        ldx t2
+        jsr draw_sock_led
+        ldx t2
+        dex
+        bpl :-
+        rts
+
+; X = port: its LED green when patched; else red, blinking from d 0.5 (else dim).
+draw_port_led:
+        stx t1
+        jsr is_ok
+        tax
+        lda led_col,x
+        sta COLOR
+        lda led_char,x
+        cpx #1
+        beq @put
+        ldx blinky
+        beq @put
+        lda anim                ; phase: anim / 8 + 1.5 × row
+        lsr
+        lsr
+        lsr
+        clc
+        adc t1
+        sta t0
+        lda t1
+        lsr
+        adc t0
+        lsr
+        lda #CH_PIPOFF
+        bcc @put
+        lda #CH_PIP
+@put:   ldx t1
+        ldy row_tab,x
+        ldx #3
+        jmp API_PUTC
+
+; X = socket: its LED green when the right cable is in; else yellow, flickering red / yellow / off from d 0.5.
+draw_sock_led:
+        stx t1
+        ldy want,x
+        ldx #7
+        lda cab_end,y
+        cmp home,y
+        bne :+
+        ldx #5
+        bne @col
+:       lda blinky
+        beq @col
+        jsr API_RAND
+        and #3
+        tax
+        lda flicker,x
+        tax
+@col:   stx COLOR
+        lda #CH_PIP
+        cpx #0
+        bne :+
+        lda #CH_PIPOFF
+        ldx #2
+        stx COLOR
+:       ldx t1
+        ldy row_tab,x
+        ldx #LED_X
+        jmp API_PUTC
+
+; "Patched n/m" on the title row; "Moves n" and "Oops n" on row 23.
 draw_status:
-        text 29, 0, s_patched, 7
+        text 28, 0, s_patched, 7
         jsr ok_count
+        ldx #36
+        ldy #0
+        jsr API_NUM
+        lda #'/'
         ldx #37
+        ldy #0
+        jsr API_PUTC
+        lda m
+        ldx #38
         ldy #0
         jsr API_NUM
         text 0, 23, s_moves, 3
@@ -857,8 +1212,9 @@ draw_status:
         lda mistakes
         beq @out
         ldx #7
-        cmp #FREE_MISS + 1
+        cmp free_miss
         bcc :+
+        beq :+
         ldx #2
 :       stx COLOR
         lda #<s_oops
@@ -948,7 +1304,7 @@ curve:
         lda cy4+3
         sta pts_y+STEPS,y
         lda #1
-        sta step
+        sta bstep
 @s:     inc pt_i
         ldx #0
         jsr weigh
@@ -958,8 +1314,8 @@ curve:
         jsr weigh
         ldy pt_i
         sta pts_y,y
-        inc step
-        lda step
+        inc bstep
+        lda bstep
         cmp #STEPS
         bne @s
         rts
@@ -971,7 +1327,7 @@ weigh:
         sta acc
         lda #0
         sta acc+1
-        ldx step                ; weights start at step 1
+        ldx bstep               ; weights start at step 1
         dex
         stx w_i
         lda #4
@@ -1036,7 +1392,8 @@ render:
 :       sta hl
 @pass:  lda #0                  ; tangled
         sta pass
-@p:     ldx #N - 1
+@p:     ldx n
+        dex
 @c:     cpx hl
         beq @next
         jsr is_ok
@@ -1093,6 +1450,10 @@ render:
 draw_cable:
         lda cab_col,x
         sta pcol
+        lda cab_kind,x
+        sta kind
+        lda #0
+        sta pix
         stx dc_i
         jsr is_ok
         beq @curve
@@ -1124,7 +1485,11 @@ draw_cable:
         inc dc_p
         dec dc_n
         bne @seg
-@plugs: ldx dc_i
+@plugs: lda #K_PLAIN            ; plugs: solid in the cable's colour
+        sta kind
+        ldx dc_i
+        lda cab_col,x
+        sta pcol
         lda #PX0 - 1
         sta px
         lda py_tab,x
@@ -1218,8 +1583,23 @@ line:
         jmp @loop
 @done:  rts
 
-; Set the quarter-block pixel (px, py) in colour pcol.
-plot:   jsr cell
+; Set the quarter-block pixel (px, py): a twin leaves every other 4 pixels out (dashes), PROD is yellow every
+; other 4 pixels (stripes).
+plot:   inc pix
+        lda kind
+        beq @on
+        lda pix
+        and #4
+        beq @on
+        lda kind
+        cmp #K_TWIN
+        bne :+
+        rts
+:       lda #7                  ; PROD stripe
+        bne @col
+@on:    lda pcol
+@col:   sta plot_c
+        jsr cell
         lda py
         and #1
         asl
@@ -1234,7 +1614,7 @@ plot:   jsr cell
         lda #QB
 :       ora qbit,x
         sta (bp),y
-        lda pcol
+        lda plot_c
         sta (cp),y
         rts
 
@@ -1275,26 +1655,25 @@ s_name:    .byte "Cable Spaghetti", 0
 s_help:    .byte "Re-patch every cable to its colour.", 0
 s_hint:    .byte "Match every cable to its colour!", 0
 s_keys:    .byte "FIRE port then socket  Left/right: side", 0
-s_patched: .byte "Patched  /5", 0
+s_patched: .byte "Patched", 0
 s_moves:   .byte "Moves", 0
 s_oops:    .byte "Oops", 0
 s_still:   .byte "Still wrong...", 0
 s_unplug:  .byte "Unplugged a good one!", 0
 s_all:     .byte "All patched!", 0
+s_prod:    .byte "DON'T TOUCH PROD!", 0
+s_alarm:   .byte "PROD ALARM!", 0
 
 ; JS cable colours the C64 can put in a text cell: blue, green, yellow, orange (red), purple, cyan, white
 PALETTE = 7
 palette:   .byte 6, 5, 7, 2, 4, 3, 1
+step_tab:  .byte 4, 3, 2, 2     ; rows per cable for 5-8 cables
+sw_char:   .byte CH_BLOCK, CH_HALF, CH_BLOCK ; swatch cells: plain, twin (stripes), PROD (+ a yellow cell)
 led_col:   .byte 2, 5
 led_char:  .byte CH_PIPOFF, CH_PIP
+flicker:   .byte 0, 2, 7, 7     ; unpatched socket LEDs from d 0.5: off, red, yellow
 qbit:      .byte 1, 2, 4, 8
-row_tab:   .repeat N, I
-           .byte ROW0 + I * ROW_STEP
-           .endrepeat
-py_tab:    .repeat N, I             ; cable y at a port / socket: the cell's lower half
-           .byte 2 * (ROW0 + I * ROW_STEP) + 1
-           .endrepeat
-pts_base:  .repeat N, I
+pts_base:  .repeat MAX_N, I
            .byte I * PTS
            .endrepeat
 scr_lo:    .repeat 25, I
@@ -1339,18 +1718,25 @@ done:      .res 1
 end_t:     .res 1
 moves:     .res 1
 mistakes:  .res 1
+prod_hits: .res 1
 msg_t:     .res 1
 shake_t:   .res 1
+alarm_t:   .res 1
 ui_dirty:  .res 1
 cab_dirty: .res 1
 hl:        .res 1               ; the picked cable, $ff = none
 hl_n:      .res 1
 hl_on:     .res 1
 rec:       .res 1
-float_t:   .res N
+has_prod:  .res 1
+blinky:    .res 1
 bot_t:     .res 1
 vars_end:
 diff:      .res 1
+pairs:     .res 1
+bases:     .res 1
+free_miss: .res 1
+step:      .res 1               ; rows per cable
 ctl_i:     .res 1
 aside:     .res 1
 aidx:      .res 1
@@ -1365,7 +1751,7 @@ fy_off:    .res 1
 fy_cnt:    .res 1
 fy_k:      .res 1
 fy_i:      .res 1
-step:      .res 1
+bstep:     .res 1
 pt_i:      .res 1
 w_i:       .res 1
 w_lo:      .res 1
@@ -1373,20 +1759,27 @@ k_cnt:     .res 1
 dc_i:      .res 1
 dc_p:      .res 1
 dc_n:      .res 1
+plot_c:    .res 1
 cx4:       .res 4
 cy4:       .res 4
 pool:      .res D_DEPT + D_GEN
-cab_col:   .res N
-cab_label: .res N
-cab_end:   .res N               ; socket each cable is plugged into
-want:      .res N
-home:      .res N
-c1x:       .res N
-c1y:       .res N
-c2x:       .res N
-c2y:       .res N
-pts_x:     .res N * PTS
-pts_y:     .res N * PTS
+cab_col:   .res MAX_N
+cab_kind:  .res MAX_N
+tmp_col:   .res MAX_N
+tmp_kind:  .res MAX_N
+cab_label: .res MAX_N
+cab_end:   .res MAX_N           ; socket each cable is plugged into
+want:      .res MAX_N
+home:      .res MAX_N
+free_l:    .res MAX_N           ; the cables that are not PROD
+row_tab:   .res MAX_N
+py_tab:    .res MAX_N
+c1x:       .res MAX_N
+c1y:       .res MAX_N
+c2x:       .res MAX_N
+c2y:       .res MAX_N
+pts_x:     .res MAX_N * PTS
+pts_y:     .res MAX_N * PTS
 hl_r:      .res HL_MAX
 hl_c:      .res HL_MAX
 buf_ch:    .res BW * BH

@@ -1,14 +1,20 @@
 ; Expense Fraud Detective (src/minigames/expense.js) as a disk-loaded overlay at $4000.
 ; Receipts land on the desk one at a time: APPROVE (right) the legit ones, REJECT (left) the fraud before the
-; receipt's timer runs out. Difficulty 0-0.17 (floors 1-2): 8-9 receipts, ~42-58 % fraud, 8-7.4 s each, no
-; duplicates (those start at d 0.6). The stamps unlock 0.45 s after a receipt lands; pressing before that is
-; mashing and costs 4 %. Score = (correct - wrong / 2) / receipts - 0.04 × mashes, 90 s safety cap.
-; Content: src/data/mg-expense.js, lobby + shared receipts (gen/mg_expense_data.s). The two rubber stamps are
-; multicolour sprites (4 each: knob, stem, handle, rubber); the chosen one flies onto the receipt.
+; receipt's timer runs out. The stamps unlock 0.45 s after a receipt lands; pressing before that is mashing and
+; costs 4 %. Score = (correct - wrong / 2) / receipts - 0.04 × mashes, 90 s safety cap.
+; Difficulty (d = MG_DIFF / 255), d=0 -> d=1:
+;   receipts 8 -> 13 (round(8 + 5 d)), ~42-58 % of them fraud; 8 s -> 4.5 s per receipt;
+;   duplicates: from d 0.6 one, from d 0.85 two earlier legit receipts come back identical (number, date, time,
+;   submitter) a few receipts later: already reimbursed, so fraud; a hint line warns about them from d 0.6.
+; Content: src/data/mg-expense.js, the department's + the shared receipts (gen/mg_expense_data.s; see
+; tools/mg/expense.js for the other departments' ones). The two rubber stamps are multicolour sprites (4 each:
+; knob, stem, handle, rubber); the chosen one flies onto the receipt.
 
 .include "api.inc"
 
-MAX_N     = 9                   ; receipts per round
+MAX_N     = 13                  ; receipts per round: round(byDiff(d, 8, 13))
+DUP1_D    = 154                 ; one duplicate from d > 0.6
+DUP2_D    = 217                 ; two from d > 0.85
 IN_T      = 15                  ; 0.3 s: the receipt lands
 READ_T    = 22                  ; 0.45 s before the stamps unlock
 STAMP_T   = 15                  ; 0.3 s stamp phase
@@ -34,6 +40,7 @@ C_NONE    = $ff
 ; flags byte of a receipt (tools/mg/expense.js)
 F_FRAUD   = $80
 F_DEPT    = $40
+F_OTHER   = $20
 F_TWO     = $08
 F_DAY     = $07
 
@@ -42,10 +49,10 @@ S_TOTAL   = 3
 S_REASON  = 4
 S_TELL    = 6
 
-RC_X      = 5                   ; receipt box: columns 5-34, text in 6-33
+RC_X      = 4                   ; receipt box: columns 4-35, text in 5-34
 RC_Y      = 2
-RC_W      = 30
-RC_RIGHT  = 34                  ; right-aligned text ends left of this column
+RC_W      = 32
+RC_RIGHT  = 35                  ; right-aligned text ends left of this column
 BTN_Y     = 15
 BTN_H     = 6
 REJ_X     = 1
@@ -54,6 +61,7 @@ BTN_W     = 12
 TALLY_Y   = 17
 MSG_Y     = 19                  ; message slot between the buttons, columns 13-26
 VERD_Y    = 21
+HINT_Y    = 21                  ; the rules (2 rows) + the duplicate warning
 INK_X     = 14                  ; ink box: 12 × 3 on the receipt's middle
 INK_W     = 12
 
@@ -64,6 +72,18 @@ REJ_SX    = (24 + (REJ_X * 8 + BTN_W * 4) - 12) / 2
 APP_SX    = (24 + (APP_X * 8 + BTN_W * 4) - 12) / 2
 RC_SX     = (24 + 20 * 8 - 12) / 2
 LIFT      = 6                   ; the stamp hovers this high until it lands
+
+; the queue: one entry per receipt, fields in MAX_N-byte columns of qf (a duplicate copies all of them)
+F_REC     = 0                   ; receipt index
+F_DAYN    = 1                   ; weekday 0-6
+F_DATE    = 2                   ; 1-28
+F_MON     = 3                   ; 0-11
+F_HOUR    = 4                   ; 8-21
+F_MIN     = 5                   ; 0-59
+F_NO      = 6                   ; 5 digits of the receipt number (after a leading 0)
+F_SUB     = 11                  ; submitter
+F_DUP     = 12                  ; 1: an already reimbursed copy
+NF        = 13
 
 .zeropage
 n:        .res 1                ; receipts this round
@@ -96,6 +116,12 @@ t0:       .res 1
 t1:       .res 1
 t2:       .res 1
 t3:       .res 1
+dups:     .res 1                ; duplicates this round
+qlen:     .res 1                ; queue length while it is built
+src:      .res 1
+at:       .res 1
+base:     .res 1
+dup_hint: .res 1                ; 1: warn about duplicates (d > 0.6)
 
 .segment "CODE"
         jmp init
@@ -109,11 +135,23 @@ t3:       .res 1
 ; A = difficulty
 init:
         sta t0
-        ldx #8                  ; round(byDiff(d, 8, 13)): 9 from d 0.1
-        cmp #26
+        ldx #8                  ; round(byDiff(d, 8, 13)): one more from d 0.1, 0.3, 0.5, 0.7, 0.9
+:       cmp n_steps-8,x
         bcc :+
         inx
+        cpx #MAX_N
+        bne :-
 :       stx n
+        ldx #0                  ; duplicates: 1 from d > 0.6, 2 from d > 0.85
+        stx dup_hint
+        cmp #DUP1_D
+        bcc :+
+        inx
+        inc dup_hint
+        cmp #DUP2_D
+        bcc :+
+        inx
+:       stx dups
         lsr                     ; per item: 400 - 0.6875 × A frames (8 s -> 4.5 s over the full range)
         sta t1
         lsr
@@ -164,7 +202,11 @@ init:
         inc t2
 :       dex
         bne :--
-        ; queue: t2 fraud, n - t2 legit, department-weighted, then shuffled
+        lda t2                  ; - duplicates (they are fraud too)
+        sec
+        sbc dups
+        sta t2
+        ; queue: t2 fraud, n - dups - t2 legit, department-weighted, then shuffled
         ldx #R_COUNT-1
         lda #1
 :       sta avail,x
@@ -181,6 +223,8 @@ init:
         sta t0
         lda n
         sec
+        sbc dups
+        sec
         sbc t2
         pha
         ldx #R_LEGIT            ; fraud receipts: R_LEGIT..R_COUNT-1
@@ -191,7 +235,7 @@ init:
         ldx #0
         ldy #R_LEGIT
         jsr draw
-        ldx n
+        ldx t3
         dex
 @shuf:  stx t0
         txa
@@ -208,17 +252,18 @@ init:
         sta queue,y
         dex
         bne @shuf
+        jsr make_entries
+        jsr make_dups
         jsr init_sprites
         ; screen
         text 1, 0, s_name, 7
-        text 29, 0, s_receipt, 7
         lda #<s_keys
         ldx #>s_keys
         jsr footer
         jmp begin
 
 ; Weighted sampling without replacement: t0 receipts from X..X+Y-1 appended to queue (t3 = its length).
-; Weight 5 for the department's own receipts, 2 for the shared ones (3 : 1.2 in the JS).
+; Weight 5 for the department's own receipts, 2 for the shared ones, 1 for others' (3 : 1.2 : 0.7 in the JS).
 draw:
         stx dr_base
         sty dr_cnt
@@ -271,11 +316,197 @@ weight: lda rec_hi,x
         ldy #0
         lda (sp),y
         ldy t2
+        and #F_DEPT | F_OTHER
+        beq @shared
         and #F_DEPT
         beq :+
         lda #5
         rts
-:       lda #2
+:       lda #1                  ; another department's
+        rts
+@shared:
+        lda #2
+        rts
+
+; The random details of entries 0..t3-1: weekday (forced or Mon-Fri), date, month, time, number, submitter.
+make_entries:
+        ldx #0
+@e:     stx t0
+        lda #0
+        sta qf + F_DUP * MAX_N,x
+        jsr rflags
+        and #F_DAY
+        beq :+
+        sec
+        sbc #1
+        bcs @day
+:       lda #5
+        jsr API_RMOD
+@day:   ldx t0
+        sta qf + F_DAYN * MAX_N,x
+        lda #28
+        jsr API_RMOD
+        clc
+        adc #1
+        ldx t0
+        sta qf + F_DATE * MAX_N,x
+        lda #12
+        jsr API_RMOD
+        ldx t0
+        sta qf + F_MON * MAX_N,x
+        lda #14
+        jsr API_RMOD
+        clc
+        adc #8
+        ldx t0
+        sta qf + F_HOUR * MAX_N,x
+        lda #60
+        jsr API_RMOD
+        ldx t0
+        sta qf + F_MIN * MAX_N,x
+        lda #SUB_COUNT
+        jsr API_RMOD
+        ldx t0
+        sta qf + F_SUB * MAX_N,x
+        ; receipt number 001000-099999: 5 digits, not starting with 00
+        lda #10
+        jsr API_RMOD
+        ldx t0
+        sta qf + F_NO * MAX_N,x
+        tay
+        lda #10
+        cpy #0
+        bne :+
+        lda #9
+:       jsr API_RMOD
+        ldx t0
+        ldy qf + F_NO * MAX_N,x
+        bne :+
+        clc
+        adc #1
+:       sta qf + (F_NO + 1) * MAX_N,x
+        lda #10
+        jsr API_RMOD
+        ldx t0
+        sta qf + (F_NO + 2) * MAX_N,x
+        lda #10
+        jsr API_RMOD
+        ldx t0
+        sta qf + (F_NO + 3) * MAX_N,x
+        lda #10
+        jsr API_RMOD
+        ldx t0
+        sta qf + (F_NO + 4) * MAX_N,x
+        inx
+        cpx t3
+        beq :+
+        jmp @e
+:       rts
+
+; X = entry -> A = its receipt's flags (X kept)
+rflags: ldy queue,x
+        lda rec_lo,y
+        sta sp
+        lda rec_hi,y
+        sta sp+1
+        ldy #0
+        lda (sp),y
+        rts
+
+; Duplicates: an earlier legit receipt (not the last one) shows up again, identical, at a random later place
+; (at least 2 after it). The queue grows from n - dups (t3) to n.
+make_dups:
+        lda dups
+        sta t1
+@d:     lda t1
+        beq @done
+        lda #0                  ; candidates: legit, not a copy, not the last
+        sta t2
+        ldx #0
+@c:     jsr cand
+        bcc :+
+        inc t2
+:       inx
+        txa
+        clc
+        adc #1
+        cmp t3
+        bcc @c                  ; while X < length - 1
+        lda t2
+        beq @done
+        jsr API_RMOD            ; the k-th candidate
+        sta t2
+        ldx #0
+@w:     jsr cand
+        bcc @nw
+        lda t2
+        beq @found
+        dec t2
+@nw:    inx
+        bne @w
+@found: stx src
+        lda t3                  ; at = src + 2 + U(0 .. len - src - 2)
+        sec
+        sbc src
+        sbc #1                  ; (C = 1)
+        jsr API_RMOD
+        clc
+        adc src
+        adc #2
+        sta at
+        jsr insert
+        dec t1
+        jmp @d
+@done:  lda t3
+        sta n
+        rts
+
+; X = entry: C = 1 if it can be duplicated (legit and not a copy). X kept.
+cand:   lda qf + F_DUP * MAX_N,x
+        bne @no
+        jsr rflags
+        bmi @no
+        sec
+        rts
+@no:    clc
+        rts
+
+; Entry src copied to position at, the entries from there on move down one (t3 = length, + 1).
+insert:
+        lda #0
+        sta base
+@f:     lda base
+        clc
+        adc at
+        sta t0                  ; base + at
+        lda base
+        clc
+        adc t3
+        tax
+        dex                     ; base + len - 1
+@sh:    cpx t0
+        bcc @cp
+        lda qf,x
+        sta qf+1,x
+        dex
+        jmp @sh
+@cp:    lda base
+        clc
+        adc src
+        tax
+        lda qf,x
+        ldx t0
+        sta qf,x
+        lda base
+        clc
+        adc #MAX_N
+        sta base
+        cmp #NF * MAX_N
+        bne @f
+        ldx at
+        lda #1
+        sta qf + F_DUP * MAX_N,x
+        inc t3
         rts
 
 init_sprites:
@@ -377,7 +608,10 @@ begin:
         sta rp+1
         ldy #0
         lda (rp),y
-        sta flags
+        ldy qf + F_DUP * MAX_N,x
+        beq :+
+        ora #F_FRAUD            ; a copy: already reimbursed
+:       sta flags
         jsr draw_receipt
         jsr draw_counter
         jsr draw_tally
@@ -388,23 +622,29 @@ begin:
         ldx per_item+1
         jmp timer_start
 
+; "Receipt N/M" right-aligned on the title row.
 draw_counter:
-        lda #7
-        sta COLOR
-        ldx #37
-        ldy #0
+        lda #<s_receipt
+        ldx #>s_receipt
+        jsr buf_s0
         lda qi
         clc
         adc #1
-        jsr API_NUM
+        jsr buf_n
         lda #'/'
-        ldx #38
-        ldy #0
-        jsr API_PUTC
-        ldx #39
-        ldy #0
+        jsr buf_c
         lda n
-        jmp API_NUM
+        jsr buf_n
+        jsr buf_end
+        lda #7
+        sta COLOR
+        lda #40
+        sec
+        sbc bufi
+        tax
+        inx                     ; (bufi counts the 0)
+        ldy #0
+        jmp API_PRINT
 
 ; The paper: merchant, number, date and time, items, total, reason, submitter; a torn bottom edge.
 draw_receipt:
@@ -463,35 +703,8 @@ draw_receipt:
         ldx sp+1
         ldy #RC_Y + 1
         jsr API_CENTER
-        ; Receipt #0nnnnn: 5 random digits, not starting with 00 (1000-99999)
-        jsr buf_reset
-        ldx #0
-:       lda s_rno,x
-        beq :+
-        jsr buf_c
-        inx
-        bne :-
-:       lda #10
-        jsr API_RMOD
-        sta t0
-        jsr buf_digit
-        lda #10
-        ldx t0
-        bne :+
-        lda #9
-:       jsr API_RMOD
-        ldx t0
-        bne :+
-        clc
-        adc #1
-:       jsr buf_digit
-        lda #3
-        sta t0
-:       lda #10
-        jsr API_RMOD
-        jsr buf_digit
-        dec t0
-        bne :-
+        ; Receipt #0nnnnn
+        jsr buf_rno
         jsr buf_end
         lda #6
         sta COLOR
@@ -499,17 +712,11 @@ draw_receipt:
         ldx #>buf
         ldy #RC_Y + 2
         jsr API_CENTER
-        ; weekday (forced or Mon-Fri), date 1-28, month; weekends in red
+        ; weekday, date, month; weekends in red
         jsr buf_reset
-        lda flags
-        and #F_DAY
-        beq :+
-        sec
-        sbc #1
-        bcs @day
-:       lda #5
-        jsr API_RMOD
-@day:   sta t1
+        ldy qi
+        lda qf + F_DAYN * MAX_N,y
+        sta t1
         asl
         adc t1
         tax
@@ -521,15 +728,13 @@ draw_receipt:
         jsr buf_c
         lda #' '
         jsr buf_c
-        lda #28
-        jsr API_RMOD
-        clc
-        adc #1
+        ldy qi
+        lda qf + F_DATE * MAX_N,y
         jsr buf_n
         lda #' '
         jsr buf_c
-        lda #12
-        jsr API_RMOD
+        ldy qi
+        lda qf + F_MON * MAX_N,y
         sta t0
         asl
         adc t0
@@ -550,17 +755,15 @@ draw_receipt:
         ldx #RC_X + 1
         ldy #RC_Y + 3
         jsr API_PRINT
-        ; time 8:00-21:59
+        ; time
         jsr buf_reset
-        lda #14
-        jsr API_RMOD
-        clc
-        adc #8
+        ldy qi
+        lda qf + F_HOUR * MAX_N,y
         jsr buf_n
         lda #':'
         jsr buf_c
-        lda #60
-        jsr API_RMOD
+        ldy qi
+        lda qf + F_MIN * MAX_N,y
         jsr buf_n2
         jsr buf_end
         lda #1
@@ -635,9 +838,8 @@ draw_receipt:
         lda t1
         cmp #S_REASON + 2
         bne @reason
-        lda #SUB_COUNT
-        jsr API_RMOD
-        tax
+        ldy qi
+        ldx qf + F_SUB * MAX_N,y
         lda sub_lo,x
         sta PTR
         lda sub_hi,x
@@ -751,6 +953,38 @@ buf_n2: ldx #0
         jsr buf_digit
         pla
         jmp buf_digit
+; A/X = string: the buffer starts with it
+buf_s0: sta sp
+        stx sp+1
+        jsr buf_reset
+        ldy #0
+:       lda (sp),y
+        beq :+
+        jsr buf_c
+        iny
+        bne :-
+:       rts
+
+; "Receipt #0" + the current entry's 5 digits
+buf_rno:
+        lda #<s_rno
+        ldx #>s_rno
+        jsr buf_s0
+buf_rno_digits:
+        lda qi
+        clc
+        adc #F_NO * MAX_N
+        tay
+        ldx #5
+:       lda qf,y
+        jsr buf_digit
+        tya
+        clc
+        adc #MAX_N
+        tay
+        dex
+        bne :-
+        rts
 buf_end:
         lda #0
         jsr buf_c
@@ -849,9 +1083,12 @@ draw_hint:
         lda #VERD_Y
         ldx #3
         jsr clear_rows
-        center VERD_Y + 1, s_hint1, 1
-        center VERD_Y + 2, s_hint2, 1
-        rts
+        center HINT_Y, s_hint1, 1
+        center HINT_Y + 1, s_hint2, 1
+        lda dup_hint
+        beq :+
+        center HINT_Y + 2, s_hint3, 7
+:       rts
 
 ; A/X = message, Y = colour: in the slot between the buttons for a second.
 message:
@@ -1227,7 +1464,12 @@ judge:
         ldx #>buf
         ldy #VERD_Y
         jsr API_CENTER
-        lda #S_TELL
+        ldx qi
+        lda qf + F_DUP * MAX_N,x
+        beq @own
+        jsr dup_tell
+        jmp @tallied
+@own:   lda #S_TELL
         sta t1
 @tell:  lda t1
         jsr field
@@ -1244,6 +1486,7 @@ judge:
         lda t1
         cmp #S_TELL + 2
         bne @tell
+@tallied:
         jsr draw_tally
         lda #P_RESULT
         sta phase
@@ -1251,6 +1494,28 @@ judge:
         sta pt
         clc
         rts
+
+; The tell of a copy: "Already reimbursed!" / "Same receipt #0nnnnn."
+dup_tell:
+        lda #1
+        sta COLOR
+        lda #<s_dup1
+        ldx #>s_dup1
+        ldy #VERD_Y + 1
+        jsr API_CENTER
+        lda #<s_same
+        ldx #>s_same
+        jsr buf_s0
+        jsr buf_rno_digits
+        lda #'.'
+        jsr buf_c
+        jsr buf_end
+        lda #1
+        sta COLOR
+        lda #<buf
+        ldx #>buf
+        ldy #VERD_Y + 2
+        jmp API_CENTER
 
 result_frame:
         ldx #HOLD_OK
@@ -1334,13 +1599,16 @@ finish:
 .rodata
 s_name:     .byte "Expense Fraud Detective", 0
 s_help:     .byte "APPROVE the legit receipts, REJECT the fraud.", 0
-s_receipt:  .byte "Receipt", 0
+s_receipt:  .byte "Receipt ", 0
 s_keys:     .byte "Left = reject    Right = approve", 0
 s_hint1:    .byte "Legit = APPROVE, fraud = REJECT.", 0
 s_hint2:    .byte "Check the date, amounts and reason.", 0
 s_rno:      .byte "Receipt #0", 0
+s_hint3:    .byte "Same receipt again? Already reimbursed.", 0
+s_dup1:     .byte "Already reimbursed!", 0
+s_same:     .byte "Same receipt #0", 0
 s_total:    .byte "TOTAL", 0
-s_dashes:   .byte "- - - - - - - - - - - - - - ", 0
+s_dashes:   .byte "- - - - - - - - - - - - - - - ", 0
 s_read:     .byte "Read it first!", 0
 s_caught:   .byte "Fraud caught!", 0
 s_approved: .byte "Approved", 0
@@ -1372,6 +1640,7 @@ home_sx:    .byte REJ_SX, APP_SX
 stamp_bits: .byte $0f, $f0
 stamp_keep: .byte $f0, $0f
 spr_col:    .byte 2, 12, 9, 2,  2, 12, 9, 5     ; knob, stem, handle, rubber (red / green)
+n_steps:    .byte 26, 77, 128, 179, 230     ; A where round(8 + 5 d) steps up
 frac:       .repeat FLY_T, I
             .byte I * 256 / FLY_T
             .endrepeat
@@ -1379,7 +1648,8 @@ frac:       .repeat FLY_T, I
 .include "gen/mg_expense_data.s"
 
 .bss
-queue:      .res MAX_N
+qf:         .res NF * MAX_N
+queue       = qf + F_REC * MAX_N
 results:    .res MAX_N           ; 0 open, 1 right, 2 wrong
 avail:      .res R_COUNT
 buf:        .res 40

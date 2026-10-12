@@ -4,6 +4,7 @@
 
 .include "zp.inc"
 .include "gen/boot.inc"         ; MAIN_T/S, MAIN2_T/S, FAR_T/S: first blocks of the main program's parts
+.include "gen/files.inc"        ; DEPT_T/S
 
 .import __LOADER_LOAD__, __LOADER_RUN__, __LOADER_SIZE__
 
@@ -45,9 +46,11 @@ CLOSE  = $ffc3
         sta __LOADER_RUN__,x
         lda __LOADER_LOAD__+256,x
         sta __LOADER_RUN__+256,x
+        lda __LOADER_LOAD__+512,x
+        sta __LOADER_RUN__+512,x
         inx
         bne :-
-        .assert __LOADER_SIZE__ <= 512, error, "loader copy is more than two pages"
+        .assert __LOADER_SIZE__ <= 768, error, "loader copy is more than three pages"
         jmp boot2
 
 ; Upload the drive code with M-W (32 bytes per command), then start it with M-E.
@@ -147,12 +150,19 @@ DRIVE_BYTES = * - drive_code
 
 ; ---- runs at $c400 ----------------------------------------------------------------------------------
 .segment "LOADER"
-boot2:  lda #$36                    ; BASIC ROM out: part 2 unpacks to $9500-$bfff and reads back what it wrote
+boot2:  lda #$36                    ; BASIC ROM out: part 2 unpacks to $9600-$bfff and reads back what it wrote
         sta $01
-        lda #CHARS_T                ; the charset to $c800
-        ldx #CHARS_S
+        lda #DEPT_T                 ; side 1's department image: the charset ($c800), the side's directory and the
+        ldx #DEPT_S                 ; colleague lines ($d000, under the I/O)
         ldy #>$c800
-        jsr load_unpack
+        jsr load_prep
+        sei
+        lda #$34                    ; all RAM while unpacking
+        sta $01
+        jsr lz_unpack
+        lda #$36
+        sta $01
+        cli
         lda #FAR_T                  ; part 3 (sprites + texts) to $e000, under the KERNAL
         ldx #FAR_S
         ldy #>$e000
@@ -164,9 +174,13 @@ boot2:  lda #$36                    ; BASIC ROM out: part 2 unpacks to $9500-$bf
         lda #$36
         sta $01
         cli
-        lda #MAIN2_T                ; part 2 to $9500
+        lda #MAIN2_T                ; part 2 to $9600
         ldx #MAIN2_S
-        ldy #>$9500
+        ldy #>$9600
+        jsr load_unpack
+        lda #MAIN3_T                ; part 3 to $6400
+        ldx #MAIN3_S
+        ldy #>$6400
         jsr load_unpack
         lda #MAIN_T                 ; part 1 over this boot file
         ldx #MAIN_S

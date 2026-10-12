@@ -1,6 +1,6 @@
 // Coffee Crossing (src/minigames/frogger.js) content for the C64 overlay: the floater and speech-bubble lines
 // (read from the module's source, where they are local constants), the department note, and the traffic
-// sprites that the person frames don't cover.
+// sprites that the person frames don't cover (+ the dog and its stride table).
 import { readFileSync } from 'node:fs';
 
 const SRC = readFileSync(new URL('../../../src/minigames/frogger.js', import.meta.url), 'utf8');
@@ -52,6 +52,12 @@ const FRAMES = {
 };
 FRAMES.cartL = FRAMES.cartR.map((r) => [...r].reverse().join(''));
 const ORDER = ['boxes', 'chair', 'cartR', 'cartL', 'roomba', 'roombaCat']; // pointers 140-145
+// The dog (d >= 0.4) replaces the Roomba's cat at pointer 145 (6 frames is all there is room for). It trots to the
+// right whichever way its lane goes (the boxes, the chair and the cat aren't mirrored either).
+const DOG = [
+  '........1...', '.......221..', '2......2212.', '.2.....22222', '..22222222..', '..22222222..', '..2222222...',
+  '..1.1..1.1..', '..1.1..1.1..',
+];
 
 function spriteBytes(rows) {
   const out = new Array(64).fill(0);
@@ -84,5 +90,8 @@ export function dataAsm({ dept = 'lobby' } = {}) {
   out.push(`s_note: .byte ${str(note, 38)}`);
   out.push('frog_frames:');
   for (const k of ORDER) out.push(`  .byte ${spriteBytes(FRAMES[k]).join(', ')} ; ${k}`);
+  out.push(`dog_frame: .byte ${spriteBytes(DOG).join(', ')}`);
+  // The dog's speed factor over its stride (JS: 1 + 0.55 sin(3 t + phase)), × 128, 64 steps per cycle.
+  out.push(`dog_sin: .byte ${Array.from({ length: 64 }, (_, i) => 128 + Math.round(70 * Math.sin((2 * Math.PI * i) / 64))).join(', ')}`);
   return out.join('\n') + '\n';
 }

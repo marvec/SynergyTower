@@ -18,34 +18,50 @@ CLOCK:     .res 3               ; seconds, low byte first
 TICK50:    .res 1               ; frames of the current second
 ; results of the economy routines
 RSP:       .res 2
-RXP:       .res 2
+RXP:       .res 3
+TXP:       .res 3               ; training: XP of the option (menus.s)
 LEVELUPS:  .res 1
 PROMO:     .res 1               ; promo_status flags
 PROMO_STARS = 1
 PROMO_LEVEL = 2
 PROMO_SP    = 4
 PROMO_REVIEW = 8
+CKEY:      .res 1               ; cd_lookup
+CI:        .res 1
+CO:        .res 1
+CB:        .res 3
+CSAVE:     .res 1
+ST_VER     = 3                  ; save format (1: one block, floors 1-2; 2: four floor slots)
 
 .segment "CODE"
 
 ; New career: names and looks already in st_corp/st_name/st_color/st_skin/st_hair/st_hstyle.
 st_new:
-        ldx #ST_END - st_floor  ; everything after the names and looks
+        ldx #ST_END - st_floor  ; everything after the names and looks, and page 2
         lda #0
 :       sta st_floor-1,x
         dex
         bne :-
-        ldx #2 * STATIONS_MAX
+        ldx #.sizeof(ST2)
+:       sta ST2_BASE-1,x
+        dex
+        bne :-
+        ldx #254                ; page 3: nothing attempted
         lda #$ff
-:       sta st_best-1,x
+:       sta ST3_BASE-1,x
         dex
         bne :-
         lda #'S'
         sta st_magic
         lda #'T'
         sta st_magic+1
-        lda #1
+        jsr rand                ; a new career id
+        sta st_career
+        jsr rand
+        sta st_career+1
+        lda #ST_VER
         sta st_ver
+        lda #1
         sta st_floor
         sta st_max
         sta st_level
@@ -201,51 +217,36 @@ spend_coffee:
 :       sta st_coffee
         rts
 
-; A = stars, st_floor: RSP / RXP = economy.taskReward(floor, stars, perks).
+; A = stars: RSP / RXP = economy.taskReward(this floor, stars, perks), from the floor header (HDR_SP / HDR_XP).
 reward_calc:
         sta T3
-        ; sp: ((floor - 1) * 12 + monitor * 2 + stapler) * 4 + stars
-        ldx st_floor
-        dex
-        txa
-        asl
-        asl
-        sta T2                  ; (floor-1) * 4
-        asl
-        adc T2                  ; * 12
-        sta T2
-        lda st_perks + PERK_MONITOR
+        lda st_perks + PERK_MONITOR ; sp word: (monitor × 2 + stapler) × 4 + stars
         asl
         adc st_perks + PERK_STAPLER
-        adc T2
         asl
         asl
         adc T3
+        asl
         tax
-        lda sp_lo,x
+        lda FL_HDR + HDR_SP,x
         sta RSP
-        lda sp_hi,x
+        lda FL_HDR + HDR_SP + 1,x
         sta RSP+1
-        ; xp: ((floor - 1) * 6 + chair) * 4 + stars
-        ldx st_floor
-        dex
-        txa
-        asl
-        sta T2
-        asl
-        adc T2                  ; * 6
-        adc st_perks + PERK_CHAIR
+        lda st_perks + PERK_CHAIR   ; xp word: chair × 4 + stars
         asl
         asl
         adc T3
+        asl
         tax
-        lda xp_lo,x
+        lda FL_HDR + HDR_XP,x
         sta RXP
-        lda xp_hi,x
+        lda FL_HDR + HDR_XP + 1,x
         sta RXP+1
+        lda #0
+        sta RXP+2
         rts
 
-; st_sp += RSP (saturating at 65535).
+; st_sp += RSP (saturating at 2^24 - 1).
 add_sp:
         lda st_sp
         clc
@@ -255,9 +256,12 @@ add_sp:
         adc RSP+1
         sta st_sp+1
         bcc :+
+        inc st_sp+2
+        bne :+
         lda #$ff
         sta st_sp
         sta st_sp+1
+        sta st_sp+2
 :       rts
 
 ; A = Stock Options to add.
@@ -269,7 +273,7 @@ add_so:
         inc st_so+1
 :       rts
 
-; st_xp += RXP with level-ups (+1 Stock Option each). LEVELUPS = levels gained.
+; st_xp += RXP (24 bit) with level-ups (+1 Stock Option each). LEVELUPS = levels gained.
 add_xp:
         lda #0
         sta LEVELUPS
@@ -280,18 +284,27 @@ add_xp:
         lda st_xp+1
         adc RXP+1
         sta st_xp+1
+        lda st_xp+2
+        adc RXP+2
+        sta st_xp+2
 @lv:    ldx st_level
         cpx #99
         bcs @done
         lda st_xp               ; xp >= xpToNext(level)?
         sec
         sbc xpn_lo,x
-        tay
+        sta T0
         lda st_xp+1
+        sbc xpn_md,x
+        sta T1
+        lda st_xp+2
         sbc xpn_hi,x
         bcc @done
+        sta st_xp+2
+        lda T1
         sta st_xp+1
-        sty st_xp
+        lda T0
+        sta st_xp
         inc st_level
         inc LEVELUPS
         lda #1
@@ -299,34 +312,99 @@ add_xp:
         jmp @lv
 @done:  rts
 
-; T0/T1 = XP still needed for the next level.
+; NUM = XP still needed for the next level (24 bit).
 xp_needed:
         ldx st_level
         lda xpn_lo,x
         sec
         sbc st_xp
-        sta T0
-        lda xpn_hi,x
+        sta NUM
+        lda xpn_md,x
         sbc st_xp+1
-        sta T1
+        sta NUM+1
+        lda xpn_hi,x
+        sbc st_xp+2
+        sta NUM+2
         rts
 
-; A = game tier (1-3, 0 = HR review), st_floor: T0/T1 = cooldown in seconds.
+; ---- 24-bit paperclips: NUM is the operand ------------------------------------------------------------------
+; C=1 if st_sp >= NUM.
+sp_ge:
+        lda st_sp
+        cmp NUM
+        lda st_sp+1
+        sbc NUM+1
+        lda st_sp+2
+        sbc NUM+2
+        rts
+
+; st_sp -= NUM.
+sp_sub:
+        lda st_sp
+        sec
+        sbc NUM
+        sta st_sp
+        lda st_sp+1
+        sbc NUM+1
+        sta st_sp+1
+        lda st_sp+2
+        sbc NUM+2
+        sta st_sp+2
+        rts
+
+; NUM = st_xp.
+xp_num:
+        lda st_xp
+        sta NUM
+        lda st_xp+1
+        sta NUM+1
+        lda st_xp+2
+        sta NUM+2
+        rts
+
+; NUM = xpToNext(st_level).
+xpn_num:
+        ldx st_level
+        lda xpn_lo,x
+        sta NUM
+        lda xpn_md,x
+        sta NUM+1
+        lda xpn_hi,x
+        sta NUM+2
+        rts
+
+; NUM = st_sp.
+sp_num:
+        lda st_sp
+        sta NUM
+        lda st_sp+1
+        sta NUM+1
+        lda st_sp+2
+        sta NUM+2
+        rts
+
+; X = floor: NUM = the keycard fee for promotion from it.
+fee_num:
+        lda fee_lo,x
+        sta NUM
+        lda fee_md,x
+        sta NUM+1
+        lda fee_hi,x
+        sta NUM+2
+        rts
+
+; A = game tier (1-3, 0 = HR review): T0/T1 = this floor's cooldown in seconds (floor header HDR_CD).
 cooldown_secs:
         sta T2
         lda st_perks + PERK_PLANT
         asl
-        clc
-        adc st_floor
-        sec
-        sbc #1
-        asl
         asl
         adc T2
+        asl
         tax
-        lda cd_lo,x
+        lda FL_HDR + HDR_CD,x
         sta T0
-        lda cd_hi,x
+        lda FL_HDR + HDR_CD + 1,x
         sta T1
         rts
 
@@ -365,17 +443,14 @@ promo_status:
         ora PROMO
         sta PROMO
 :       ldx st_max
-        lda st_sp
-        cmp fee_lo,x
-        lda st_sp+1
-        sbc fee_hi,x
+        jsr fee_num
+        jsr sp_ge
         bcc :+
         lda #PROMO_SP
         ora PROMO
         sta PROMO
 :       ldx st_max
-        lda st_reviews
-        and bit_tab-1,x
+        jsr review_passed
         beq :+
         lda #PROMO_REVIEW
         ora PROMO
@@ -390,49 +465,147 @@ promo_ready:
         cmp #PROMO_STARS | PROMO_LEVEL | PROMO_SP
         rts
 
-; PT = this floor's station X cooldown deadline (st_floor).
-station_cd_ptr:
-        txa
-        ldy st_floor
-        cpy #2
+; ---- cooldowns (page 2) and best stars (page 3) ----------------------------------------------------------------
+; A = key (station 0-13, CD_MACHINE, CD_REVIEW) -> PT = st_floor's deadline for it (X kept). Without an entry the
+; one that ends first is taken (a free or expired one, unless all CD_N are running), with the deadline "passed".
+floor_dl_ptr:
+cd_lookup:
+        sta CKEY
+        stx CSAVE
+        ldx #CD_N - 1
+@find:  lda st_cfloor,x
+        cmp st_floor
         bne :+
-        clc
-        adc #STATIONS_MAX
-:       sta T2
+        lda st_ckey,x
+        cmp CKEY
+        beq @ptr
+:       dex
+        bpl @find
+        ldx #CD_N - 1           ; the entry that ends first
+        ldy #(CD_N - 1) * 3
+@best:  stx CI
+        sty CO
+        lda st_cdl,y
+        sta CB
+        lda st_cdl+1,y
+        sta CB+1
+        lda st_cdl+2,y
+        sta CB+2
+@min:   dex
+        bmi @take
+        dey
+        dey
+        dey
+        lda st_cdl,y
+        cmp CB
+        lda st_cdl+1,y
+        sbc CB+1
+        lda st_cdl+2,y
+        sbc CB+2
+        bcc @best
+        bcs @min
+@take:  ldx CI
+        lda st_floor
+        sta st_cfloor,x
+        lda CKEY
+        sta st_ckey,x
+        ldy CO
+        lda #0
+        sta st_cdl,y
+        sta st_cdl+1,y
+        sta st_cdl+2,y
+@ptr:   stx CI                  ; PT = st_cdl + 3 × X
+        txa
         asl
-        adc T2                  ; × 3
-        clc
-        adc #<st_cd
+        adc CI
+        adc #<st_cdl
         sta PT
-        lda #>st_cd
+        lda #>st_cdl
         adc #0
         sta PT+1
+        ldx CSAVE
         rts
 
-; X = station on this floor -> Y = index into st_best.
-station_best_index:
+; PT = this floor's station X cooldown deadline (X kept).
+station_cd_ptr:
         txa
+        jmp cd_lookup
+
+; X = station on this floor -> Y = its byte in st_bestn, C=1: the high nibble (X kept).
+best_addr:
+        stx T3
         ldy st_floor
-        cpy #2
-        bne :+
+        txa
+        lsr
         clc
-        adc #STATIONS_MAX
-:       tay
+        adc best_base-1,y
+        tay
+        lda T3
+        lsr
         rts
 
-; PT = deadline at st_revcd / st_machcd + (floor - 1) × 3. A = <table, X = >table.
-floor_dl_ptr:
-        sta PT
-        stx PT+1
-        ldx st_floor
+; X = station on this floor -> A = its best stars, $ff (N=1) when not attempted (X kept).
+best_get:
+        jsr best_addr
+        lda st_bestn,y
+        bcc :+
+        lsr
+        lsr
+        lsr
+        lsr
+:       and #$0f
+        cmp #$0f
+        bne :+
+        lda #$ff
+:       ora #0
+        rts
+
+; X = station on this floor, A = its new best stars.
+best_set:
+        sta T2
+        jsr best_addr
+        bcs :+
+        lda st_bestn,y
+        and #$f0
+        ora T2
+        sta st_bestn,y
+        rts
+:       lda T2
+        asl
+        asl
+        asl
+        asl
+        sta T2
+        lda st_bestn,y
+        and #$0f
+        ora T2
+        sta st_bestn,y
+        rts
+
+; ---- reviews: one bit per floor -----------------------------------------------------------------------------
+; X = floor -> Y = byte in st_reviews, A = its bit.
+review_bit:
         dex
         txa
-        sta T2
-        asl
-        adc T2
-        clc
-        adc PT
-        sta PT
-        bcc :+
-        inc PT+1
-:       rts
+        lsr
+        lsr
+        lsr
+        tay
+        txa
+        and #7
+        tax
+        lda bit_tab,x
+        rts
+
+; X = floor: Z=0 if its HR review is passed.
+review_passed:
+        jsr review_bit
+        and st_reviews,y
+        rts
+
+; X = floor: its HR review passed.
+review_pass:
+        jsr review_bit
+        ora st_reviews,y
+        sta st_reviews,y
+        rts

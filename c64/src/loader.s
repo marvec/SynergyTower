@@ -128,16 +128,18 @@ w64:    pha
         nop
 w12:    rts
 
-; Unpack the LZ stream at SRC to DST (format: tools/lz.js).
+; Unpack the bit-packed LZ stream at SRC to DST (format: tools/lz.js). Y stays 0.
 lz_unpack:
         ldy #0
-@token: lda (SRC),y
-        inc SRC
-        bne :+
-        inc SRC+1
-:       tax
-        beq @done
-        bmi @match
+        lda #$80                ; no bits yet
+        sta LZBITS
+        lda #1                  ; last offset
+        sta LZOFF
+        sty LZOFF+1
+@match_done:                    ; after a match (and at the start): 0 = literals, 1 = new offset
+        jsr lz_bit
+        bcs @newoff
+        jsr lz_gamma
 @lit:   lda (SRC),y
         sta (DST),y
         inc SRC
@@ -146,42 +148,46 @@ lz_unpack:
 :       inc DST
         bne :+
         inc DST+1
-:       dex
+:       jsr lz_declen
         bne @lit
-        beq @token
-@match: cpx #$c0
-        bcs @long
-        txa
-        and #$3f
-        adc #3                  ; C=0 here (cpx < $c0)
-        tax
-        lda (SRC),y             ; distance - 1
-        eor #$ff
-        clc
-        adc DST                 ; DST + 255 - (distance - 1) = DST - distance (+ carry)
-        sta MP
-        lda DST+1
-        adc #$ff
-        sta MP+1
-        jmp @adv1
-@long:  txa
-        and #$3f
-        clc
-        adc #4
-        tax
-        lda DST
-        sec
-        sbc (SRC),y
-        sta MP
+        jsr lz_bit              ; after literals: 0 = repeat the last offset, 1 = new offset
+        bcs @newoff
+        jsr lz_gamma
+        jsr lz_copy
+        jmp @match_done
+@newoff:
+        jsr lz_gamma            ; high part + 1 (256: the end)
+        lda LZLEN+1
+        bne @done
+        ldx LZLEN
+        dex
+        stx LZOFF+1
+        lda (SRC),y             ; low part
         inc SRC
         bne :+
         inc SRC+1
-:       lda DST+1
-        sbc (SRC),y
+:       clc                     ; offset = that + 1
+        adc #1
+        sta LZOFF
+        bcc :+
+        inc LZOFF+1
+:       jsr lz_gamma            ; length - 1
+        inc LZLEN
+        bne :+
+        inc LZLEN+1
+:       jsr lz_copy
+        jmp @match_done
+@done:  rts
+
+; Copy LZLEN bytes from DST - LZOFF.
+lz_copy:
+        lda DST
+        sec
+        sbc LZOFF
+        sta MP
+        lda DST+1
+        sbc LZOFF+1
         sta MP+1
-@adv1:  inc SRC
-        bne @copy
-        inc SRC+1
 @copy:  lda (MP),y
         sta (DST),y
         inc MP
@@ -190,7 +196,47 @@ lz_unpack:
 :       inc DST
         bne :+
         inc DST+1
-:       dex
+:       jsr lz_declen
         bne @copy
-        beq @token
+        rts
+
+; LZLEN - 1, Z=1 at 0.
+lz_declen:
+        lda LZLEN
+        bne :+
+        dec LZLEN+1
+:       dec LZLEN
+        lda LZLEN
+        ora LZLEN+1
+        rts
+
+; C = the next bit (a new byte of 8 when they run out: the 1 shifted in marks the end).
+lz_bit: asl LZBITS
+        bne @ok
+        lda (SRC),y
+        inc SRC
+        bne :+
+        inc SRC+1
+:       rol a                   ; (C=1 from the old marker)
+        sta LZBITS
+@ok:    rts
+
+; LZLEN = an Elias gamma number: n zero bits, then n more bits after the leading 1.
+lz_gamma:
+        ldx #0
+:       jsr lz_bit
+        bcs :+
+        inx
+        bne :-
+:       lda #1
+        sta LZLEN
+        lda #0
+        sta LZLEN+1
+        txa
+        beq @done
+@b:     jsr lz_bit
+        rol LZLEN
+        rol LZLEN+1
+        dex
+        bne @b
 @done:  rts

@@ -8,10 +8,16 @@ RS_COOLDOWN  = 2                ; T0/T1 = seconds left
 RS_PASSED    = 3
 RS_NOTREADY  = 4
 RS_WRONGFLOOR = 5
+RS_TOP       = 6                ; floor 40: nobody left to review you
 
 ; A = review state for st_max. RS_COOLDOWN leaves the seconds in T0/T1.
 review_state:
-        lda st_floor
+        lda st_max
+        cmp #FLOORS_TOP
+        bcc :+
+        lda #RS_TOP
+        rts
+:       lda st_floor
         cmp st_max
         beq :+
         lda #RS_WRONGFLOOR
@@ -132,8 +138,7 @@ task_card:
         ; best
         jsr sb_line
         ldx CARD_I
-        jsr station_best_index
-        lda st_best,y
+        jsr best_get
         bpl :+
         lda #<s_notattempted
         ldx #>s_notattempted
@@ -216,7 +221,7 @@ task_card:
         jsr ui_kv
 @buttons:
         ldx CARD_G              ; a game not on this disk yet
-        lda game_t,x
+        lda dir + DIR_GAME_T,x
         bne :+
         lda #<s_notondisk
         ldx #>s_notondisk
@@ -308,12 +313,17 @@ task_card:
 @act:   lda CARD_ACT
         cmp #CARD_START
         bne :++
-        lda CARD_G              ; Lost Password: its search on the floor comes first
+        lda CARD_G              ; Lost Password, 360 Feedback: their search on the floor comes first
         cmp #G_LOSTPW
-        bne :+
+        bne @nopw
         lda CARD_COST
         jsr spend_coffee
         jmp quest_start
+@nopw:  cmp #G_FEEDBACK
+        bne :+
+        lda CARD_COST
+        jsr spend_coffee
+        jmp fb_start
 :       lda CARD_I
         jmp play_station
 :       cmp #CARD_SKIP
@@ -545,7 +555,17 @@ hr_notice:
         ldx #>s_hroffice2
         jsr ui_open
         lda CARD_ACT
-        cmp #RS_PASSED
+        cmp #RS_TOP
+        bne @ntop
+        lda #<s_hrtop
+        ldx #>s_hrtop
+        ldy st_ceo
+        beq :+
+        lda #<s_hrceo
+        ldx #>s_hrceo
+:       jsr hr_line
+        jmp @ok
+@ntop:  cmp #RS_PASSED
         bne :+
         lda #<s_congrats
         ldx #>s_congrats
@@ -624,19 +644,13 @@ hr_notice:
         lda #<s_mfee
         ldx #>s_mfee
         jsr sb_str
-        lda st_sp
-        sta NUM
-        lda st_sp+1
-        sta NUM+1
-        jsr sb_u16
+        jsr sp_num
+        jsr sb_u24
         lda #'/'
         jsr sb_char
         ldx st_max
-        lda fee_lo,x
-        sta NUM
-        lda fee_hi,x
-        sta NUM+1
-        jsr sb_u16
+        jsr fee_num
+        jsr sb_u24
         lda #<s_mfee2
         ldx #>s_mfee2
         jsr sb_str
@@ -655,18 +669,17 @@ elevator_panel:
         ldx #>s_elevator
         jsr ui_open
         lda st_max
-        cmp #FLOORS_DISK
+        cmp #FLOORS_TOP
         bcc :+
-        lda #7                  ; the last floor on this disk
+        lda #7                  ; the top floor
         sta COLOR
-        lda #<s_diskend
-        ldx #>s_diskend
-        jsr ui_text
-        lda #3
-        sta COLOR
-        lda #<s_url_site
-        ldx #>s_url_site
-        jsr ui_text
+        lda #<s_topquota
+        ldx #>s_topquota
+        ldy st_ceo
+        beq @topq
+        lda #<s_ceoview
+        ldx #>s_ceoview
+@topq:  jsr ui_text
         jmp @floors
 :       jsr sb_line             ; "Next: F2 Mailroom - Paid Intern"
         lda #<s_next
@@ -773,94 +786,33 @@ elevator_panel:
 @floors:
         lda #0
 :       sta LIFT_PB             ; 1 if button 0 is the promotion
-        ; ride to the other unlocked floors on this disk
-        lda #1
-        sta LIFT_F
-@fl:    lda LIFT_F
-        cmp st_max
-        beq :+
-        bcs @fdone
-:       jsr lift_label          ; "Ride to floor N ..." / "Floor N (you are here)"
-        inc LIFT_F
-        lda LIFT_F
-        cmp #FLOORS_DISK + 1
-        bcc @fl
-@fdone: jsr back_btn
+        ; the other floors: the floor picker (part 3)
+        lda st_max
+        cmp #2
+        bcc :+
+        lda #<s_ridefloor
+        ldx #>s_ridefloor
+        ldy #0
+        jsr ui_btn
+:       jsr back_btn
         jsr ui_run
         cmp #$ff
         bne :+
         jmp enter_floor
-:       ldx LIFT_PB
-        beq @ride
-        cmp #0
-        bne :+
-        jmp do_promotion
-:       sec
-        sbc #1
-@ride:  clc                     ; button k = floor k + 1 (after the promotion button, if any)
-        adc #1
-        cmp st_max
+:       ldx LIFT_PB             ; buttons: [promotion,] [ride,] back
         beq :+
-        bcc :+
-        jmp enter_floor         ; Back
-:       cmp st_floor
-        bne :+
-        jmp enter_floor
-:       jmp ride_to
-
-; LIFT_F = floor: add its ride button (label built in its own buffer).
-lift_label:
-        lda LIFT_F
-        sec
+        cmp #0
+        bne @np
+        jmp do_promotion
+@np:    sec
         sbc #1
-        asl
-        asl
-        asl
-        asl
-        asl                     ; × 32
-        clc
-        adc #<lbuf1
-        sta T2
-        lda #>lbuf1
-        adc #0
-        tax
-        lda T2
-        stx T3
-        jsr sb_start
-        lda LIFT_F
-        cmp st_floor
-        bne :+
-        lda #<s_floor
-        ldx #>s_floor
-        jsr sb_str
-        lda LIFT_F
-        jsr sb_num
-        lda #<s_youarehere
-        ldx #>s_youarehere
-        jsr sb_str
-        jsr sb_end
-        ldy #B_OFF
-        bne :++
-:       lda #<s_rideto
-        ldx #>s_rideto
-        jsr sb_str
-        lda LIFT_F
-        jsr sb_num
-        ldx LIFT_F
-        lda #' '
-        jsr sb_char
-        ldx LIFT_F
-        lda fname_lo-1,x
-        pha
-        lda fname_hi-1,x
-        tax
-        pla
-        jsr sb_str
-        jsr sb_end
-        ldy #0
-:       lda T2
-        ldx T3
-        jmp ui_btn
+:       ldx st_max
+        cpx #2
+        bcc @back               ; (no ride button: only Back)
+        cmp #0
+        bne @back
+        jmp floor_grid
+@back:  jmp enter_floor
 
 ; The four promotion checks with a tick or a lock.
 promo_checklist:
@@ -899,11 +851,8 @@ promo_checklist:
         jsr check_row
         jsr sb_line             ; Keycard fee
         ldx st_max
-        lda fee_lo,x
-        sta NUM
-        lda fee_hi,x
-        sta NUM+1
-        jsr sb_u16
+        jsr fee_num
+        jsr sb_u24
         lda #<s_clipsword
         ldx #>s_clipsword
         jsr sb_str

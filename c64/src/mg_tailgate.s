@@ -2,23 +2,27 @@
 ; A queue walks toward the lobby turnstile. Employees badge in (green BEEP, "ID" above the head), visitors wear
 ; a VISITOR sticker ("VIS"); anyone with neither is a stranger, sometimes tailgating right behind a colleague
 ; or in a disguise (ladder, pizza, hi-vis, duck). Stop the strangers before they cross the gate line.
-; Difficulty 0 (floor 1): 42 px/s, one arrival every ~1.75 s for 30 s, 12 % tailgaters, 20 % lone strangers,
-; 12 % visitors, at least 4 strangers. Score = (caught - 0.75 × wrong stops) / strangers.
+; Difficulty 0: 42 px/s, one arrival every ~1.75 s for 30 s, 12 % tailgaters 26 px behind, 20 % lone
+; strangers, 12 % visitors, 10 % of the strangers disguised, at least 4 strangers.
+; Difficulty 1: 80 px/s, one every ~1.0 s for 38 s, 28 % tailgaters 19 px behind, 70 % disguised; from d = 0.3
+; also legit people in outfits (0.3 d: visitors carry pizza, colleagues anything), who complain in their own words.
+; Score = (caught - 0.75 × wrong stops) / strangers.
 ; Coordinates are C64 pixels (2/3 of the browser's 480-px-wide scene); people are expanded sprites.
 ; Content: src/data/mg-tailgate.js (gen/mg_tailgate_data.s, also the disguise sprite frames).
 
 .include "api.inc"
 .include "gen/chars.inc"
 
-MAXP      = 40                  ; people in the queue (a round has ~16-24)
+MAXP      = 60                  ; people in the queue (a round has ~16-24 at d = 0, ~45 at d = 1)
 GATE_X    = 220                 ; the gate line (browser 330)
 BEEP_X    = GATE_X - 9          ; badges are read here (browser GATE_X - 14)
 ZONE_X    = 107                 ; badge indicators light up from here (browser REVEAL = 170)
 APPEAR_X  = 32                  ; people come out of the revolving door here
 EXIT_X    = 272                 ; ... and step into the elevator lobby here (keeps it to 8 sprites)
 SPAWN_X   = -11                 ; the queue starts behind the door (browser -16)
-TAIL_GAP  = 17                  ; a tailgater walks this close behind (browser 26)
+TAIL_GAP  = 17                  ; a tailgater walks this close behind (browser 26), - 4 at d = 1 (19)
 MIN_GAP   = 29                  ; browser 44
+ODD_FROM  = 77                  ; d >= 0.3: legit people in outfits
 LANE_Y    = 128                 ; sprite y of someone in the queue (feet on pixel row 119)
 ASIDE_DY  = 16                  ; pulled aside: 16 px lower (browser 24)
 ASIDE_IN  = 12                  ; frames to step aside (0.25 s)
@@ -67,8 +71,8 @@ QUARTER   = 240                 ; + pattern: quarter-block chars
 
 .zeropage
 n:        .res 1                ; people in the queue
-spd:      .res 1                ; walking speed, 1/256 px per frame
-spd_pass: .res 1                ; 1.2 × spd
+spd:      .res 1                ; walking speed, 1/256 px per frame (+ spd_hi px)
+spd_pass: .res 1                ; 1.2 × spd (+ pass_hi px)
 gap:      .res 1                ; average spacing (speed × interval)
 tail_p:   .res 1                ; chances out of 256
 th_solo:  .res 1
@@ -150,52 +154,111 @@ init:
         sta elev1
         lda #31
         sta elev2
-        ; byDiff over d = A / 255, linearised for d < 0.2
+        ; byDiff over d = A / 255 (mul8 clobbers t0)
         lda t0
+        sta dif
+        lda dif
         lsr
+        sta t1                  ; A / 2
+        lsr
+        lsr
+        lsr
+        lsr
+        lsr                     ; A / 64
         clc
-        adc #143                ; 42 px/s -> 143/256 px per frame (+ 38 px/s × d)
+        adc t1
+        adc #143                ; 42 px/s -> 143/256 px per frame (+ 38 px/s × d: 273 at d = 1)
         sta spd
+        lda #0
+        adc #0
+        sta spd_hi
+        lda dif                 ; passing: 1.2 × that = 172 + 0.625 A
         lsr
         lsr
         lsr
-        sta t1
-        lsr
-        sta t2
-        lsr
+        sta t2                  ; A / 8
+        lda dif
         lsr
         clc
-        adc t1
         adc t2
-        adc spd
-        sta spd_pass            ; × 1.203
-        lda t0
-        lsr
-        lsr
-        lsr
-        lsr
+        adc #172
+        sta spd_pass
+        lda #0
+        adc #0
+        sta pass_hi
+        ; speed × interval (browser (42 + 38 d)(1.75 - 0.75 d) px): 49 + 23.3 d - 19 d² C64 px
+        lda dif
         sta t1
-        lsr
+        jsr mul8                ; A² / 256 = d² × 254
+        sta sq
+        lda #23
+        sta t1
+        lda dif
+        jsr mul8
         clc
-        adc t1
-        adc #49                 ; speed × interval: 73.5 browser px = 49 (+ 23 × d)
+        adc #49
         sta gap
-        lda t0                  ; arrivals: 840 + 4A px (1260 browser px at d = 0)
-        asl
+        lda #19
+        sta t1
+        lda sq
+        jsr mul8
+        eor #$ff
+        sec
+        adc gap
+        sta gap
+        ; arrivals (speed × (30 + 8 d) s): 840 + 3.875 A + 0.81 d² × 254 px (2027 at d = 1)
+        lda dif
         sta arr
         lda #0
-        rol
         sta arr+1
-        asl arr
+        ldx #2                  ; 4 A
+:       asl arr
         rol arr+1
+        dex
+        bne :-
+        lda dif                 ; - A / 8
+        lsr
+        lsr
+        lsr
+        sta t1
         lda arr
+        sec
+        sbc t1
+        sta arr
+        bcs :+
+        dec arr+1
+:       lda sq                  ; + sq - sq / 8 - sq / 16
+        lsr
+        lsr
+        lsr
+        sta t1
+        lsr
+        clc
+        adc t1
+        eor #$ff
+        sec
+        adc sq
+        clc
+        adc arr
+        sta arr
+        bcc :+
+        inc arr+1
+:       lda arr
         clc
         adc #<840
         sta arr
         lda arr+1
         adc #>840
         sta arr+1
-        lda t0                  ; tailgaters: 0.12 + 0.16 d
+        lda #5                  ; tailgater gap: 17 - 4 d px
+        sta t1
+        lda dif
+        jsr mul8
+        eor #$ff
+        sec
+        adc #TAIL_GAP
+        sta tgap
+        lda dif                 ; tailgaters: 0.12 + 0.16 d
         lsr
         lsr
         lsr
@@ -210,7 +273,7 @@ init:
         sta th_solo
         adc #31                 ; visitors 0.12
         sta th_vis
-        lda t0                  ; disguise: 0.1 + 0.6 d
+        lda dif                 ; disguise: 0.1 + 0.6 d
         lsr
         sta t1
         lsr
@@ -219,6 +282,15 @@ init:
         adc t1
         adc #26
         sta disg_p
+        lda #0                  ; legit people in outfits: none below d = 0.3, then 0.3 d
+        ldx dif
+        cpx #ODD_FROM
+        bcc :+
+        lda #77
+        sta t1
+        txa
+        jsr mul8
+:       sta odd_p
         jsr make_queue
         ; disguise frames into the sprite area (RAM under the KERNAL)
         ldx #0
@@ -252,9 +324,15 @@ init:
         lda #>(GATE_X + 27)
         sbc p_xhi,x
         sta dv+2
-        lda #0
+        lda #0                  ; × 128 / (speed / 2): the speed may pass 255
         sta dv
+        lsr dv+2
+        ror dv+1
+        ror dv
+        lda spd_hi
+        lsr
         lda spd
+        ror
         sta dsr
         jsr div24
         lda dv
@@ -303,7 +381,7 @@ make_queue:
         jsr add_person
         lda dist
         clc
-        adc #TAIL_GAP
+        adc tgap
         sta dist
         bcc :+
         inc dist+1
@@ -408,8 +486,25 @@ add_person:
         sta p_dy,x
         lda p_kind,x
         cmp #K_STR
-        bne :+
-        ; fall through
+        beq disguise
+        ; a legit person in an outfit (d >= 0.3): visitors carry pizza, colleagues anything
+        stx t0
+        jsr API_RAND
+        ldx t0
+        cmp odd_p
+        bcs @plain
+        lda #O_PIZZA
+        ldy p_kind,x
+        cpy #K_VIS
+        beq :+
+        lda #4
+        jsr API_RMOD
+        ldx t0
+        clc
+        adc #1
+:       sta p_out,x
+@plain: rts
+
 ; Person X (a stranger): a disguise with chance disg_p. Keeps X.
 disguise:
         lda #0
@@ -425,7 +520,7 @@ disguise:
         adc #1
         sta p_out,x
 @no:    ldx t0
-:       rts
+        rts
 
 ; A × t1 / 256 -> A (8 × 8 multiply, high byte).
 mul8:
@@ -1168,9 +1263,10 @@ move_people:
         clc
         adc spd_pass
         sta p_frac,x
+        lda p_xlo,x
+        adc pass_hi
+        sta p_xlo,x
         bcc :+
-        inc p_xlo,x
-        bne :+
         inc p_xhi,x
 :       jmp @exit
 
@@ -1180,9 +1276,10 @@ step_fwd:
         clc
         adc spd
         sta p_frac,x
+        lda p_xlo,x
+        adc spd_hi
+        sta p_xlo,x
         bcc :+
-        inc p_xlo,x
-        bne :+
         inc p_xhi,x
 :       rts
 
@@ -1315,7 +1412,16 @@ stop:
 @legit: inc wrong
         lda #HOLD_OK
         sta p_hold,x
-        lda p_kind,x
+        ldy p_out,x             ; in an outfit: 2 lines per outfit
+        beq :+
+        lda #2
+        jsr API_RMOD
+        ldx pi
+        ldy p_out,x
+        clc
+        adc odd_base-1,y
+        bne @l2
+:       lda p_kind,x
         cmp #K_VIS
         bne :+
         lda #N_LEGIT_VIS
@@ -1721,6 +1827,7 @@ shirt_tab:  .byte 14, 2, 5, 8, 4, 6, 3, 15
 outfit_col: .byte 9, 15, 13, 7          ; ladder (brown), pizza boxes, hi-vis, duck
 outfit_ptr: .byte OUTFIT_P + 4, OUTFIT_P + 2, 0, OUTFIT_P
 dis_base:   .byte B_DIS_LADDER, B_DIS_PIZZA, B_DIS_HIVIS, B_DIS_DUCK
+odd_base:   .byte B_ODD_LADDER, B_ODD_PIZZA, B_ODD_HIVIS, B_ODD_DUCK
 stanch_x:   .byte 5, 10, 15, 20
 bit_tab:    .byte 1, 2, 4, 8, 16, 32, 64, 128
 aside_tab:  .byte 0, 1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 15, 16   ; 16 × t / 12
@@ -1744,4 +1851,10 @@ p_col:      .res MAXP
 p_dy:       .res MAXP
 p_line:     .res MAXP
 cands:      .res MAXP
+spd_hi:     .res 1              ; whole px per frame of spd / spd_pass
+pass_hi:    .res 1
+sq:         .res 1              ; d² × 254
+dif:        .res 1              ; difficulty 0-255
+tgap:       .res 1              ; tailgater gap, px
+odd_p:      .res 1              ; legit people in outfits, chance out of 256
 buf:        .res 24

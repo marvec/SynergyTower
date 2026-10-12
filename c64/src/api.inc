@@ -36,6 +36,11 @@ Q_PX       = $02bd   ; tiles to keep the boards away from: the player, the stati
 Q_PY       = $02be
 Q_SX       = $02bf
 Q_SY       = $02c0
+; 360 Feedback (the quest block's board bytes)
+FB_ACH     = QB_X       ; achievement index (the overlay's QUEST_SETUP picks it)
+FB_GROW    = QB_X + 1   ; growth-area index (QUEST_SETUP)
+FB_YEARS   = QB_X + 2   ; the colleague's years with the company
+FB_WHO     = QB_X + 3   ; word: the colleague's record in the floor header ("Name\0Role\0years\0n\0"), 0 = no quest
 FL_INFO_ADDR = $88c0 ; the floor's walk / interact grid (40 × 28: 0 blocked, 1 walkable, 2+ interactable)
 QB_SPRITE  = 140     ; sprite pointer of a board (the overlay copies its frame to $e300); 141 = checked
 

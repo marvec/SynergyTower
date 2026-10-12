@@ -18,6 +18,31 @@ s_url_coffee:  .byte "buymeacoffee.com/marvec", 0
 s_url_site:    .byte "synergytower.co.uk", 0
 s_diskerr:     .byte "Disk error. Is the disk in drive 8?", 0
 s_loading:     .byte "Loading from disk...", 0
+s_insert:      .byte "Please insert disk ", 0
+s_fate:        .byte "Personnel Decision", 0
+s_deptfloor:   .byte " department - floor ", 0
+s_withco:      .byte "With the company: ", 0
+s_years:       .byte " years", 0
+s_year:        .byte " year", 0
+s_file:        .byte "File: ", 0
+s_firebtn:     .byte "Fire", 0
+s_keep:        .byte "Keep", 0
+s_later:       .byte "Later", 0
+s_isout:       .byte " is out. Desk stash: +", 0
+s_clipsword2:  .byte " paperclips", 0
+s_ceoview:     .byte "You run this place now. Enjoy the view, CEO.", 0
+s_topquota:    .byte "Top floor. Hit the KPI quota to become CEO!", 0
+s_hrceo:       .byte "HR reports to you now, CEO.", 0
+s_hrtop:       .byte "There is nobody left to review you. Hit the KPI quota on this floor to become CEO.", 0
+s_board:       .byte "The board is calling...", 0
+s_gridhelp:    .byte "Pick a floor: joystick, FIRE", 0
+s_colon:       .byte ": ", 0
+s_youarehere2: .byte "You are here.", 0
+s_firerides:   .byte "FIRE: ride there", 0
+s_notyet:      .byte "Not unlocked yet.", 0
+s_ridefloor:   .byte "Ride to another floor", 0
+s_sidelbl:     .byte ", side ", 0
+s_thenfire:    .byte "then press FIRE", 0
 
 ; HUD + prompts
 s_fire:        .byte "FIRE:", 0
@@ -74,6 +99,16 @@ s_qbusy2:      .byte 34, ". Finish it or give up (G).", 0
 s_qfind:       .byte "Find ", 0
 s_qyours:      .byte " (yours!)", 0
 s_qback:       .byte "Back to your desk to log in", 0
+s_fbchat:      .byte " and have a chat", 0
+s_fbback:      .byte "Back to your desk to write it up", 0
+s_fbsaw:       .byte "? Saw them ", 0
+s_fbleft:      .byte "off to the left.", 0
+s_fbright:     .byte "off to the right.", 0
+s_fbup:        .byte "up towards the elevators.", 0
+s_fbdown:      .byte "down the south side.", 0
+s_fbfirst:     .byte "Talk to ", 0
+s_fbfirst2:    .byte " first. Hallway chats from before don't count.", 0
+s_fbhome:      .byte " went home for the day. Review deadline missed.", 0
 s_qtimeup:     .byte "IT locked your account for ", 34, "suspicious inactivity", 34, ".", 0
 s_qtimeup_t:   .byte "Time's up", 0
 s_qgaveup:     .byte "You gave up. Coffee is not refunded.", 0

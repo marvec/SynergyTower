@@ -1,9 +1,12 @@
 ; Elevator Pitch (src/minigames/pitch.js) as a disk-loaded overlay at $4000.
 ; Alone in the elevator with the CEO: stop four slot-machine reels ([Opener] [Buzz verb] [Thing] [Audience]) on
 ; the words the CEO will love. The rumour gives the CEO's mood of the moment; words of that category get +5
-; appeal. Difficulty 0 (floors 1-2): 3 pitches, ~2 words a second, a reel stops by itself after 5.5 s ("Uhh...",
-; the word counts half), FIRE in the first 0.3 s of a reel is "too eager" (also half), and a press up to 0.3
-; words after a word left the payline still takes it. Pitch = ((got - worst) / (best - worst)) ^ 1.3, the score
+; appeal. 3 pitches; a reel stops by itself after a while ("Uhh...", the word counts half), FIRE in the first
+; 0.3 s of a reel is "too eager" (also half), and a press up to `grace` words after a word left the payline
+; still takes it.
+;   d = 0: 2.0 words a second, auto stop after 5.5 s, grace 0.3 words
+;   d = 1: 3.6 words a second, auto stop after 3.2 s, grace 0.25 words
+; The department picks the CEO's opening line. Pitch = ((got - worst) / (best - worst)) ^ 1.3, the score
 ; is the average of the three. Content, score curve and sprites: src/data/mg-pitch.js (gen/mg_pitch_data.s).
 
 .include "api.inc"
@@ -105,18 +108,36 @@ init:
         bpl :-
         sta say+1
         ; timings from the difficulty (byDiff at d = MG_DIFF / 255)
-        lda MG_DIFF
+        lda MG_DIFF             ; auto stop: 5.5 s - 2.3 s × d = 275 - 0.45 × MG_DIFF frames
         lsr
+        sta t1                  ; d / 2 - d / 16
+        lsr
+        lsr
+        lsr
+        sta t2
+        lda t1
+        sec
+        sbc t2
         sta t1
-        lda #<275               ; auto stop: 5.5 s - 2.3 s × d
+        lda #<275
         sec
         sbc t1
         sta auto_t
         lda #>275
         sbc #0
         sta auto_t+1
-        lsr t1
-        lda #165                ; the CEO gets bored after 60 % of it
+        lda MG_DIFF             ; the CEO gets bored after 60 % of it: 165 - 0.27 × MG_DIFF (d / 4 + d / 64)
+        lsr
+        lsr
+        sta t1
+        lsr
+        lsr
+        lsr
+        lsr
+        clc
+        adc t1
+        sta t1
+        lda #165
         sec
         sbc t1
         sta bored_t

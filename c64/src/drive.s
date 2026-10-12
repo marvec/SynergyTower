@@ -4,8 +4,9 @@
 ; 13 cycles, so the C64 may be interrupted (music IRQ, bad lines) at any time without breaking a transfer.
 ;   attention   C64 pulls CLK -> drive pulls DATA (ack) -> C64 releases CLK -> drive releases DATA
 ;   command     track, sector: 1 bit per CLK edge, the C64 puts the bit on DATA (pulled = 0), LSB first
-;   write       track | $80, sector, then 254 bytes the same way; the drive writes them to that block (the
-;               block of a file the build reserved) and answers with a count: 0 = fine, $ff = error.
+;   write       track | $80, sector, then 256 bytes the same way (the block's link, then its 254 data bytes); the
+;               drive writes them to that block (a block of a file the build reserved) and answers with a count:
+;               0 = fine, $ff = error.
 ;   per block   drive holds DATA low while it reads the sector and releases it when ready. Then it sends
 ;               count (1..254, 0 = end of file, $ff = read error) and the bytes, 2 bits per ATN edge:
 ;               DATA carries the even bit, CLK the odd one (released = 1), LSB first, 4 edges per byte.
@@ -29,6 +30,8 @@ bits    = $06f2
 trk     = $06f3
 sector  = $06f4
 count   = $06f5
+jobcode = $06f6
+tries   = $06f7
 
 ; A = byte -> 4 bit pairs, one per ATN edge. 20 cycles between edges, ~35 from the last pair of one byte
 ; to the first of the next in the block loop. Uses X.
@@ -94,16 +97,13 @@ idle:   lda #0
         sta sector
         lda trk
         bpl block
-        and #$7f                ; write: 254 data bytes follow, for the block at track/sector
+        and #$7f                ; write: the link and 254 data bytes follow, for the block at track/sector
         sta trk
-        ldy #2
+        ldy #0
 :       jsr recv
         sta BUF,y
         iny
         bne :-
-        sty BUF                 ; link: last block of its file, 254 bytes
-        dey
-        sty BUF+1
         lda #$90                ; WRITE
         jsr job
         bne :+
@@ -148,8 +148,23 @@ fail:   lda #$ff
         jmp idle
 
 ; A = job code for buffer 0 at trk/sector. Says busy while the DOS runs it (its job loop is in the IRQ).
-; Z=1 if it went fine.
-job:    ldx #DATA_OUT
+; Z=1 if it went fine. A failed job is retried after a BUMP (the head back to track 1): after a disk swap the
+; head is not where the DOS thinks it is.
+job:    sta jobcode
+        lda #3
+        sta tries
+@try:   lda jobcode
+        jsr job1
+        beq @ok
+        dec tries
+        beq @no
+        lda #$c0                ; BUMP
+        jsr job1
+        jmp @try
+@no:    lda #$ff                ; (Z=0)
+@ok:    rts
+
+job1:   ldx #DATA_OUT
         stx VIA1                ; busy
         ldx trk
         stx HDR0

@@ -6,6 +6,8 @@ import { T_WALL } from '../../src/core/floorgen.js';
 import { buildFloor } from '../../src/core/tasks.js';
 import { departmentForFloor, titleForFloor, floorName } from '../../src/data/departments.js';
 import { npcIdentity, posterContent } from '../../src/scenes/floorWorld.js';
+import * as E from '../../src/core/economy.js';
+import { FILE_NOTES } from '../../src/data/people.js';
 import { FLOOR_ART, WALL_CAP, WALL_FACE, capBelow, drawItem, composite, COL, UI } from './art.js';
 
 export const FLOOR_BASE = 0x8000;
@@ -16,7 +18,8 @@ const N = W * H;
 export const OFF = { MAP: 0, MAPCOL: N, INFO: 2 * N, HDR: 3 * N };
 // Header: spawns, actors (colleagues, receptionist, HR rep), interactables, names, string pool.
 //   NPC entry: x lo, x hi, y, colour, still, kind (0 colleague, 1 receptionist, 2 HR rep), who lo, who hi
-//              (who = "Name\0Role\0")
+//              (who = "Name\0Role\0", colleagues: + "years\0" and the file note as one char 32 + n (FILE_NOTES,
+//              the far text f_notes) for the CEO's personnel decision)
 //   IA entry:  kind, arg, marker lo, marker hi, under char, under colour, str lo, str hi, x, y, w, arg2
 //              station: arg = game index, str = task title, arg2 = difficulty 0-255 | flags in w (bit 7 check-in)
 //              poster: arg = 0 sponsor / 1 ad, str = "brand\0tagline\0"
@@ -24,8 +27,36 @@ export const OFF = { MAP: 0, MAPCOL: N, INFO: 2 * N, HDR: 3 * N };
 export const HDR = {
   SPAWN: 0, ENTRY: 3, NPCS: 6, NPC: 7, NPC_MAX: 15, NPC_SIZE: 8,
   IACTS: 127, IA: 128, IA_MAX: 20, IA_SIZE: 12,
-  FLOORNO: 368, NAME: 369, TITLE: 393, DEPT: 417, TERMID: 441, STATIONS: 442, STR: 443,
+  FLOORNO: 368, NAME: 369, TITLE: 393, DEPT: 417, TERMID: 441, STATIONS: 442,
+  // this floor's economy (src/core/economy.js): words
+  SP: 443, // taskReward sp: (monitor 0-5 × 2 + stapler) × 4 + stars
+  XP: 539, // taskReward xp: chair 0-5 × 4 + stars
+  CD: 587, // cooldown seconds: plant × 4 + (0 review, 1-3 game tier)
+  PCD: 603, // bytes: plant × 2 + (0 min, 1 max) task cooldown minutes (promotion card)
+  STR: 607,
 };
+/** The economy block of floor `f` (HDR.SP .. HDR.STR). */
+export function econBlock(f) {
+  const w = [];
+  for (let monitor = 0; monitor <= 5; monitor++)
+    for (let stapler = 0; stapler <= 1; stapler++) for (let s = 0; s <= 3; s++) w.push(E.taskReward(f, s, { monitor, stapler }).sp);
+  for (let chair = 0; chair <= 5; chair++) for (let s = 0; s <= 3; s++) w.push(E.taskReward(f, s, { chair }).xp);
+  for (const plant of [0, 1]) {
+    const perks = { plant };
+    w.push(E.reviewCooldownMs(f, perks) / 1000, ...['timing', 'typing', 'cables'].map((g) => E.stationCooldownMs(f, perks, g) / 1000));
+  }
+  const out = [];
+  for (const v of w) {
+    if (v > 0xffff) throw new Error(`floor ${f}: economy value ${v} > 16 bit`);
+    out.push(v & 0xff, v >> 8);
+  }
+  for (const plant of [0, 1]) {
+    const base = E.baseCooldownMs(f, { plant });
+    out.push(Math.max(1, Math.round((base * E.COOLDOWN_TIER_MULT[3]) / 60000)), Math.round((base * E.COOLDOWN_TIER_MULT[1]) / 60000));
+  }
+  if (out.length !== HDR.STR - HDR.SP) throw new Error('economy block size');
+  return out;
+}
 export const KIND = { station: 0, elevator: 1, hr: 2, terminal: 3, coffee: 4, turnstile: 5, poster: 6 };
 export const ACTOR = { colleague: 0, receptionist: 1, hr: 2 };
 
@@ -43,7 +74,7 @@ const SHIRTS = [2, 5, 8, 14, 13, 7, 3, 10];
 const RECEPTIONIST_SEED = 4242;
 
 /** Bakes floor `floor`. `games`: game id -> index in the resident game table. */
-export function bakeFloor(floor, cs, games, { crowd = false } = {}) {
+export function bakeFloor(floor, cs, games, { crowd = false, diff } = {}) {
   const fl = buildFloor(floor);
   const isWall = (x, y) => x < 0 || y < 0 || x >= W || y >= H || fl.tiles[y * W + x] === T_WALL;
   const floorCell = (x, y) => {
@@ -113,6 +144,8 @@ export function bakeFloor(floor, cs, games, { crowd = false } = {}) {
   // Walk/interact grid: 0 blocked, 1 walkable, 2+n interactable n. Posters sit on the wall (blocked anyway).
   const info = new Uint8Array(N);
   for (let i = 0; i < N; i++) info[i] = fl.walk[i] ? 1 : 0;
+  // (src/leave.s steps between neighbour cells without range checks: the border must be blocked)
+  for (let i = 0; i < N; i++) if (info[i] === 1 && (i < W || i >= N - W || i % W === 0 || i % W === W - 1)) throw new Error(`floor ${floor}: walkable border cell ${i}`);
   iacts.forEach((ia, n) => {
     const it = ia.item;
     for (let y = it.y; y < it.y + it.h; y++) for (let x = it.x; x < it.x + it.w; x++) info[y * W + x] = 2 + n;
@@ -150,7 +183,7 @@ export function bakeFloor(floor, cs, games, { crowd = false } = {}) {
 
   const npcs = fl.npcs.map((n, i) => {
     const id = npcIdentity(n.seed, fl.dept);
-    return { x: Math.round(n.x * 8), y: Math.round(n.y * 8) + 2, color: SHIRTS[(n.seed + i) % SHIRTS.length], still: 0, kind: ACTOR.colleague, who: [id.name, id.role] };
+    return { x: Math.round(n.x * 8), y: Math.round(n.y * 8) + 2, color: SHIRTS[(n.seed + i) % SHIRTS.length], still: 0, kind: ACTOR.colleague, who: [id.name, id.role, String(id.years), String.fromCharCode(32 + FILE_NOTES.indexOf(id.note))] };
   });
   if (fl.hrRep) {
     const r = fl.hrRep;
@@ -184,7 +217,7 @@ export function bakeFloor(floor, cs, games, { crowd = false } = {}) {
     if (ia.kind === KIND.station) {
       if (!(ia.game in games)) throw new Error(`no C64 game entry for ${ia.game}`);
       arg = games[ia.game];
-      arg2 = Math.min(255, Math.round(ia.task.difficulty * 255));
+      arg2 = diff ?? Math.min(255, Math.round(ia.task.difficulty * 255));
       if (ia.task.checkin) w |= 0x80;
       s = str(ia.task.title);
     } else if (ia.kind === KIND.poster) {
@@ -207,6 +240,7 @@ export function bakeFloor(floor, cs, games, { crowd = false } = {}) {
   putStr(HDR.DEPT, departmentForFloor(floor).name, 24);
   hdr[HDR.TERMID] = fl.items.find((it) => it.terminal)?.id ?? 0;
   hdr[HDR.STATIONS] = iacts.filter((ia) => ia.kind === KIND.station).length;
+  hdr.set(econBlock(floor), HDR.SP);
   if (OFF.HDR + strAt > FLOOR_MAX) throw new Error(`floor ${floor} file too big: ${OFF.HDR + strAt} B`);
 
   const bin = new Uint8Array(OFF.HDR + strAt);

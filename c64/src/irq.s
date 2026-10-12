@@ -48,7 +48,14 @@ irq:
 music_start:
         php
         sei
-        lda songs_lo,x
+        lda $01                 ; the songs are under the KERNAL
+        pha
+        lda #$35
+        sta $01
+        cpx #0                  ; 0: this side's department song
+        bne :+
+        ldx dir + DIR_SONG
+:       lda songs_lo,x
         sta MUS_SONG
         lda songs_hi,x
         sta MUS_SONG+1
@@ -99,6 +106,8 @@ music_start:
         sta MUS_ON
         lda #$0f
         sta $d418
+        pla
+        sta $01
         plp
         rts
 
@@ -106,7 +115,16 @@ music_play:
         lda MUS_ON
         bne :+
         rts
-:       dec MUS_TICK
+:       lda $01                 ; the songs are under the KERNAL (I/O stays in for the SID)
+        pha
+        lda #$35
+        sta $01
+        jsr mp_step
+        pla
+        sta $01
+        rts
+mp_step:
+        dec MUS_TICK
         beq @step
         lda MUS_TICK
         cmp #1

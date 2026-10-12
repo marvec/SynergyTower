@@ -53,6 +53,28 @@ export class D64 {
     return f;
   }
 
+  /** Write `bytes` into file `f`'s blocks (allocated earlier, at least as big); blocks left over are freed. */
+  rewrite(f, bytes) {
+    const blocks = Math.max(1, Math.ceil(bytes.length / 254));
+    if (blocks > f.blocks) throw new Error(`${f.name}: ${blocks} blocks do not fit the ${f.blocks} reserved`);
+    for (const [t, s] of f.chain.slice(blocks)) {
+      this.used[t][s] = false;
+      this.img.fill(0, offsetOf(t, s), offsetOf(t, s) + 256);
+    }
+    f.chain = f.chain.slice(0, blocks);
+    f.blocks = blocks;
+    f.chain.forEach(([t, s], i) => {
+      const o = offsetOf(t, s);
+      const part = bytes.subarray(i * 254, i * 254 + 254);
+      const next = f.chain[i + 1];
+      this.img.fill(0, o, o + 256);
+      this.img[o] = next ? next[0] : 0;
+      this.img[o + 1] = next ? next[1] : part.length + 1;
+      this.img.set(part, o + 2);
+    });
+    return f;
+  }
+
   /** Directory order can differ from allocation order (LOAD"*" takes the first entry). */
   finish(order = this.files.map((f) => f.name)) {
     const bam = offsetOf(18, 0);

@@ -1,41 +1,49 @@
 ; Coffee Run (src/minigames/coffee.js) as a disk-loaded overlay at $4000.
 ; Memorise the colleagues' coffee orders, then rebuild each one from memory, part by part, out of 4 choices.
-; Difficulty 0 (floors 1-2): 2 orders (a colleague and the department boss) of 2 parts (size, drink); 7.1 s to
-; memorise (FIRE skips), 23 s to rebuild. Score = correct parts / 4. Content: gen/mg_coffee_data.s.
+; The last order is always the department boss's.
+; Difficulty curve (d = MG_DIFF / 255; orders = parts = round(byDiff(d, 2, 4))):
+;   d = 0: 2 orders of 2 parts (size, drink); 7.1 s to memorise (FIRE skips), 23 s to rebuild
+;   d = 1: 4 orders of 4 parts (+ milk, extra); 14.3 s to memorise, 46.6 s to rebuild
+;   memorise: orders × parts × byDiff(d, 1.4, 0.8) + 1.5 s; rebuild: min(70, orders × parts × byDiff(d, 4.5, 2.6) + 5) s
+; Score = correct parts / all parts. Content: gen/mg_coffee_data.s.
+; Differs from the JS: the order cards are a 2 × 2 grid with one line per part, the part tabs are coloured words.
 
 .include "api.inc"
 .include "gen/chars.inc"
 
-ORDERS   = 2                    ; round(byDiff(d, 2, 4))
-PARTS    = 2                    ; size, drink
-TOTAL    = ORDERS * PARTS
+MAX_C    = 4                    ; orders = parts per order
 CHOICES  = 4
-MEMO_T   = 355                  ; count × comps × 1.4 s + 1.5 s
-BUILD_T  = 23 * 50              ; min(70, count × comps × 4.5 + 5) s
+MEMO_F   = 75                   ; memorise: + 1.5 s
+MEMO_P   = 70                   ; frames per part at d = 0 (1.4 s), minus 0.6 s × d
+BUILD_F  = 250                  ; rebuild: + 5 s
+BUILD_P  = 225                  ; frames per part at d = 0 (4.5 s), minus 1.9 s × d
+BUILD_MAX = 70 * 50
 FLASH_T  = 15                   ; 0.3 s: the picked box shows right / wrong
 NEXT_T   = 40                   ; 0.8 s between orders
 MSG_T    = 45                   ; floaters last 0.9 s
 
-; memo screen: one card per order
-CARD_W   = 15
-CARD_Y   = 5
-CARD_H   = 8 + PARTS * 2
+; memo screen: one card per order, 20 × (parts + 6)
+CARD_W   = 20
 ; build screen: customer panel on the left, choices on the right
 PANEL_W  = 16
 RX       = PANEL_W + 1          ; left edge of the right side
 RW       = 40 - RX
-TAB_W    = (RW - 1) / PARTS     ; part tabs
+TAB_Y    = 4                    ; part names
+CORR_Y   = 7                    ; "Correct n/N"
 OPT_Y    = 10                   ; first choice box row
 CUP_X    = 6
 CUP_BOT  = 21                   ; the cup's bottom row
-LIST_Y   = 13                   ; "+ Venti" lines
-MSG_L    = 11                   ; "Perfect cup!" row (panel)
-MSG_R    = 22                   ; "They wanted ..." row (right side)
+NAME_Y   = 6                    ; customer panel: face rows 4-5, name, "The usual, please."
+MSG_L    = 9                    ; "Perfect cup!" row (panel)
+LIST_Y   = 11                   ; "+ Venti" lines
+MSG_R    = 23                   ; "They wanted ..." row
 
 .zeropage
+c:        .res 1                ; orders = parts
+total:    .res 1                ; c × c
 phase:    .res 1                ; 0 memorise, 1 rebuild
 oi:       .res 1                ; order index
-pbase:    .res 1                ; oi × PARTS
+pbase:    .res 1                ; oi × c
 pi:       .res 1                ; part index
 correct:  .res 1
 focus:    .res 1
@@ -52,6 +60,10 @@ t1:       .res 1
 t2:       .res 1
 row:      .res 1
 cx:       .res 1
+cy:       .res 1
+dv_n:     .res 2                ; mul8 / div8
+dv_d:     .res 1
+m_b:      .res 1
 .if .defined(AUTOPLAY)
 bot_t:    .res 1
 .endif
@@ -65,7 +77,9 @@ bot_t:    .res 1
 
 ; ---- setup
 
+; A = difficulty, X = department (the content is this department's anyway)
 init:
+        sta diff
         lda #0
         sta phase
         sta oi
@@ -83,7 +97,52 @@ init:
 .endif
         lda #$ff
         sta last_key
-        ; names: ORDERS-1 distinct colleagues (partial Fisher-Yates), the last order is the boss's
+        ; orders = parts = round(byDiff(d, 2, 4)): 3 from d 0.25, 4 from 0.75
+        ldx #2
+        lda diff
+        cmp #64
+        bcc :+
+        inx
+        cmp #192
+        bcc :+
+        inx
+:       stx c
+        txa
+        jsr square
+        sta total
+        ; memorise: c² × (70 - diff × 30 / 255) + 75 frames
+        lda diff
+        ldx #30
+        jsr mul8
+        sta dv_n+1
+        lda #255
+        jsr div8
+        lda #MEMO_P
+        sec
+        sbc dv_n
+        ldx #MEMO_F
+        jsr times_c2
+        sta memo_lo
+        stx memo_hi
+        ; rebuild: min(3500, c² × (225 - diff × 95 / 255) + 250) frames
+        lda diff
+        ldx #95
+        jsr mul8
+        sta dv_n+1
+        lda #255
+        jsr div8
+        lda #BUILD_P
+        sec
+        sbc dv_n
+        ldx #BUILD_F
+        jsr times_c2
+        cpx #>BUILD_MAX
+        bcc :+
+        lda #<BUILD_MAX
+        ldx #>BUILD_MAX
+:       sta build_lo
+        stx build_hi
+        ; names: c - 1 distinct colleagues (partial Fisher-Yates), the last order is the boss's
         ldx #N_COUNT-1
 :       txa
         sta pool,x
@@ -111,13 +170,18 @@ init:
         lda nm_hi,y
         sta name_hi,x
         inx
-        cpx #ORDERS-1
-        bne @pick
+        txa
+        clc
+        adc #1
+        cmp c                   ; while x < c - 1
+        bcc @pick
         lda #<s_boss
         sta name_lo,x
         lda #>s_boss
         sta name_hi,x
         ; each order: a hair colour and a random option per part
+        lda #0
+        sta t1                  ; picks index
         ldx #0
 @ord:   stx t0
         jsr API_RAND
@@ -126,8 +190,6 @@ init:
         lda hair_tab,y
         ldx t0
         sta hair,x
-        lda pick_base,x
-        sta t1
         lda #0
         sta t2                  ; part
 @part:  ldx t2
@@ -141,42 +203,84 @@ init:
         inc t1
         inc t2
         lda t2
-        cmp #PARTS
+        cmp c
         bne @part
         ldx t0
         inx
-        cpx #ORDERS
+        cpx c
         bne @ord
         jmp draw_memo
+
+; A = n -> A = n × n (n <= 15).
+square:
+        tax
+        lda #0
+:       dex
+        bmi :+
+        clc
+        adc c
+        bne :-
+:       rts
+
+; A/X = A × c² + X (16 bit).
+times_c2:
+        stx t2
+        ldx total
+        jsr mul8
+        tax
+        lda dv_n
+        clc
+        adc t2
+        bcc :+
+        inx
+:       rts
 
 ; ---- memorise phase
 
 draw_memo:
         text 1, 0, s_name, 7
         text 32, 0, s_memo, 7
-        center 3, s_remember, 7
+        lda #7
+        sta COLOR
+        lda #<s_remember
+        ldx #>s_remember
+        ldy #2
+        ldx c
+        cpx #3
+        ldx #>s_remember
+        bcs :+
+        ldy #3
+:       jsr API_CENTER
         lda #0
         sta t2
-@card:  ldx t2
+@card:  ldx c                   ; card position: a 2 × 2 grid (3 orders: the third centred below)
+        lda card_tab - 2,x
+        clc
+        adc t2
+        tax
         lda card_x,x
         sta cx
+        lda card_y,x
+        sta cy
         lda #1
         sta COLOR
         lda #CARD_W
         sta FILL_W
-        lda #CARD_H
+        lda c
+        clc
+        adc #6
         sta FILL_H
         ldx cx
-        ldy #CARD_Y
+        ldy cy
         jsr API_BOX
-        lda cx                  ; face in the middle
-        clc
-        adc #CARD_W/2 - 1
-        tax
-        ldy #CARD_Y+1
+        ldx cx                  ; face and name
+        inx
+        inx
+        ldy cy
+        iny
         lda t2
         jsr order_face
-        ldx t2                  ; name
+        ldx t2
         lda name_lo,x
         sta PTR
         lda name_hi,x
@@ -184,31 +288,37 @@ draw_memo:
         lda #1
         sta COLOR
         lda cx
-        ldx #CARD_W
-        ldy #CARD_Y+4
-        jsr print_in
+        clc
+        adc #5
+        tax
+        ldy cy
+        iny
+        jsr API_PRINT
         lda #6                  ; rule
         sta COLOR
         lda #CARD_W-4
         sta FILL_W
         lda #1
         sta FILL_H
-        lda cx
-        clc
-        adc #2
-        tax
-        ldy #CARD_Y+5
+        ldx cx
+        inx
+        inx
+        ldy cy
+        iny
+        iny
+        iny
         lda #CH_B
         jsr API_FILL
-        ; "Size:" / value lines
-        ldx t2
-        lda pick_base,x
+        ; "Size  Venti" lines
+        lda t2
+        jsr pick_base
         sta t1
         lda #0
         sta t0
 @line:  lda t0
-        asl
-        adc #CARD_Y+6
+        clc
+        adc cy
+        adc #4
         sta row
         lda #3
         sta COLOR
@@ -217,55 +327,48 @@ draw_memo:
         sta PTR
         lda part_hi,x
         sta PTR+1
-        jsr print_label
-        inc row
+        ldx cx
+        inx
+        ldy row
+        jsr API_PRINT
         ldx t1
         lda picks,x
         jsr opt_ptr
         lda #1
         sta COLOR
-        ldx cx
-        inx
-        inx
+        lda cx
+        clc
+        adc #7
+        tax
         ldy row
         jsr API_PRINT
         inc t1
         inc t0
         lda t0
-        cmp #PARTS
+        cmp c
         bne @line
         inc t2
         lda t2
-        cmp #ORDERS
+        cmp c
         beq :+
         jmp @card
 :       lda #<s_ready
         ldx #>s_ready
         jsr footer
-        lda #<MEMO_T
-        ldx #>MEMO_T
+        lda memo_lo
+        ldx memo_hi
         jmp timer_start
 
-; PTR = part name, at column cx+2 on row `row`, followed by ':'.
-print_label:
-        ldx cx
-        inx
-        inx
-        ldy row
-        jsr API_PRINT
-        ldy #0
-:       lda (PTR),y
-        beq :+
-        iny
-        bne :-
-:       tya
-        clc
-        adc cx
-        adc #2
+; A = order -> A = its first picks entry (order × c).
+pick_base:
         tax
-        ldy row
-        lda #':'
-        jmp API_PUTC
+        lda #0
+:       dex
+        bmi :+
+        clc
+        adc c
+        bne :-
+:       rts
 
 ; ---- rebuild phase
 
@@ -295,8 +398,8 @@ start_build:
         lda #<s_keys
         ldx #>s_keys
         jsr footer
-        lda #<BUILD_T
-        ldx #>BUILD_T
+        lda build_lo
+        ldx build_hi
         jsr timer_start
         ; fall through
 
@@ -325,7 +428,7 @@ new_order:
         ldx #38
         ldy #0
         jsr API_PUTC
-        lda #ORDERS
+        lda c
         ldx #39
         ldy #0
         jsr API_NUM
@@ -340,7 +443,7 @@ new_order:
         jsr API_FILL
         lda #PANEL_W/2 - 1
         tax
-        ldy #5
+        ldy #NAME_Y - 2
         lda oi
         jsr order_face
         ldx oi
@@ -352,7 +455,7 @@ new_order:
         sta COLOR
         lda #0
         ldx #PANEL_W
-        ldy #8
+        ldy #NAME_Y
         jsr print_in
         lda #3
         sta COLOR
@@ -362,7 +465,7 @@ new_order:
         sta PTR+1
         lda #0
         ldx #PANEL_W
-        ldy #9
+        ldy #NAME_Y + 1
         jsr print_in
         lda #<s_usual2
         sta PTR
@@ -370,7 +473,7 @@ new_order:
         sta PTR+1
         lda #0
         ldx #PANEL_W
-        ldy #10
+        ldy #NAME_Y + 2
         jsr print_in
         jsr draw_cup
         jsr draw_correct
@@ -471,8 +574,10 @@ draw_choices:
         bne @o
         rts
 
-; Part tabs: done green, current cyan, to do blue.
+; Part names in a row: done green, current cyan, to do blue.
 draw_tabs:
+        lda #RX + 1
+        sta cx
         lda #0
         sta t2
 @t:     ldx t2
@@ -484,58 +589,65 @@ draw_tabs:
         beq :+
         lda #6
 :       sta COLOR
-        lda tab_x,x
-        sta cx
-        lda #TAB_W
-        sta FILL_W
-        lda #3
-        sta FILL_H
-        ldx cx
-        ldy #3
-        jsr API_BOX
-        lda #1
-        sta COLOR
-        ldx t2
         lda part_lo,x
         sta PTR
         lda part_hi,x
         sta PTR+1
-        lda cx
-        ldx #TAB_W
-        ldy #4
-        jsr print_in
+        ldx cx
+        ldy #TAB_Y
+        jsr API_PRINT
+        ldy #0
+:       lda (PTR),y
+        beq :+
+        iny
+        bne :-
+:       iny
+        tya
+        clc
+        adc cx
+        sta cx
         inc t2
         lda t2
-        cmp #PARTS
+        cmp c
         bne @t
         rts
 
+; "Correct n/N" right-aligned on row CORR_Y.
 draw_correct:
-        text RX+12, 7, s_correct, 7
+        text RX+9, CORR_Y, s_correct, 7
         lda #7
         sta COLOR
-        lda correct
-        ldx #RX+20
-        ldy #7
+        lda total               ; the total ends at column 39
+        ldx #39
+        cmp #10
+        bcc :+
+        dex
+:       stx t0
+        ldy #CORR_Y
         jsr API_NUM
+        dec t0
         lda #'/'
-        ldx #RX+21
-        ldy #7
+        ldx t0
+        ldy #CORR_Y
         jsr API_PUTC
-        lda #TOTAL
-        ldx #RX+22
-        ldy #7
+        lda correct             ; the count ends before the slash
+        ldx t0
+        dex
+        cmp #10
+        bcc :+
+        dex
+:       ldy #CORR_Y
         jmp API_NUM
 
 ; The cup: as tall as the size picked (default before), blue band in the middle third, dark lid.
 draw_cup:
         lda #PANEL_W-2
         sta FILL_W
-        lda #CUP_BOT - LIST_Y - PARTS + 1
+        lda #CUP_BOT - LIST_Y - MAX_C + 1
         sta FILL_H
         lda #' '
         ldx #1
-        ldy #LIST_Y + PARTS
+        ldy #LIST_Y + MAX_C
         jsr API_FILL
         lda #CUP_DEFAULT
         ldx pi
@@ -669,10 +781,10 @@ choose:
         lda #MSG_T              ; "They wanted ..."
         sta msgr_t
         jsr clear_msgr
-        text RX, MSG_R, s_wanted, 2
+        text 9, MSG_R, s_wanted, 2
         jsr right_opt
         jsr opt_ptr
-        ldx #RX+12
+        ldx #21
         ldy #MSG_R
         jsr API_PRINT
         lda #SFX_BAD
@@ -688,12 +800,12 @@ choose:
         sta row
         tay
         pla
-        ldx #2
+        ldx #1
         jsr API_PUTC
         ldx pi
         lda built,x
         jsr opt_ptr
-        ldx #4
+        ldx #3
         ldy row
         jsr API_PRINT
         lda flash_ok
@@ -706,7 +818,7 @@ choose:
         jsr draw_cup
         jsr draw_correct
         lda pi
-        cmp #PARTS
+        cmp c
         beq @order
         jsr make_choices
         jmp draw_part
@@ -723,7 +835,8 @@ choose:
         sta next_t
         lda #MSG_T
         sta msgl_t
-        ldx #PARTS-1            ; all parts right?
+        ldx c                   ; all parts right?
+        dex
 :       lda built,x
         sta t0
         txa
@@ -754,14 +867,9 @@ choose:
         jmp print_in
 
 clear_msgr:
-        lda #RW
-        sta FILL_W
-        lda #1
-        sta FILL_H
-        lda #' '
-        ldx #RX
-        ldy #MSG_R
-        jmp API_FILL
+        lda #MSG_R
+        ldx #1
+        jmp clear_rows
 
 ; ---- frame
 
@@ -822,10 +930,10 @@ frame:
         inc oi
         lda pbase
         clc
-        adc #PARTS
+        adc c
         sta pbase
         lda oi
-        cmp #ORDERS
+        cmp c
         bne :+
         jmp finish
 :       jsr new_order
@@ -890,10 +998,15 @@ frame:
 @none:  clc
         rts
 
-; score = correct × 255 / TOTAL
+; score = correct × 255 / (c × c)
 finish:
-        ldx correct
-        lda score_tab,x
+        lda correct
+        ldx #255
+        jsr mul8
+        sta dv_n+1
+        lda total
+        jsr div8
+        lda dv_n
         sta MG_SCORE
         lda #1
         sta done
@@ -940,6 +1053,39 @@ print_in:
         ldy row
         jmp API_PRINT
 
+; A × X -> A (high byte), dv_n (low byte).
+mul8:
+        stx m_b
+        sta dv_d
+        lda #0
+        ldx #8
+@m:     lsr m_b
+        bcc :+
+        clc
+        adc dv_d
+:       ror
+        ror dv_n
+        dex
+        bne @m
+        rts
+
+; dv_n (16 bit) / A -> dv_n, A = remainder.
+div8:
+        sta dv_d
+        lda #0
+        ldx #16
+@d:     asl dv_n
+        rol dv_n+1
+        rol
+        bcs @sub
+        cmp dv_d
+        bcc :+
+@sub:   sbc dv_d
+        inc dv_n
+:       dex
+        bne @d
+        rts
+
 .rodata
 s_name:     .byte "Coffee Run", 0
 s_help:     .byte "Memorise every order, then rebuild each one.", 0
@@ -955,13 +1101,11 @@ s_correct:  .byte "Correct", 0
 s_wanted:   .byte "They wanted", 0
 s_perfect:  .byte "Perfect cup!", 0
 s_close:    .byte "Close enough?", 0
-card_x:     .byte 20 - CARD_W - 1, 21    ; (ORDERS = 2)
-pick_base:  .repeat ORDERS, i   ; first picks entry per order
-            .byte i * PARTS
-            .endrep
-tab_x:      .byte RX, RX + TAB_W + 1
+; cards: entries card_tab[c - 2] .. of card_x / card_y
+card_tab:   .byte 0, 2, 5
+card_x:     .byte 0, 20,  0, 20, 10,  0, 20,  0, 20
+card_y:     .byte 5,  5,  3,  3, 13,  3,  3, 13, 13
 hair_tab:   .byte 2, 7, 1, 4, 3, 5, 2, 1
-score_tab:  .byte 0, 64, 128, 191, 255
 ; cup band by height in rows (0-6): from row h/3, round(h/3) rows (at least 1)
 band_top:   .byte 0, 0, 0, 1, 1, 1, 2
 band_h:     .byte 1, 1, 1, 1, 1, 2, 2
@@ -969,10 +1113,15 @@ band_h:     .byte 1, 1, 1, 1, 1, 2, 2
 .include "gen/mg_coffee_data.s"
 
 .bss
-pool:    .res N_COUNT
-name_lo: .res ORDERS
-name_hi: .res ORDERS
-hair:    .res ORDERS
-picks:   .res TOTAL             ; option per order and part
-choices: .res CHOICES
-built:   .res PARTS
+diff:     .res 1
+memo_lo:  .res 1
+memo_hi:  .res 1
+build_lo: .res 1
+build_hi: .res 1
+pool:     .res N_COUNT
+name_lo:  .res MAX_C
+name_hi:  .res MAX_C
+hair:     .res MAX_C
+picks:    .res MAX_C * MAX_C    ; option per order and part
+choices:  .res CHOICES
+built:    .res MAX_C

@@ -3,7 +3,8 @@
 ; mystery containers still inside at the end count against you. Difficulty 0 (floor 2): 60 s, 4 shelves
 ; to clear, a row every 0.85 s (0.64 s by the end), 5% mystery containers; also cakes (2 × 2, can't be
 ; turned), yogurts (1 cell) and milk (2 cells). A 0.4 s rest locks a piece.
-; Score = shelves / 4 - 0.08 per mystery left (up to 4) - 0.1 if the fridge overflowed; 1.0 ends early.
+; Difficulty 1: 50 s, 7 shelves, a row every 0.45 s (0.34 s by the end), 13% mystery containers (byDiff).
+; Score = shelves / target - 0.08 per mystery left (up to 4) - 0.1 if the fridge overflowed; 1.0 ends early.
 ; Content: gen/mg_fridge_data.s (tools/mg/fridge.js).
 ;
 ; A cell is 2 chars wide and 1 high (the browser's 16 × 16 px at 16 × 8): the fridge interior is chars
@@ -15,9 +16,15 @@
 COLS      = 8
 ROWS      = 12
 CELLS     = COLS * ROWS
-TARGET    = 4                   ; shelves
-TOTAL_T   = 60 * 50
-FALL_BASE = 33                  ; frames per row: 33 + timer cells / 4 (42 at the start, 33 at the end)
+TARGET0   = 4                   ; shelves to clear: 4-7
+TARGET1   = 7
+TOTAL_T   = 60 * 50             ; 60 s, minus 10 s × d
+; Frames per row: base × (0.75 + 0.25 × time left), base 42.5 frames at d 0, 22.5 at d 1. As
+; f75 + timer cells × q8 / 256: f75 = 0.75 base, q8 = 0.25 base × 256 / 38 cells.
+F75_0     = 32
+F75_1     = 17
+Q8_0      = 72
+Q8_1      = 38
 FALL_SOFT = 2                   ; DOWN held: 0.04 s
 LOCK_T    = 20                  ; 0.4 s resting on something
 END_T     = 55                  ; the banner, 1.1 s
@@ -25,10 +32,11 @@ FLASH_T   = 17                  ; cleared shelves flash 0.35 s
 MSG_T     = 60
 DAS_START = 20                  ; held left/right, in 1/100 s: repeats after 0.2 s, every 0.05 s
 DAS_STEP  = 5
-P_MYST    = 13                  ; piece kind by a random byte: < 13 mystery (5%), < 26 cake (5%),
-P_CAKE    = 26                  ; < 46 yogurt (8%), < 67 milk (8%), else a tupperware tetromino
-P_YOG     = 46
-P_MILK    = 67
+P_MYST0   = 13                  ; piece kind by a random byte: < p_myst mystery (5%, 13% at d 1),
+P_MYST1   = 33                  ; then cake (5%), yogurt (8%), milk (8%), else a tupperware tetromino
+P_CAKE    = 13                  ; (widths of the bands after the mystery one)
+P_YOG     = 33
+P_MILK    = 54
 FX        = 12                  ; interior: chars 12-27 ...
 FY        = 5                   ; ... rows 5-16
 PX        = 29                  ; side panel: chars 29-39
@@ -95,6 +103,14 @@ prod:     .res 2
 m1:       .res 1
 zp_last:
 sp:       .res 2
+diff:     .res 1                ; set by init (not cleared with the rest)
+target:   .res 1
+f75:      .res 1
+q8:       .res 1
+p_myst:   .res 1
+p_cake:   .res 1
+p_yog:    .res 1
+p_milk:   .res 1
 
 .segment "CODE"
         jmp init
@@ -105,11 +121,39 @@ sp:       .res 2
 
 ; ---- setup -------------------------------------------------------------------------------------------
 init:
+        sta diff
         ldx #zp_last - zp_first - 1
         lda #0
 :       sta zp_first,x
         dex
         bpl :-
+        ; difficulty
+        lda #TARGET0
+        ldx #TARGET1
+        jsr byd
+        sta target
+        lda #F75_0
+        ldx #F75_1
+        jsr byd
+        sta f75
+        lda #Q8_0
+        ldx #Q8_1
+        jsr byd
+        sta q8
+        lda #P_MYST0
+        ldx #P_MYST1
+        jsr byd
+        sta p_myst
+        clc
+        adc #P_CAKE
+        sta p_cake
+        lda p_myst
+        adc #P_YOG
+        sta p_yog
+        lda p_myst
+        adc #P_MILK
+        sta p_milk
+        lda #0
         ldx #CELLS - 1
 :       sta grid_id,x
         sta grid_lk,x
@@ -122,9 +166,76 @@ init:
         jsr make_piece
         jsr spawn
         jsr draw_stats
+        lda #0                  ; 60 s - 10 s × d = 3000 - 2 × round(250 d) frames
+        ldx #250
+        jsr byd
+        asl
+        sta t0
+        lda #0
+        rol
+        sta t1
         lda #<TOTAL_T
-        ldx #>TOTAL_T
+        sec
+        sbc t0
+        pha
+        lda #>TOTAL_T
+        sbc t1
+        tax
+        pla
         jmp timer_start
+
+; byDiff: A = value at d 0, X = value at d 1 -> A = a + round((b - a) × d)
+byd:
+        sta t2
+        stx t3
+        cpx t2
+        bcc @down
+        txa
+        sec
+        sbc t2
+        jsr @mul
+        clc
+        adc t2
+        rts
+@down:  lda t2
+        sec
+        sbc t3
+        jsr @mul
+        sta t3
+        lda t2
+        sec
+        sbc t3
+        rts
+@mul:   ldx diff                ; A = round(A × diff / 255)
+        jsr mul8
+        lda prod
+        clc
+        adc #127
+        sta prod
+        bcc :+
+        inc prod+1
+:       lda prod+1              ; x / 255 = (x + (x >> 8) + 1) >> 8
+        sec
+        adc prod
+        lda prod+1
+        adc #0
+        rts
+
+; prod = prod / X (16-bit quotient), A = remainder
+div16:
+        stx t0
+        lda #0
+        ldy #16
+:       asl prod
+        rol prod+1
+        rol
+        cmp t0
+        bcc :+
+        sbc t0
+        inc prod
+:       dey
+        bne :--
+        rts
 
 ; Kitchen: the open door with a sticky note and condiments, the fridge, the panel.
 draw_scene:
@@ -281,16 +392,16 @@ draw_scene:
 make_piece:
         jsr API_RAND
         ldx #K_MYST
-        cmp #P_MYST
+        cmp p_myst
         bcc @k
         inx                     ; K_CAKE
-        cmp #P_CAKE
+        cmp p_cake
         bcc @k
         inx                     ; K_YOG
-        cmp #P_YOG
+        cmp p_yog
         bcc @k
         inx                     ; K_MILK
-        cmp #P_MILK
+        cmp p_milk
         bcc @k
         ldx #K_TUP
 @k:     stx nxt_kind
@@ -818,19 +929,14 @@ end_game:
         jsr API_PRINT
 @rts:   rts
 
-; S = shelves × 64 - 20 per mystery inside (up to 4) - 26 after an overflow: A = S clamped to 0-255,
-; X = 1 if S >= 255 (the browser's 1.0).
+; S = shelves × 255 / target - 20 per mystery inside (up to 4) - 26 after an overflow: A = S clamped to
+; 0-255, X = 1 if S >= 255 (the browser's 1.0).
 score:
         lda lines
-        lsr
-        lsr
-        sta prod+1              ; × 64
-        lda lines
-        and #3
-        lsr
-        ror
-        ror
-        sta prod
+        ldx #255
+        jsr mul8
+        ldx target
+        jsr div16
         lda mystery
         cmp #5
         bcc :+
@@ -912,6 +1018,9 @@ frame:
         jmp @out
 @input:
 .if .defined(AUTOPLAY)
+        lda #0                  ; the bot alone plays (the test walk script may still hold a direction)
+        sta JOY
+        sta JOYP
         jsr bot
         lda end_t
         bne @out
@@ -938,10 +1047,11 @@ frame:
         and #J_DOWN
         bne :+
         lda tm_cells
-        lsr
-        lsr
+        ldx q8
+        jsr mul8
+        lda prod+1
         clc
-        adc #FALL_BASE
+        adc f75
         tax
 :       stx t4
         jsr cur_collide_down
@@ -1308,18 +1418,21 @@ draw_stats:
         ldx #PX + 8
         ldy #9
         lda lines
-        cmp #TARGET
+        cmp target
         bcc :+
         lda #5
         sta COLOR
 :       jsr @count9
-        ; progress: 10 cells
+        ; progress: 10 cells = min(shelves, target) × 10 / target
         lda lines
-        cmp #TARGET
+        cmp target
         bcc :+
-        lda #TARGET
-:       tax
-        lda prog_cells,x
+        lda target
+:       ldx #10
+        jsr mul8
+        ldx target
+        jsr div16
+        lda prod
         sta t3
         ldx #0
 @pg:    stx t2
@@ -1396,7 +1509,7 @@ draw_stats:
         inx
         inx
         ldy t0
-        lda #TARGET
+        lda target
         jmp API_NUM
 
 ; A/X = message, Y = colour: centred on row MSG_Y for MSG_T frames.
@@ -1457,7 +1570,8 @@ mul8:
 .if .defined(AUTOPLAY)
 ; ---- test builds: a placement bot --------------------------------------------------------------------
 ; For each turn and column it drops the piece in its head and rates the result like a Tetris AI:
-; shelves × 160 - holes × 70 - total height × 10 - bumpiness × 7 - highest column × 6. Then it turns,
+; shelves × 160 - holes × 90 - total height × 80 - bumpiness × 40 (weights tuned with a JS model of this
+; bot on random pieces: ~99% reach 3 stars at d 0 and d 1; the old ones overfilled the fridge). Then it turns,
 ; walks and drops, one action per frame.
 bot_plan:
         lda #0
@@ -1581,7 +1695,6 @@ b_try:
         sta b_agg
         sta b_agg+1
         sta b_bump
-        sta b_maxh
         ldx #0
 @col:   stx t3
         lda #0
@@ -1616,11 +1729,7 @@ b_try:
         clc
         adc b_agg
         sta b_agg
-        lda b_h,x
-        cmp b_maxh
-        bcc :+
-        sta b_maxh
-:       cpx #0
+        cpx #0
         beq @nb
         lda b_h,x
         sec
@@ -1634,29 +1743,25 @@ b_try:
 @nb:    inx
         cpx #COLS
         bne @col
-        ; rating = 20000 + lines × 160 - holes × 70 - agg × 10 - bump × 7 - maxh × 6
-        lda #<20000
+        ; rating = 40000 + lines × 160 - holes × 90 - agg × 80 - bump × 40 (stays within 1-65535)
+        lda #<40000
         sta b_val
-        lda #>20000
+        lda #>40000
         sta b_val+1
         lda b_lines
         ldx #160
         jsr mul8
         jsr b_add
         lda b_holes
-        ldx #70
+        ldx #90
         jsr mul8
         jsr b_sub
         lda b_agg
-        ldx #10
+        ldx #80
         jsr mul8
         jsr b_sub
         lda b_bump
-        ldx #7
-        jsr mul8
-        jsr b_sub
-        lda b_maxh
-        ldx #6
+        ldx #40
         jsr mul8
         jsr b_sub
         lda b_val+1             ; best so far?
@@ -1787,7 +1892,6 @@ look_r:     .byte MC_B, MC_GRID, MC_GRID, MC_KNOB, MC_C, MC_CARDS, MC_GRID, MC_C
 name_col:   .byte 7, 5, 4, 7, 7                 ; tupperware, mystery (green), cake (pink), yogurt, milk
 banner_col: .byte 5, 2
 myst_pen:   .byte 0, 20, 40, 60, 80             ; 0.08 each
-prog_cells: .byte 0, 2, 5, 7, 10
 smell_lit:  .byte 2, 5, 7, 9, 11                ; 0.15 + 0.22 per mystery, of 11
 smell_col:  .byte 5, 5, 5, 5, 7, 7, 7, 2, 2, 2, 2
 bit8:       .byte 1, 2, 4, 8, 16, 32, 64, 128
@@ -1829,7 +1933,6 @@ b_lines:    .res 1
 b_holes:    .res 1
 b_agg:      .res 2
 b_bump:     .res 1
-b_maxh:     .res 1
 b_val:      .res 2
 b_best:     .res 2
 .endif

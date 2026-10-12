@@ -1,9 +1,12 @@
 ; Whack-a-Bug (src/minigames/whack.js) as a disk-loaded overlay at $4000.
-; Targets pop out of a 3 × 3 grid on a monitor; hit each one before it ducks away. In the lobby theme the
-; targets are popups and the decoys boss mail, but decoys only come at d >= 0.2, so floors 1-2 have none.
-; Difficulty 0: 25 s, a popup every ~0.95 s (× 0.7-1.3) that stays ~1.7 s (× 0.85-1.15).
-; Score = (hits - 0.15 × misses) / targets. Popups are sprites that rise from behind the cell's shelf
-; (sprite-behind-foreground priority does the clipping).
+; Targets pop out of a 3 × 3 grid on a monitor; hit each one before it ducks away, but spare the decoys.
+; Themes (gen/mg_whack_data.s): popups / boss mail (default), bugs / features (it), troll / fan comments
+; (marketing), tickets / thank-yous (support).
+; Difficulty d = MG_DIFF / 255:
+;   d = 0: 25 s, a popup every ~0.95 s (× 0.7-1.3) that stays ~1.7 s (× 0.85-1.15), no decoys
+;   d = 1: 32 s, every ~0.45 s, stays ~0.8 s; decoys from d 0.2, 10% .. 30% of the popups
+; Score = (hits - 0.6 × decoys hit - 0.15 × misses) / targets. Popups are sprites that rise from behind the
+; cell's shelf (sprite-behind-foreground priority does the clipping).
 
 .include "api.inc"
 .include "gen/chars.inc"
@@ -42,6 +45,9 @@ t1:       .res 1
 t2:       .res 1
 si:       .res 1                ; slot being worked on
 dv:       .res 3                ; div24 dividend -> quotient
+bad:      .res 1                ; decoys hit
+dch:      .res 1                ; decoy chance / 256
+flash_t:  .res 1                ; border flash after hitting a decoy
 rem:      .res 1
 dsr:      .res 1
 
@@ -66,6 +72,7 @@ init:
         ldx #SLOTS-1
 :       sta s_on,x
         sta s_fl,x
+        sta s_kind,x
         dex
         bpl :-
         lda #4
@@ -116,20 +123,35 @@ init:
         lda left+1
         adc #>1250
         sta left+1
-        ; the two popup frames into the sprite area
-        ldx #63
-:       lda #0
-        cpx #POP_BYTES
-        bcs :+
-        lda pop_frames,x
-:       sta $e300,x
+        ; decoys from d 0.2: chance 0.1 + 0.2 × d = (26 + A / 5) / 256
         lda #0
-        cpx #POP_BYTES
-        bcs :+
+        ldx t0
+        cpx #51
+        bcc :+
+        lda #51
+        sta t1
+        txa
+        jsr mul8
+        clc
+        adc #26
+:       sta dch
+        ; the four popup frames (target, target hit, decoy, decoy hit) into the sprite area
+        ldx #0
+        txa
+:       sta $e300,x
+        inx
+        bne :-
+        ldx #POP_BYTES-1
+:       lda pop_frames,x
+        sta $e300,x
         lda pop_frames + POP_BYTES,x
-:       sta $e340,x
+        sta $e340,x
+        lda pop_frames + 2 * POP_BYTES,x
+        sta $e380,x
+        lda pop_frames + 3 * POP_BYTES,x
+        sta $e3c0,x
         dex
-        bpl :---
+        bpl :-
         ; sprites: multicolour, normal size, behind the shelves; white and yellow shared
         lda #$ff
         sta $d01c
@@ -139,9 +161,9 @@ init:
         sta $d01d
         sta $d015
         sta $d010
-        lda #1
+        lda #POP_MC1
         sta $d025
-        lda #7
+        lda #POP_MC2
         sta $d026
         jsr draw_scene
         lda left
@@ -170,7 +192,7 @@ draw_scene:
         sta FILL_H
         ldx #MON_X + 1
         ldy #MON_Y + 1
-        lda #MC_B
+        lda #MON_CHAR           ; (the bug theme's screen is dark)
         jsr API_FILL
         lda #1
         sta FILL_H
@@ -200,7 +222,17 @@ draw_scene:
         lda cursor
         ldx #1
         jsr draw_cursor
-        center 22, s_spare, 6
+        lda #6                  ; "Spare the ...", "(none today)" without decoys
+        sta COLOR
+        lda dch
+        bne :+
+        lda #<s_spare0
+        ldx #>s_spare0
+        bne :++
+:       lda #<s_spare
+        ldx #>s_spare
+:       ldy #22
+        jsr API_CENTER
         lda #<s_keys
         ldx #>s_keys
         jmp footer
@@ -317,7 +349,7 @@ draw_cursor:
         sta FILL_H
         ldx t0
         ldy t1
-        lda #MC_B
+        lda #MON_CHAR
         jsr API_FILL
         lda #1
         sta FILL_W
@@ -326,7 +358,7 @@ draw_cursor:
         ldx t0
         ldy t1
         iny
-        lda #MC_B
+        lda #MON_CHAR
         jsr API_FILL
         lda t0
         clc
@@ -334,7 +366,7 @@ draw_cursor:
         tax
         ldy t1
         iny
-        lda #MC_B
+        lda #MON_CHAR
         jsr API_FILL
         ldx si
         lda #SHELF_COL
@@ -452,6 +484,13 @@ frame:
 :       jsr spawn
         jsr age
         jsr floaters
+        lda flash_t
+        beq :+
+        dec flash_t
+        bne :+
+        lda #0
+        sta $d020
+:
         ; number keys 1-9 (edge-detected), laid out like a numpad
         lda $cb
         cmp lastkey
@@ -572,7 +611,16 @@ spawn:
         lda #0
         sta s_hit,x
         sta s_age,x
-        inc targets
+        sta s_kind,x
+        jsr API_RAND            ; a decoy?
+        cmp dch
+        ldx si
+        bcs :+
+        lda #2
+        sta s_kind,x            ; (2: the decoy frames)
+        bne :++
+:       inc targets
+:
         lda #77                 ; life × 218 / 256 + life × (0..76) / 256
         jsr API_RMOD
         sta t1
@@ -608,6 +656,8 @@ age:
         bcc @next
         lda #0
         sta s_on,x
+        lda s_kind,x            ; decoys just leave
+        bne @next
         stx si
         lda #<s_escaped
         ldx #>s_escaped
@@ -643,6 +693,8 @@ whack:
         bne @miss
         lda #HIT_T
         sta s_hit,x
+        lda s_kind,x
+        bne @decoy
         inc hits
         lda #SFX_GOOD
         jsr API_SFX
@@ -650,6 +702,17 @@ whack:
         lda #<s_plus1
         ldx #>s_plus1
         ldy #5
+        jmp floater
+@decoy: inc bad
+        lda #SFX_BAD
+        jsr API_SFX
+        lda #2
+        sta $d020
+        lda #10
+        sta flash_t
+        lda #<s_oops
+        ldx #>s_oops
+        ldy #2
         jmp floater
 @miss:  inc whiffs
         bne :+
@@ -672,18 +735,20 @@ place_sprites:
         ldy spr
         cpy #8
         bcs @next
-        lda #2                  ; red; dark once whacked
+        lda s_kind,x            ; frame: kind (0 target, 2 decoy) + 1 once whacked
         ldy s_hit,x
         beq :+
-        lda #9
-:       ldy spr
-        sta $d027,y
-        lda #POP_PTR
-        ldy s_hit,x
-        beq :+
-        lda #POP_PTR + 1
-:       ldy spr
+        ora #1
+:       tay
+        lda pop_cols,y
+        sta t1
+        tya
+        clc
+        adc #POP_PTR
+        ldy spr
         sta SCREEN + $3f8,y
+        lda t1
+        sta $d027,y
         ; pop = min(age, life - age, POP_T); whacked = fully up
         lda #POP_T
         ldy s_hit,x
@@ -733,6 +798,8 @@ bot:    ldx #SLOTS-1
 @s:     lda s_on,x
         beq @n
         lda s_hit,x
+        bne @n
+        lda s_kind,x            ; (spare the decoys)
         bne @n
         lda s_age,x
         cmp #POP_T + 2
@@ -788,9 +855,10 @@ div24:
         bne @l
         rts
 
-; score = clamp((20 × hits - 3 × misses) / (20 × targets), 0, 1) × 255 = (20h - 3w) × 51 / (4t)
+; score = clamp((20 × hits - 12 × decoys - 3 × misses) / (20 × targets), 0, 1) × 255 = (20h - 12b - 3w) × 51 / (4t)
 finish:
         lda #0
+        sta $d020
         sta $d015
         sta $d01b
         sta MG_SCORE
@@ -799,23 +867,30 @@ finish:
         lda targets
         bne :+
         jmp @out
-:       lda hits                ; 20 h (16 bit)
-        asl
-        asl
-        sta t0                  ; 4 h
+:       lda hits                ; 20 h (16 bit: up to ~70 targets at d = 1)
+        sta t0
         lda #0
-        sta dv+1
+        sta t1
+        asl t0
+        rol t1
+        asl t0
+        rol t1                  ; 4 h
         lda t0
-        asl
+        sta dv
+        lda t1
+        sta dv+1
+        asl dv
         rol dv+1
-        asl
+        asl dv
         rol dv+1                ; 16 h
+        lda dv
         clc
         adc t0
         sta dv
-        bcc :+
-        inc dv+1
-:       lda whiffs              ; - 3 w
+        lda dv+1
+        adc t1
+        sta dv+1
+        lda whiffs              ; - 3 w
         asl
         sta t0
         lda #0
@@ -834,8 +909,35 @@ finish:
         lda dv+1
         sbc t1
         sta dv+1
-        bcc @out                ; negative: 0
-        ; × 51 = × 32 + × 16 + × 2 + × 1 (fits: 20 h <= 1000)
+        bcs :+
+        jmp @out                ; negative: 0
+:
+        lda bad                 ; - 12 b
+        asl
+        asl
+        sta t0                  ; 4 b (b <= 63)
+        asl                     ; 8 b
+        sta t1
+        lda #0
+        rol
+        sta t2
+        lda t1
+        clc
+        adc t0
+        sta t1
+        bcc :+
+        inc t2
+:       lda dv
+        sec
+        sbc t1
+        sta dv
+        lda dv+1
+        sbc t2
+        sta dv+1
+        bcs :+
+        jmp @out
+:
+        ; × 51 = × 32 + × 16 + × 2 + × 1 (24 bit)
         lda dv
         sta t0
         lda dv+1
@@ -890,9 +992,13 @@ finish:
         lda dv+2
         adc #0
         sta dv+2
+        lsr dv+2                ; / 4, then / targets
+        ror dv+1
+        ror dv
+        lsr dv+2
+        ror dv+1
+        ror dv
         lda targets
-        asl
-        asl
         sta dsr
         jsr div24
         lda dv+1
@@ -909,8 +1015,7 @@ finish:
 s_name:     .byte "Whack-a-Bug", 0
 s_help:     .byte "Hit the targets as they pop up. Spare the decoys!", 0
 s_keys:     .byte "Joystick + FIRE, or keys 1-9", 0
-s_title:    .byte "Hit the popups!", 0
-s_spare:    .byte "Spare the boss mail (none today)", 0
+s_oops:     .byte "Oops!", 0
 s_hitcnt:   .byte "Hit ", 0
 s_plus1:    .byte "+1", 0
 s_miss:     .byte "miss", 0
@@ -922,28 +1027,14 @@ key_label:  .byte "789456123"
 key_codes9: .byte 24, 27, 32, 11, 16, 19, 56, 59, 8     ; KERNAL matrix codes of 7 8 9 4 5 6 1 2 3
 pop_off:    .byte 15, 13, 10, 8, 5, 3, 0                ; px below fully up, by pop frame
 enable_tab: .byte 0, 1, 3, 7, 15, 31, 63, 127, 255
-; 12 × 12 multicolour: '2' red (sprite colour), '1' white ($d025), '3' yellow ($d026)
-;   ......333...   the "!" frame; the hit frame has an "x" instead
-;   222222333...
-;   222222333...
-;   22222222....
-;   22221222....  x4
-;   22222222....
-;   22221222....
-;   22222222....  x2
-pop_frames:
-        .byte $00, $0f, $c0, $aa, $af, $c0, $aa, $af, $c0, $aa, $aa, $00, $aa, $6a, $00, $aa
-        .byte $6a, $00, $aa, $6a, $00, $aa, $6a, $00, $aa, $aa, $00, $aa, $6a, $00, $aa, $aa
-        .byte $00, $aa, $aa, $00
-POP_BYTES = * - pop_frames
-        .byte $00, $0f, $c0, $aa, $af, $c0, $aa, $af, $c0, $aa, $aa, $00, $9a, $a6, $00, $a6
-        .byte $9a, $00, $a9, $6a, $00, $a9, $6a, $00, $a6, $9a, $00, $9a, $a6, $00, $aa, $aa
-        .byte $00, $aa, $aa, $00
+
+.include "gen/mg_whack_data.s"
 
 .bss
 s_on:       .res SLOTS
 s_hit:      .res SLOTS          ; frames left of the whacked state, 0 = not whacked
 s_age:      .res SLOTS
 s_life:     .res SLOTS
+s_kind:     .res SLOTS          ; 0 target, 2 decoy
 s_fl:       .res SLOTS          ; floater frames left
 buf:        .res 16

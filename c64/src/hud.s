@@ -100,11 +100,8 @@ hud_values:
         beq :+
         rts
 :       jsr sb_line             ; paperclips
-        lda st_sp
-        sta NUM
-        lda st_sp+1
-        sta NUM+1
-        jsr sb_u16
+        jsr sp_num
+        jsr sb_fmt
         jsr sb_end
         lda #1
         sta COLOR
@@ -308,7 +305,7 @@ promo_hint:
         and #PROMO_REVIEW
         beq @hr
         lda st_max              ; ready on the last floor of the disk: nothing to blink
-        cmp #FLOORS_DISK
+        cmp #FLOORS_TOP
         bcs @keys
         lda #5
         sta STATUS_COL

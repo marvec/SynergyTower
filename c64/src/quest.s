@@ -32,12 +32,7 @@ quest_start:
         lsr
         sta Q_PY
         ldx #G_LOSTPW
-        lda game_t,x
-        pha
-        lda game_s,x
-        tax
-        pla
-        jsr load_overlay
+        jsr game_overlay
         jsr QUEST_SETUP
         lda nact                ; the boards join the actors
         sta QFIRST
@@ -82,6 +77,10 @@ quest_start:
         inx
         bne @b
 @placed:
+        lda #0
+        sta QKIND
+; Both quests: on, the clock running.
+quest_go:
         lda #1
         sta QACT
         lda #0
@@ -108,8 +107,15 @@ quest_tick:
         beq @done
         jsr quest_left
         bne quest_hud
-        lda #<s_qtimeup         ; time's up
+        lda QKIND
+        beq :+
+        jsr fb_wenthome         ; "<name> went home for the day. Review deadline missed."
+        lda #<lbuf1
+        ldx #>lbuf1
+        bne :++
+:       lda #<s_qtimeup         ; time's up
         ldx #>s_qtimeup
+:
         ldy #<s_qtimeup_t
         sty QFAIL_T
         ldy #>s_qtimeup_t
@@ -131,7 +137,26 @@ quest_hud:
         beq :+
         rts
 :       jsr sb_line
-        lda QPHASE
+        lda QKIND
+        beq @pw
+        lda QPHASE              ; feedback: "Find <name> and have a chat" / back to the desk
+        bne @fbback
+        lda #<s_qfind
+        ldx #>s_qfind
+        jsr sb_str
+        lda FB_WHO
+        ldx FB_WHO+1
+        jsr sb_str
+        lda #<s_fbchat
+        ldx #>s_fbchat
+        jsr sb_str
+        jmp @obj
+@fbback:
+        lda #<s_fbback
+        ldx #>s_fbback
+        jsr sb_str
+        jmp @obj
+@pw:    lda QPHASE
         bne @back
         lda #<s_qfind           ; "Find <first name>'s <species>!"
         ldx #>s_qfind
@@ -161,6 +186,7 @@ quest_hud:
 @back:  lda #<s_qback
         ldx #>s_qback
         jsr sb_str
+@obj:
 :       jsr sb_end
         lda #7
         sta COLOR
@@ -171,6 +197,8 @@ quest_hud:
         jsr sb_line             ; "m:ss n/3"
         jsr quest_left
         jsr sb_mmss
+        lda QKIND               ; (boards: Lost Password only)
+        bne :+
         lda #' '
         jsr sb_char
         lda QCHECKED
@@ -179,7 +207,7 @@ quest_hud:
         jsr sb_char
         lda QB_N
         jsr sb_num
-        jsr sb_end
+:       jsr sb_end
         lda #1
         sta COLOR
         lda #9
@@ -234,6 +262,25 @@ quest_board:
 
 ; FIRE at the quest's station: the desk part (speed bonus from the time left), then the usual pay-out.
 quest_desk:
+        lda QKIND               ; feedback: not before the chat
+        beq :+
+        lda QPHASE
+        bne :+
+        jsr sb_line             ; "Talk to <name> first. Hallway chats from before don't count."
+        lda #<s_fbfirst
+        ldx #>s_fbfirst
+        jsr sb_str
+        lda FB_WHO
+        ldx FB_WHO+1
+        jsr sb_str
+        lda #<s_fbfirst2
+        ldx #>s_fbfirst2
+        jsr sb_str
+        jsr sb_end
+        lda #SFX_BAD
+        jsr sfx
+        jmp toast_line
+:
         jsr quest_left          ; speed = min(1, left / (limit × 0.45)) × 255
         lda Q_LIMIT             ; limit × 0.45 ≈ limit × 115 / 256
         sta NUM
@@ -347,3 +394,226 @@ quest_end:
         lda QFIRST
         sta nact
         rts
+
+; ---- floor quest: 360 Feedback's search (floorQuest.js kind 'feedback') -----------------------------------------
+; Find the named colleague on this floor and chat with them (earlier chats don't count), then write their review at
+; the desk (the overlay's mini-game). Other colleagues sometimes say where they saw them. The overlay (mg.feedback)
+; stays loaded: it picks the facts (QUEST_SETUP) and draws the chat (QUEST_VIEW).
+QK_FEEDBACK = 1
+
+; NEAR = station (IA set): start the quest. Coffee: already taken by the caller.
+fb_start:
+        lda NEAR
+        sta QSTATION
+        jsr ia_ptr
+        ldy #IA_ARG2
+        lda (IA),y
+        sta MG_DIFF
+        ldx #1                  ; the colleagues still here
+        ldy #0
+@count: cpx nact
+        bcs @pick
+        lda akind,x
+        cmp #ACTOR_COLLEAGUE
+        bne :+
+        lda ay,x
+        beq :+
+        iny
+:       inx
+        bne @count
+@pick:  tya
+        bne :+
+        jmp play_quest_station  ; (nobody on the floor: just the desk part)
+:       jsr rand_mod
+        sta T3
+        ldx #0
+@find:  inx
+        lda akind,x
+        cmp #ACTOR_COLLEAGUE
+        bne @find
+        lda ay,x
+        beq @find
+        dec T3
+        bpl @find
+        stx QTARGET
+        jsr actor_who           ; FB_WHO = their record, FB_YEARS from it
+        lda PT
+        sta FB_WHO
+        lda PT+1
+        sta FB_WHO+1
+        jsr fb_years
+        sta FB_YEARS
+        ldx #G_FEEDBACK
+        jsr game_overlay
+        jsr QUEST_SETUP         ; facts and Q_LIMIT
+        lda #QK_FEEDBACK
+        sta QKIND
+        lda nact
+        sta QFIRST
+        jmp quest_go
+
+; The desk part straight away (no colleague to find).
+play_quest_station:
+        lda QSTATION
+        jmp play_station
+
+; FB_WHO -> A = the years in its third string.
+fb_years:
+        ldy #0
+        ldx #2                  ; past name and role
+:       lda (PT),y
+        iny
+        cmp #0
+        bne :-
+        dex
+        bne :-
+        lda #0
+        sta T2
+:       lda (PT),y
+        beq :+
+        and #$0f
+        sta T3
+        lda T2                  ; × 10 + digit
+        asl
+        asl
+        adc T2
+        asl
+        adc T3
+        sta T2
+        iny
+        bne :-
+:       lda T2
+        rts
+
+; X = actor talked to during the feedback search. C=1 when handled here.
+fb_talk:
+        cpx QTARGET
+        bne :+
+        jmp @target
+:       jsr rand                ; someone else: 60% point you the right way
+        cmp #154
+        bcc :+
+        clc                     ; (not this time: their usual line)
+        rts
+:       stx T3
+        jsr sb_line             ; "<First>? Saw them <where>."
+        lda FB_WHO
+        sta PT
+        lda FB_WHO+1
+        sta PT+1
+        ldy #0
+:       lda (PT),y
+        beq :+
+        cmp #' '
+        beq :+
+        jsr sb_char
+        iny
+        bne :-
+:       lda #<s_fbsaw
+        ldx #>s_fbsaw
+        jsr sb_str
+        ldx T3                  ; where: the bigger of |dx| (pixels) and |dy|
+        ldy QTARGET
+        lda ax_lo,y
+        sec
+        sbc ax_lo,x
+        sta T0
+        lda ax_hi,y
+        sbc ax_hi,x
+        sta T1                  ; dx (signed 16)
+        lda ay,y
+        sec
+        sbc ay,x
+        sta T2                  ; dy (signed 8: rows 0-223)
+        ror                     ; (C from the subtraction: borrow -> negative)
+        eor #$80
+        sta TMPW                ; bit 7: dy < 0
+        lda T1
+        bpl :+
+        lda #0                  ; |dx|
+        sec
+        sbc T0
+        sta T0
+        lda #0
+        sbc T1
+:       sta TMPW+1              ; (|dx| high byte)
+        lda T2
+        bit TMPW
+        bpl :+
+        eor #$ff
+        clc
+        adc #1
+:       sta T2                  ; |dy|
+        lda TMPW+1
+        bne @horiz
+        lda T0
+        cmp T2
+        bcc @vert
+@horiz: lda T1
+        bmi :+
+        lda #<s_fbright
+        ldx #>s_fbright
+        bne @say
+:       lda #<s_fbleft
+        ldx #>s_fbleft
+        bne @say
+@vert:  bit TMPW
+        bpl :+
+        lda #<s_fbup
+        ldx #>s_fbup
+        bne @say
+:       lda #<s_fbdown
+        ldx #>s_fbdown
+@say:   jsr sb_str
+        jsr sb_end
+        ldx T3
+        lda #175
+        sta apause,x
+        jsr actor_who
+        lda #<linebuf
+        ldx #>linebuf
+        jsr say
+        sec
+        rts
+@target:
+        lda #175
+        sta apause,x
+        jsr plain_screen
+        lda #0
+        sta $d015
+        sta COLOR
+        jsr cls
+        lda QPHASE
+        jsr QUEST_VIEW
+        lda #0
+        sta $c6
+:       jsr wait_frame          ; FIRE / RETURN closes it
+        jsr read_input
+        jsr getkey
+        cmp #3
+        beq :+
+        lda JOYP
+        and #J_FIRE
+        beq :-
+:       lda QPHASE
+        bne :+
+        inc QPHASE              ; on to the desk
+        lda #SFX_GOOD
+        jsr sfx
+:       jsr enter_floor
+        jsr quest_hud
+        sec
+        rts
+
+; lbuf1 = "<name> went home for the day. Review deadline missed."
+fb_wenthome:
+        lda #<lbuf1
+        ldx #>lbuf1
+        jsr sb_start
+        lda FB_WHO
+        ldx FB_WHO+1
+        jsr sb_str
+        lda #<s_fbhome
+        ldx #>s_fbhome
+        jsr sb_str
+        jmp sb_end

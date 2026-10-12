@@ -1,12 +1,15 @@
 // Expense Fraud Detective content for the C64 overlay (src/data/mg-expense.js -> build/gen/mg_expense_data.s):
 // the receipts of the floor's department and the shared ones, legit first, plus submitters, verdict lines and the
-// rubber-stamp sprite shapes.
+// rubber-stamp sprite shapes. The JS also draws other departments' receipts (weight 0.7); all of them would not fit
+// the overlay, so only the first few other-department legit ones come along, enough for a full round with
+// duplicates (MIN_LEGIT).
 import { RECEIPTS, SUBMITTERS, RIGHT_LINES, WRONG_LINES } from '../../../src/data/mg-expense.js';
 import { wrap } from '../mgdata.js';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const INNER = 28; // receipt text width (screen columns 6-33)
+const INNER = 30; // receipt text width (screen columns 5-34)
+const MIN_LEGIT = 10; // a 13-receipt round needs up to 8 legit ones
 
 const str = (s) => {
   if (/[^\x20-\x7e]/.test(s)) throw new Error(`no C64 glyph in "${s}"`);
@@ -46,6 +49,8 @@ function spriteRows() {
 
 export function dataAsm({ dept }) {
   const pool = RECEIPTS.filter((r) => !r.dept || r.dept === dept);
+  const own = pool.filter((r) => !r.fraud).length;
+  pool.push(...RECEIPTS.filter((r) => r.dept && r.dept !== dept && !r.fraud).slice(0, Math.max(0, MIN_LEGIT - own)));
   const legit = pool.filter((r) => !r.fraud);
   const fraud = pool.filter((r) => r.fraud);
   const all = [...legit, ...fraud];
@@ -54,11 +59,12 @@ export function dataAsm({ dept }) {
   out.push(`rec_lo: .byte ${all.map((_, i) => `<rc${i}`).join(', ')}`);
   out.push(`rec_hi: .byte ${all.map((_, i) => `>rc${i}`).join(', ')}`);
   all.forEach((r, i) => {
-    // flags: bit 7 fraud, bit 6 the department's own (weight 3 vs 1.2), bit 3 two item lines, bits 0-2 forced day + 1
+    // flags: bit 7 fraud, bit 6 the department's own (weight 3), bit 5 another department's (0.7; shared 1.2),
+    // bit 3 two item lines, bits 0-2 forced day + 1
     const day = r.day ? DAYS.indexOf(r.day) + 1 : 0;
     if (r.day && day === 0) throw new Error(`bad day ${r.day}`);
     if (r.lines.length < 1 || r.lines.length > 2) throw new Error(`receipt needs 1-2 lines: ${r.merchant}`);
-    const flags = (r.fraud ? 0x80 : 0) | (r.dept === dept ? 0x40 : 0) | (r.lines.length === 2 ? 8 : 0) | day;
+    const flags = (r.fraud ? 0x80 : 0) | (r.dept === dept ? 0x40 : r.dept ? 0x20 : 0) | (r.lines.length === 2 ? 8 : 0) | day;
     const sum = r.lines.reduce((s, [, a]) => s + a, 0);
     const reason = wrap('Reason: ' + r.reason, INNER);
     const tell = wrap(r.tell, 38);

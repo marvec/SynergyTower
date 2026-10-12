@@ -4,10 +4,12 @@
 ;   $0002-$003f, $0080-$008f  zero page (shared part in api.inc, resident part in zp.inc)
 ;   $0801-$3fff  part 1: BASIC stub, API table, engine, charset/sprite/music data
 ;   $4000-$5fff  overlay slot: mini-games (mg.*), title + setup (sys.title), terminal (sys.term)
-;   $6000-$7fff  load buffer for packed files
+;   $6000-$63ff  spill: the tail of an overlay unpacked in place, the game screen's colours while paused
+;   $6400-$7fff  part 3: menus, elevator ride, CEO, tables
 ;   $8000-$93ff  current floor (floorNN, unpacked): map, colours, walk/interact grid, header
 ;   $9400-$94ff  career state = the save game (state.inc)
-;   $9500-$bfff  part 2: dialogs, game table, economy tables, strings
+; $9400-$95ff  career state (2 pages, the save game)
+;   $9600-$bfff  part 2: dialogs, game table, economy tables, strings
 ;   $c000/$c400  screens (VIC bank 3)    $c800 charset (file chars)
 ;   $e000-$fff9  part 3 (RAM under the KERNAL): sprites, then long texts read with the KERNAL banked out
 ; Files are loaded by track/sector through our own fast loader (drive code in src/drive.s); the C64 clocks
@@ -17,9 +19,11 @@
 .include "state.inc"
 .include "gen/floor.inc"
 .include "gen/files.inc"
+.include "gen/dir.inc"
 .include "gen/chars.inc"
 
-LOADBUF  = $6000
+SPILL    = $6000                  ; 1 KB, see above
+SLOTBUF  = OVERLAY               ; packed floors and department images load into the overlay slot
 SPRBASE  = ($e000 - $c000) / 64   ; sprite pointer of the first person frame
 CHARSET  = $c800
 SCREEN2  = $c400                  ; second screen for the scrolling playfield
@@ -38,7 +42,9 @@ CHECKIN_TOAST_T = 150             ; frames from the receptionist's welcome to th
 PLAYER_SHIRT  = 15                ; light grey (src/game.js playerLook, floors 1-15)
 RECENT        = 8                 ; colleague lines not repeated soon
 ACTOR_HAIR    = 4                 ; your hair (an overlay sprite on your head)
-HAIR_SPR      = ($fd00 - $c000) / 64   ; its frames (down, up, left, right), put there by sys.title
+HAIR_SPR      = ($fe00 - $c000) / 64   ; its frames (down, up, left, right), put there by sys.title
+ACTOR_BOX     = 5                 ; a fired colleague's box of desk things (src/leave.s)
+BOX_SPR       = ($fdc0 - $c000) / 64   ; its frame, copied there when they leave
 
 .include "zp.inc"
 .import __BSS_RUN__, __BSS_SIZE__, __BSS2_RUN__, __BSS2_SIZE__
@@ -168,6 +174,7 @@ start:
         lda #<s_loading
         ldx #>s_loading
         jsr print_center
+        jsr copy_dir            ; (the boot file unpacked side 1's department image)
         jsr load_game
         lda #0
         rol                     ; C=1: no save
@@ -189,8 +196,9 @@ title:
         jsr auto_career
 :       jmp career
 .endif
-        lda #SYS_TITLE_T
-        ldx #SYS_TITLE_S
+        lda #1                  ; the title is on side 1
+        jsr ensure_side
+        jsr title_at
         jsr load_overlay
         lda HAVE_SAVE
         jsr OVERLAY             ; -> A = 1 new career (names + looks filled in), 0 continue
@@ -214,6 +222,11 @@ career: ldx #SONG_FLOOR
         jsr save_game
         jsr enter_floor
 :       jsr arrival_banner
+.ifdef AUTO_FIRE
+        lda #1                  ; (test: the walk out, src/leave.s)
+        sta FATE_A
+        jsr fire_colleague
+.endif
         lda #4                  ; first nudge after 4 s
         sta NUDGE_T
         lda st_lobby            ; checking in: the receptionist greets you
@@ -352,6 +365,43 @@ timed_lines:
         jsr sb_str
         jsr sb_end
         jmp toast_line
+:       lda FIRED_T             ; a fired colleague: their goodbye, the walk out, then gone and the stash reported
+        beq @walk
+        dec FIRED_T
+        bne @rts
+        lda LEAVE
+        beq fired_out
+@rts:   rts
+@walk:  lda LEAVE
+        beq @rts
+        jsr walk_step
+        bcc @rts
+        lda #0
+        sta LEAVE
+fired_out:
+        ldx BOX_A               ; (their box goes with them)
+        beq @nobox
+        jsr actor_gone
+        lda #0
+        sta BOX_A
+@nobox: ldx FIRED_A
+        jsr actor_gone
+        ldx FIRED_A
+        jsr actor_who
+        jsr sb_line             ; "<name> is out. Desk stash: +N paperclips"
+        lda PT
+        ldx PT+1
+        jsr sb_str
+        lda #<s_isout
+        ldx #>s_isout
+        jsr sb_str
+        lda FIRED_STASH
+        jsr sb_num
+        lda #<s_clipsword2
+        ldx #>s_clipsword2
+        jsr sb_str
+        jsr sb_end
+        jmp toast_line
 :       rts
 
 disk_error:
@@ -368,22 +418,34 @@ nmi_rti:
         rti
 
 ; A = track, X = sector of an overlay: load it to $4000 unless it is the one there already.
+; A = track, X = sector, OVL_AT = where its packed data goes: the overlay is unpacked in place (its packed copy
+; ends just past the unpacked image, by the gap the build computed; at most into the spill area).
 load_overlay:
+        pha
+        txa
+        pha
+        jsr leave_abort         ; (a colleague walking out by the map in the overlay slot: gone now)
+        pla
+        tax
+        pla
         cmp LOADED
         bne :+
         cpx LOADED+1
         beq @done
 :       sta LOADED
         stx LOADED+1
-        jsr set_loadbuf
+        lda OVL_AT
+        sta DST
+        lda OVL_AT+1
+        sta DST+1
         lda LOADED
         ldx LOADED+1
         jsr fl_load
         bcc :+
         jmp disk_error
-:       lda #<LOADBUF
+:       lda OVL_AT
         sta SRC
-        lda #>LOADBUF
+        lda OVL_AT+1
         sta SRC+1
         lda #<OVERLAY
         sta DST
@@ -392,15 +454,22 @@ load_overlay:
         jsr lz_unpack
 @done:  rts
 
-; The workstation: the terminal. Too big for the overlay slot, it is unpacked in place over $4000-$93ff (slot,
-; load buffer and floor) from a packed copy loaded to the top of that area; the floor is loaded again after.
-; It returns A = floor to warp to (systemctl isolate), 0 = none.
+; The system overlays' packed copies (A/X = track/sector after these).
+title_at:
+        lda dir + DIR_TITLE_AT
+        sta OVL_AT
+        lda dir + DIR_TITLE_AT + 1
+        sta OVL_AT+1
+        lda dir + DIR_TITLE_T
+        ldx dir + DIR_TITLE_S
+        rts
+
+; The workstation: the terminal (sys.term, an overlay like the mini-games). It returns A = floor to warp to
+; (systemctl isolate), 0 = none.
 open_terminal:
         jsr plain_screen
         lda #0
         sta $d015
-        sta LOADED              ; (the overlay slot gets overwritten)
-        sta LOADED+1
         sta COLOR
         jsr cls
         lda #3
@@ -411,31 +480,14 @@ open_terminal:
         jsr print_center
         lda FL_HDR + HDR_TERMID
         sta MG_WS
-        lda #<SYS_TERM_AT
-        sta DST
-        lda #>SYS_TERM_AT
-        sta DST+1
-        lda #SYS_TERM_T
-        ldx #SYS_TERM_S
-        jsr fl_load
-        bcc :+
-        jmp disk_error
-:       lda #<SYS_TERM_AT
-        sta SRC
-        lda #>SYS_TERM_AT
-        sta SRC+1
-        lda #<OVERLAY
-        sta DST
-        lda #>OVERLAY
-        sta DST+1
-        jsr lz_unpack
+        lda dir + DIR_TERM_AT
+        sta OVL_AT
+        lda dir + DIR_TERM_AT + 1
+        sta OVL_AT+1
+        lda dir + DIR_TERM_T
+        ldx dir + DIR_TERM_S
+        jsr load_overlay
         jsr OVERLAY
-        sta T3
-        lda #0                  ; the floor again
-        sta COLOR
-        jsr cls
-        jsr load_floor
-        lda T3
         beq :+
         jmp warp
 :       jmp enter_floor
@@ -508,8 +560,7 @@ auto_career:
         lda #2
         sta st_hair
         sta st_hstyle
-        lda #SYS_TITLE_T
-        ldx #SYS_TITLE_S
+        jsr title_at
         jsr load_overlay
         jsr OVERLAY + 3
         jsr st_new
@@ -531,8 +582,18 @@ auto_career:
         sta st_level
         lda #200
         sta st_sp
-:
-        lda #<autoplay_script
+:       lda #AUTO_CEO
+        beq :+
+        lda #FLOORS_TOP         ; floor 40, one star short of the quota
+        jsr quota
+        sec
+        sbc #1
+        sta st_stars + FLOORS_TOP - 1
+        lda #FLOORS_TOP
+        sta st_level
+        lda #20
+        sta st_coffee
+:       lda #<autoplay_script
         sta AUTOPTR
         lda #>autoplay_script
         sta AUTOPTR+1
@@ -547,19 +608,35 @@ s_autoname: .byte "Tester", 0
 .include "scroll.s"
 .include "floor.s"
 .include "hud.s"
-.include "host.s"
 .include "quest.s"
 .include "state.s"
 .include "save.s"
 .include "text.s"
 .include "loader.s"
+.include "side.s"
+.include "leave.s"
 
+; Packed files that go elsewhere load into the overlay slot (which then holds no overlay).
 set_loadbuf:
-        lda #<LOADBUF
+        jsr leave_abort
+        lda #0
+        sta LOADED
+        sta LOADED+1
+        lda #<SLOTBUF
         sta DST
-        lda #>LOADBUF
+        lda #>SLOTBUF
         sta DST+1
         rts
+
+; SRC = the slot buffer (after a load into it).
+slot_src:
+        lda #<SLOTBUF
+        sta SRC
+        lda #>SLOTBUF
+        sta SRC+1
+        rts
+
+
 
 ; Clear Y pages from A/X on (a little past the end is fine: the BSS areas end below $4000 / $c000).
 clear_pages:
@@ -602,8 +679,6 @@ dir_dx:  .byte 0, 0, $ff, 1             ; down, up, left, right
 dir_dy:  .byte 1, $ff, 0, 0
 look_dx: .byte 0, 0, $f9, 6             ; where to look for interactables per facing
 look_dy: .byte 4, $f6, $fe, $fe
-pow10_lo: .byte <10000, <1000, <100, <10, <1
-pow10_hi: .byte >10000, >1000, >100, >10, >1
 
 srow_lo: .repeat 25, i
         .byte <(SCREEN + i * 40)
@@ -625,6 +700,7 @@ irow_hi: .repeat 28, i
         .endrep
 
 .include "gen/music.s"
+.include "gen/sides.s"
 .include "gen/bpe.s"
 
 .segment "DATA"
@@ -632,12 +708,20 @@ irow_hi: .repeat 28, i
 .include "gen/autoplay.s"
 .endif
 
-; ---- part 2 ($9500) -----------------------------------------------------------------------------------
+; ---- part 2 ($9600) -----------------------------------------------------------------------------------
 .segment "CODE2"
 .include "ui.s"
 .include "dialogs.s"
+.include "host.s"
+
+; ---- part 3 ($6400) -----------------------------------------------------------------------------------------
+.segment "CODE3"
 .include "menus.s"
 .include "ride.s"
+.include "ceo.s"
+.segment "RODATA3"
+.include "gen/econ3.s"
+.include "gen/fartext.s"            ; (long dialog texts: read like the far texts, from part 3)
 
 .segment "RODATA2"
 .include "gen/strings.s"
@@ -650,7 +734,6 @@ sprite_data:                    ; $e000: 12 person frames (VIC bank 3 pointers 1
         .incbin "gen/sprites.bin"
         .res 6 * 64             ; $e300: Boss Alert's frames (the overlay copies them here)
 .include "gen/far.s"
-.include "gen/fartext.s"
 
 .segment "BSS"
 nact:    .res 1
@@ -715,8 +798,11 @@ QSTATION:  .res 1
 QFIRST:    .res 1               ; the first board actor
 QCHECKED:  .res 1
 QFAIL_T:   .res 2
+QKIND:     .res 1               ; 0 Lost Password, 1 360 Feedback
+QTARGET:   .res 1               ; feedback: the colleague to find
 QDESK:     .res 1
 HAIR_A:    .res 1               ; the hair actor
+OVL_AT:    .res 2               ; load_overlay: where the packed copy goes
 recent:    .res RECENT
 farbuf:    .res 256
 textbuf = farbuf                ; (composed texts: never needed while a far text is)
@@ -734,6 +820,7 @@ m_col:   .res MAX_ACT - 8
 m_ptr:   .res MAX_ACT - 8
 
 .segment "BSS2"
+dir:       .res DIR_SIZE       ; the side in the drive: its directory (side.s)
 UI_TITLE:  .res 2
 UI_ROW:    .res 1
 UI_COL:    .res 1
@@ -758,6 +845,10 @@ CARD_ACT:  .res 1
 CARD_COST: .res 1
 LIFT_PB:   .res 1
 LIFT_F:    .res 1
+GRID_F:    .res 1               ; the floor picker's cursor
+FIRED_T:   .res 1               ; frames until the fired colleague FIRED_A is gone
+FIRED_A:   .res 1
+FIRED_STASH: .res 1
 STAT_TAB:  .res 1
 SHOP_P:    .res 1
 PERK_I:    .res 1
@@ -769,6 +860,7 @@ HOST_REVIEW: .res 1
 HOST_STARS: .res 1
 HOST_SO:   .res 1
 HOST_BEST: .res 1
+HOST_CEO:  .res 1               ; this task made you CEO
 RIDE_FROM: .res 1
 RIDE_TO:   .res 1
 RIDE_SHOW: .res 1

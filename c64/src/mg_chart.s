@@ -1,16 +1,24 @@
 ; Magic Chart (src/minigames/chart.js) as a disk-loaded overlay at $4000.
-; Tune the mystery slider, knob and switch until the quarterly chart climbs to the target line. Every
-; control has a hidden sweet spot; the closer the whole panel is, the steeper the chart rises. Difficulty 0
-; (floor 2): 3 controls (one of each kind), threshold 0.78, no market drift, 85 s for 3 quarters.
+; Tune the mystery sliders, knobs and switches until the quarterly chart climbs to the target line. Every
+; control has a hidden sweet spot; the closer the whole panel is, the steeper the chart rises.
+;   d = 0: 3 controls (one of each kind), threshold 0.78, no market drift, 85 s for 3 quarters
+;   d = 1: 6 controls (two of each), threshold 0.81, from d = 0.5 a "market shift" moves one slider's or
+;          knob's sweet spot by 1 every 16 s (d = 0.5) to 10 s (d = 1), 80 s
+; Controls: round(3 + 3 d), kinds slider, knob, switch, slider, knob, switch cut to that many and shuffled.
 ; quality = mean of 1 - |value - target| / range; slope = (quality - threshold) × 125 per second (× 0.3
 ; below the threshold), sampled every 0.1 s with ±0.6 noise. Score = (quarters + progress of the current
 ; one) / 3. The chart is drawn in quarter blocks, 2 samples per pixel column (12.8 s of history).
+; With 4-6 controls the boxes narrow (10, 8, 6 columns): compact knobs and shortened labels in the boxes,
+; the focused control's full label on the row above the panel.
 ; Content: src/data/mg-chart.js (gen/mg_chart_data.s).
 
 .include "api.inc"
 .include "gen/chars.inc"
 
-CTRLS     = 3                   ; controls at difficulty 0
+MAX_CTRLS = 6
+DRIFT_DIFF = 128                ; market shifts from d = 0.5
+DRIFT_T   = 16 * 50             ; minus 6 s × d (from d = 0.5)
+SHIFT_T   = 60                  ; "Market shift!" shown 1.2 s
 ROUNDS    = 3
 START_V   = 25
 SAMPLE_T  = 5                   ; 0.1 s per chart sample
@@ -32,10 +40,9 @@ CH_Y      = 5
 CW        = 32
 CHH       = 9
 HIST      = 2 * CW              ; one value per pixel column
-; control panel: three 13 × 8 boxes on rows 16-23
+; control panel: 3-6 boxes of 13 / 10 / 8 / 6 × 8 on rows 16-23, the focused one's label on row 15
 BOX_Y     = 16
-BOX_W     = 13
-MSG_Y     = 15
+LABEL_Y   = 15
 
 .zeropage
 bp:       .res 2                ; buffer row
@@ -95,14 +102,84 @@ init:
         lda #T_COUNT
         jsr API_RMOD
         sta title
-        ; the panel: one control of each kind in random order, a random label for each, random settings
+        ; controls: round(3 + 3 d) = 3 + (3 × diff + 128) / 256, and the panel layout for that many
+        lda diff
+        asl
+        sta t0
         lda #0
-        sta kind
+        rol
+        sta t1
+        lda t0
+        clc
+        adc diff
+        bcc :+
+        inc t1
+:       clc
+        adc #128
+        lda t1
+        adc #3
+        sta nctl
+        sec
+        sbc #3
+        tay
+        lda lab_base_tab,y
+        sta lab_base
+        tya
+        asl
+        asl
+        asl
+        tay
+        ldx #0
+:       lda lay_tab,y
+        sta lay,x
+        iny
+        inx
+        cpx #LAY_SIZE
+        bne :-
+        lda bx0                 ; box columns
+        ldx #0
+:       sta box_x,x
+        clc
+        adc bw
+        inx
+        cpx #MAX_CTRLS
+        bne :-
+        ; market shifts from d = 0.5: every 16 s - 6 s × d = 800 - diff × (1 + 1/8 + 1/16) frames
+        lda diff
+        cmp #DRIFT_DIFF
+        bcc @nodrift
+        lsr
+        lsr
+        lsr
+        sta t0                  ; d / 8
+        lsr
+        clc
+        adc t0
+        adc diff
+        sta t0
+        lda #0
+        rol
+        sta t1
+        lda #<DRIFT_T
+        sec
+        sbc t0
+        sta drift_every
+        lda #>DRIFT_T
+        sbc t1
+        sta drift_every+1
         lda #1
-        sta kind+1
-        lda #2
-        sta kind+2
-        ldx #CTRLS - 1
+        sta drift_on
+        jsr drift_reset
+@nodrift:
+        ; the panel: slider, knob, switch, slider, knob, switch cut to nctl and shuffled, a label of its kind
+        ; for each (no two alike), random settings
+        ldx #MAX_CTRLS - 1
+:       lda kind_seq,x
+        sta kind,x
+        dex
+        bpl :-
+        ldx nctl
+        dex
 @shuf:  stx t0
         txa
         clc
@@ -118,7 +195,8 @@ init:
         sta kind,y
         dex
         bne @shuf
-        ldx #CTRLS - 1
+        ldx nctl
+        dex
 @ctl:   stx t0
         ldy kind,x
         lda kind_count,y
@@ -128,6 +206,16 @@ init:
         clc
         adc kind_first,y
         sta label,x
+        ldy nctl                ; taken by a later control (they are picked from the last down)? again
+        dey
+:       cpy t0
+        beq :+
+        bcc :+
+        cmp label,y
+        beq @ctl
+:       dey
+        bpl :--
+        ldy kind,x
         lda range_tab,y
         clc
         adc #1
@@ -193,9 +281,13 @@ init:
         dex
         bpl :-
         jsr draw_pills
-        lda #7
+        ldx nctl                ; every box
+        lda bitv,x
+        sec
+        sbc #1
         sta dirty
         jsr draw_panel
+        jsr draw_label
         jsr draw_slope
         jsr render
         lda #<s_keys
@@ -213,7 +305,8 @@ init:
 
 ; New hidden sweet spots, mostly away from the current settings; the quarter always starts in decline.
 new_targets:
-        ldx #CTRLS - 1
+        ldx nctl
+        dex
 @c:     stx t0
         lda kind,x
         cmp #K_SWITCH
@@ -255,16 +348,12 @@ new_targets:
         jsr quality
         lda dd+1
         bmi @reset
-        ldx #0                  ; still good enough: send the first dial to the far end
-        lda kind
+        ldx #$ff                ; still good enough: send the first dial to the far end
+:       inx
+        lda kind,x
         cmp #K_SWITCH
-        bne @far
-        inx
-        lda kind+1
-        cmp #K_SWITCH
-        bne @far
-        inx
-@far:   ldy kind,x
+        beq :-
+        tay
         lda value,x
         asl
         sta t1
@@ -284,12 +373,14 @@ new_targets:
         inc chart_dirty
         rts
 
-; dd = Σ closeness × 255 - threshold (signed), quality relative to the threshold.
+; dd = quality × 765 - threshold (signed), quality relative to the threshold: Σ closeness × 255, scaled
+; from nctl controls to 3 (× 768 / nctl / 256).
 quality:
         lda #0
         sta acc
         sta acc+1
-        ldx #CTRLS - 1
+        ldx nctl
+        dex
 :       lda value,x
         sec
         sbc target,x
@@ -308,7 +399,36 @@ quality:
         inc acc+1
 :       dex
         bpl :---
-        lda acc
+        ldy nctl
+        lda qmul-3,y
+        beq @sub                ; 3 controls: as it is
+        sta t3                  ; acc = acc × t3 / 256 (24-bit product, top two bytes)
+        lda #0
+        sta t2                  ; product byte 0
+        sta pcol                ; byte 1
+        sta col_end             ; byte 2
+        ldx #8
+@mul:   asl t2
+        rol pcol
+        rol col_end
+        asl t3
+        bcc :+
+        lda t2
+        clc
+        adc acc
+        sta t2
+        lda pcol
+        adc acc+1
+        sta pcol
+        bcc :+
+        inc col_end
+:       dex
+        bne @mul
+        lda pcol
+        sta acc
+        lda col_end
+        sta acc+1
+@sub:   lda acc
         sec
         sbc thr
         sta dd
@@ -339,12 +459,29 @@ frame:
 :       jsr timer_tick
         bcc :+
         jmp finish
+:       lda drift_on            ; market shifts
+        beq @nodrift
+        lda drift_t
+        bne :+
+        dec drift_t+1
+:       dec drift_t
+        lda drift_t
+        ora drift_t+1
+        bne @nodrift
+        jsr drift_reset
+        jsr shift
+@nodrift:
+        lda shift_t
+        beq :+
+        dec shift_t
+        bne :+
+        jsr draw_label
 :
 .if .defined(AUTOPLAY)
         jsr bot
 .endif
-        jsr number_key
-        cmp #CTRLS
+        jsr ctl_key
+        cmp nctl
         bcs :+
         jsr set_focus
 :       lda JOYP
@@ -354,7 +491,9 @@ frame:
         dex
         txa
         bpl @setf
-        lda #CTRLS - 1
+        lda nctl
+        sec
+        sbc #1
         bpl @setf
 :       lda JOYP
         and #J_RIGHT
@@ -362,7 +501,7 @@ frame:
         ldx focus
         inx
         txa
-        cmp #CTRLS
+        cmp nctl
         bcc @setf
         lda #0
 @setf:  jsr set_focus
@@ -450,7 +589,7 @@ mark:   ldx focus
         sta dirty
         rts
 
-; A = control to focus: both boxes get redrawn.
+; A = control to focus: both boxes get redrawn, and the label row.
 set_focus:
         cmp focus
         beq :+
@@ -458,8 +597,81 @@ set_focus:
         jsr mark
         pla
         sta focus
-        jmp mark
+        jsr mark
+        jmp draw_label
 :       rts
+
+; Keys 1-6: A = 0..5, or $ff.
+ctl_key:
+        jsr number_key
+        bpl @out
+        lda $cb
+        ldx #1
+:       cmp key56,x
+        beq :+
+        dex
+        bpl :-
+        txa                     ; $ff
+        rts
+:       txa
+        clc
+        adc #4
+@out:   rts
+
+; Market shift: one slider's or knob's sweet spot moves by 1 (back in if it would leave the range).
+shift:
+        jsr API_RAND
+        and #1
+        sta t1                  ; 0 up, 1 down
+@pick:  lda nctl
+        jsr API_RMOD
+        tax
+        ldy kind,x
+        cpy #K_SWITCH
+        beq @pick
+        lda t1
+        bne @dn
+        lda target,x            ; up, unless at the top
+        cmp range_tab,y
+        bcs @dec
+@inc:   inc target,x
+        bne @shown
+@dn:    lda target,x            ; down, unless at 0
+        beq @inc
+@dec:   dec target,x
+@shown: lda #SHIFT_T
+        sta shift_t
+        ; fall through
+
+; Row 15: "Market shift!" while it shows, else the focused control's full label (with 4-6 controls).
+draw_label:
+        lda #LABEL_Y
+        ldx #1
+        jsr clear_rows
+        lda shift_t
+        beq :+
+        center LABEL_Y, s_shift, 7
+        rts
+:       lda nctl
+        cmp #4
+        bcc :+
+        lda #7
+        sta COLOR
+        ldx focus
+        ldy label,x
+        lda lab_lo,y
+        ldx lab_hi,y
+        ldy #LABEL_Y
+        jmp API_CENTER
+:       rts
+
+; drift_t = drift_every
+drift_reset:
+        lda drift_every
+        sta drift_t
+        lda drift_every+1
+        sta drift_t+1
+        rts
 
 ; One chart sample: v += slope × 0.1 s + noise; a full chart wins the quarter.
 sample:
@@ -707,7 +919,7 @@ bot:    inc bot_t
         cmp target,x
         bne @fix
         inx
-        cpx #CTRLS
+        cpx nctl
         bne :-
 @out:   rts
 @fix:   cpx focus
@@ -909,8 +1121,9 @@ shr_add:
 ; The control boxes marked in `dirty`: focused yellow, others blue. Every cell inside is written (no clearing
 ; first), so a redraw never shows a half-empty box.
 draw_panel:
-        lda #CTRLS - 1
-        sta ci
+        ldx nctl
+        dex
+        stx ci
 @c:     ldx ci
         lda bitv,x
         and dirty
@@ -927,7 +1140,7 @@ draw_panel:
         lda #7
 :       sta t3                  ; frame colour
         sta COLOR
-        lda #BOX_W
+        lda bw
         sta FILL_W
         lda #8
         sta FILL_H
@@ -943,13 +1156,18 @@ draw_panel:
         inx
         ldy #BOX_Y
         jsr API_PUTC
-        ldx ci                  ; label in the bottom border
-        ldy label,x
+        ldx ci                  ; label in the bottom border, shortened to the box
+        lda label,x
+        clc
+        adc lab_base
+        tay
         lda lab_lo,y
         sta PTR
         lda lab_hi,y
         sta PTR+1
-        lda #BOX_W - 2
+        lda bw
+        sec
+        sbc #2
         sec
         sbc lab_len,y
         lsr
@@ -991,7 +1209,7 @@ draw_panel:
         sta t1                  ; thumb row
         lda #BOX_Y + 1
         sta t2
-@srow:  lda #3
+@srow:  lda l_thw
         sta FILL_W
         lda t2
         cmp t1
@@ -1000,14 +1218,14 @@ draw_panel:
         sta COLOR
         lda cx
         clc
-        adc #5
+        adc l_thumb
         tax
         ldy t2
         lda #' '
         jsr API_FILL
         lda cx
         clc
-        adc #6
+        adc l_track
         tax
         ldy t2
         lda #CH_L
@@ -1022,7 +1240,7 @@ draw_panel:
         pha
         lda cx
         clc
-        adc #5
+        adc l_thumb
         tax
         ldy t2
         pla
@@ -1033,7 +1251,7 @@ draw_panel:
         sta COLOR
         lda cx
         clc
-        adc #9
+        adc l_num
         tax
         ldy t2
         lda #' '
@@ -1043,7 +1261,7 @@ draw_panel:
         bne :+
         lda cx
         clc
-        adc #9
+        adc l_num
         tax
         ldy t2
         stx t3
@@ -1054,8 +1272,9 @@ draw_panel:
 :       inc t2
         lda t2
         cmp #BOX_Y + 7
-        bne @srow
-        jmp @next
+        beq :+
+        jmp @srow
+:       jmp @next
 
 ; knob: a grey body, 8 ticks around it (the current one yellow), the body quarter facing it white
 @knob:  lda #3                  ; body quarters 3..0: grey, the one facing the value white
@@ -1076,7 +1295,7 @@ draw_panel:
 :       lda t2
         and #1
         clc
-        adc #5
+        adc l_body
         adc cx
         tax
         lda t2
@@ -1090,12 +1309,17 @@ draw_panel:
         bpl @q
         lda #7
         sta t2                  ; tick
-@tick:  ldx t2
-        lda tick_dx,x
+@tick:  lda t2                  ; (compact ticks 8 entries on)
+        clc
+        adc l_tick
+        tay
+        lda tick_dx,y           ; signed, from the body's left column
+        clc
+        adc l_body
         clc
         adc cx
         pha
-        lda tick_y,x
+        lda tick_y,y
         tay
         ldx ci
         lda #6
@@ -1115,6 +1339,9 @@ draw_panel:
         jsr API_PUTC
         dec t2
         bpl @tick
+        lda nctl                ; - and + beside the wide knob only
+        cmp #4
+        bcs @kdone
         lda #3
         sta COLOR
         lda cx
@@ -1126,12 +1353,12 @@ draw_panel:
         jsr API_PUTC
         lda cx
         clc
-        adc #BOX_W - 3
+        adc #13 - 3
         tax
         ldy #BOX_Y + 3
         lda #'+'
         jsr API_PUTC
-        jmp @next
+@kdone: jmp @next
 
 ; switch: a dark slot with the lever up (green, ON) or down (red, OFF)
 @switch:
@@ -1162,7 +1389,7 @@ draw_panel:
         tay
         lda cx
         clc
-        adc #5
+        adc l_body
         tax
         pla
         jsr API_FILL
@@ -1178,7 +1405,7 @@ draw_panel:
         sta PTR+1
         lda cx
         clc
-        adc #5
+        adc l_body
         tax
         ldy #BOX_Y + 6
         jsr API_PRINT
@@ -1332,8 +1559,20 @@ axis_lo:   .byte <s_100, <s_75, <s_50, <s_25, <s_0
 axis_hi:   .byte >s_100, >s_75, >s_50, >s_25, >s_0
 axis_x:    .byte CH_X - 3, CH_X - 2, CH_X - 2, CH_X - 2, CH_X - 1
 pill_x:    .byte 29, 32, 35
-box_x:     .byte 1, 1 + BOX_W, 1 + 2 * BOX_W
-bitv:      .byte 1, 2, 4
+s_shift:   .byte "Market shift!", 0
+bitv:      .byte 1, 2, 4, 8, 16, 32, 64
+kind_seq:  .byte K_SLIDER, K_KNOB, K_SWITCH, K_SLIDER, K_KNOB, K_SWITCH
+key56:     .byte 16, 19         ; key matrix codes of 5 and 6
+qmul:      .byte 0, 192, 154, 128 ; 768 / controls (3: no scaling)
+lab_base_tab: .byte 0, L_COUNT, 2 * L_COUNT, 3 * L_COUNT ; labels for boxes of 13, 10, 8, 6 columns
+
+; panel layout for 3-6 controls: box width, first box column, then from a box's left column: knob body /
+; switch, slider thumb, its width, slider track, slider value, tick table (0 wide, 8 compact)
+LAY_SIZE = 8
+lay_tab:   .byte 13, 1, 5, 5, 3, 6, 9, 0
+           .byte 10, 0, 4, 3, 3, 4, 7, 0
+           .byte  8, 0, 3, 1, 3, 2, 5, 8
+           .byte  6, 2, 2, 1, 2, 1, 3, 8
 
 QB = 240                        ; quarter blocks: QB + 1 top left, 2 top right, 4 bottom left, 8 bottom right
 bit_top:   .byte 1, 2          ; a pixel column's bits in a cell (left / right half)
@@ -1353,8 +1592,11 @@ close_tab:                      ; 255 × (1 - distance / range)
            .byte 255, 0
 
 ; knob ticks (8 positions over 270 degrees, from bottom left clockwise) and the body quarter facing each
-tick_dx:   .byte 3, 2, 3, 4, 7, 8, 9, 8
+; (column from the body's left column: wide around a body in a 13 or 10 column box, compact for 8 or 6)
+tick_dx:   .byte <-2, <-3, <-2, <-1, 2, 3, 4, 3
+           .byte <-1, <-1, <-1, 0, 1, 2, 2, 2
 tick_y:    .byte BOX_Y + 5, BOX_Y + 4, BOX_Y + 2, BOX_Y + 1, BOX_Y + 1, BOX_Y + 2, BOX_Y + 4, BOX_Y + 5
+           .byte BOX_Y + 5, BOX_Y + 4, BOX_Y + 3, BOX_Y + 2, BOX_Y + 2, BOX_Y + 3, BOX_Y + 4, BOX_Y + 5
 point_q:   .byte 2, 2, 0, 0, 1, 1, 3, 3 ; 0 top left, 1 top right, 2 bottom left, 3 bottom right
 lever_col: .byte 2 | 8, 5 | 8   ; off red, on green
 onoff_col: .byte 3, 5
@@ -1391,15 +1633,31 @@ dirty:       .res 1             ; control boxes to redraw (bit per control)
 chart_dirty: .res 1
 rphase:      .res 1             ; 1: the chart's first half is in the buffer
 bot_t:       .res 1
+drift_on:    .res 1
+shift_t:     .res 1
 vars_end:
 diff:        .res 1
 samp_t:      .res 1
 thr:         .res 2
 title:       .res 1
-kind:        .res CTRLS
-label:       .res CTRLS
-value:       .res CTRLS
-target:      .res CTRLS
+kind:        .res MAX_CTRLS
+label:       .res MAX_CTRLS
+value:       .res MAX_CTRLS
+target:      .res MAX_CTRLS
+box_x:       .res MAX_CTRLS
+nctl:        .res 1             ; controls (3-6)
+lab_base:    .res 1
+lay:                            ; the layout row for nctl (lay_tab)
+bw:          .res 1
+bx0:         .res 1
+l_body:      .res 1
+l_thumb:     .res 1
+l_thw:       .res 1
+l_track:     .res 1
+l_num:       .res 1
+l_tick:      .res 1
+drift_every: .res 2
+drift_t:     .res 2
 slope_s:     .res 12
 hist:        .res HIST
 buf:         .res CW * CHH

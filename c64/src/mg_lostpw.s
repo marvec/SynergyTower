@@ -2,7 +2,8 @@
 ; $4000. A floor quest: QUEST_SETUP rolls whiteboards onto the floor (one shows your pet; the floor's quest code in
 ; src/quest.s runs the search), QUEST_VIEW draws a board's close-up, and the desk part is the mini-game below: log
 ; back in with your pet's name, picked from six autofill suggestions, three attempts.
-; Floors 1-2 (d up to 0.17): 3 boards, no other people's pets (from d 0.17 one), 72 s to search, 29 s at the desk.
+; Difficulty: boards round(3 + 3 d), other people's pets round(3 d) (from d 0.17), 75 - 25 d s to search,
+; 30 - 10 d s at the desk (d 0 -> 1). The content is the same for every department.
 ; Score: attempt (1, 0.55, 0.3) × (0.75 + 0.25 × speed bonus of the search).
 
 .include "api.inc"
@@ -38,6 +39,7 @@ tries:    .res 1
 prevkey:  .res 1
 row:      .res 1
 col:      .res 1
+ddiff:    .res 1
 .if .defined(AUTOPLAY)
 bot_t:    .res 1
 .endif
@@ -750,6 +752,7 @@ draw_photo:
 
 ; ---- the desk part: log back in -------------------------------------------------------------------------------------
 init:
+        sta ddiff               ; difficulty, for the time limit at the end
         lda #0
         sta attempt
         sta wrong
@@ -840,8 +843,56 @@ init:
         lda #<s_keys
         ldx #>s_keys
         jsr footer
-        lda #<(29 * 50)         ; byDiff(d, 30, 20): 29 s on floors 1-2
-        ldx #>(29 * 50)
+        ; byDiff(d, 30 s, 20 s) = 1500 - round(500 d) frames: 2 × round(diff × 250 / 255)
+        lda #0
+        sta t1
+        lda ddiff               ; diff × 6 = diff × 2 + diff × 4
+        asl
+        rol t1
+        sta t0                  ; t0/t1 = × 2
+        asl
+        sta t3
+        lda t1
+        rol
+        sta p0                  ; t3/p0 = × 4
+        lda t3
+        clc
+        adc t0
+        sta t0
+        lda p0
+        adc t1
+        sta t1                  ; t0/t1 = diff × 6
+        lda #0                  ; diff × 256 - diff × 6 + 127
+        sec
+        sbc t0
+        sta t0
+        lda ddiff
+        sbc t1
+        sta t1
+        lda t0
+        clc
+        adc #127
+        sta t0
+        bcc :+
+        inc t1
+:       lda t0                  ; / 255 = (x + (x >> 8) + 1) >> 8
+        sec
+        adc t1
+        lda t1
+        adc #0
+        asl                     ; × 2 = round(500 d)
+        sta t0
+        lda #0
+        rol
+        sta t1
+        lda #<(30 * 50)
+        sec
+        sbc t0
+        pha
+        lda #>(30 * 50)
+        sbc t1
+        tax
+        pla
         jmp timer_start
 
 ; Your login: the name in lower case letters and digits, at most 12 ("newhire" if none).

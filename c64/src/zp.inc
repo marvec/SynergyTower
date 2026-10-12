@@ -46,3 +46,6 @@ PEND_Y   = $86
 NEXT_S   = $87   ; fine scroll (YSCROLL) for the playfield, set by the split IRQ
 NEXT_D018 = $88  ; screen for the playfield, set by the split IRQ
 SB       = $89   ; word, text builder output (src/text.s)
+LZBITS   = $8b   ; lz_unpack: bits left (a 1 marks the end)
+LZLEN    = $8c   ; word, lz_unpack: run length
+LZOFF    = $8e   ; word, lz_unpack: the last match offset

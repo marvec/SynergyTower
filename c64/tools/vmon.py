@@ -68,6 +68,14 @@ try:
     if keysat:
         send(f'break exec {labels.get(keysat, keysat)}')
         drain()
+    # --pre=LABEL:cmd;cmd  commands run once when LABEL is first reached (e.g. a disk swap), then it goes on
+    pre = opts.get('pre')
+    pre_addr = None
+    if pre:
+        pre_label, pre_cmds = pre.split(':', 1)
+        pre_addr = labels.get(pre_label, pre_label).lower()
+        send(f'break exec {pre_addr}')
+        drain()
     send(f'break exec {labels[label] if label in labels else label}')
     drain()
     send(f'autostart "{opts.get("d64", os.path.join(ROOT, "build", "synergy.d64"))}"')
@@ -83,6 +91,14 @@ try:
             continue
         buf += d
         if 'Stop on' in buf:
+            if pre_addr and ('exec ' + pre_addr) in buf.lower():
+                buf = ''
+                for c in pre_cmds.split(';'):
+                    send(sub(c))
+                    print(drain())
+                pre_addr = None
+                send('x')
+                continue
             if keysat and ('exec ' + labels.get(keysat, keysat).lower()) in buf.lower():
                 buf = ''
                 send('del 1')
