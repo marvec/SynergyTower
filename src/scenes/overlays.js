@@ -61,10 +61,12 @@ const inside = (p, x, y, w, h) => p.x >= x && p.y >= y && p.x < x + w && p.y < y
 
 // ------------------------------------------------------------------ task card
 export class TaskCard extends Modal {
-  constructor(game, task, onStart) {
-    super(game, { w: 280, h: 170, title: task.title });
+  /** peek: optional callback for stations that are also curiosities (the fridge, a plant): a "Peek" button. */
+  constructor(game, task, onStart, { peek = null } = {}) {
+    super(game, { w: peek ? 340 : 280, h: 170, title: task.title });
     this.task = task;
     this.onStart = onStart;
+    this.peek = peek;
     this.mg = MINIGAMES[task.game];
   }
   build() {
@@ -87,6 +89,7 @@ export class TaskCard extends Modal {
     } else {
       b.add({ x: this.x + 10, y: by, w: 200, h: 18, label: check.cost ? `Start  (-${check.cost} coffee)` : 'Start  (free)', color: C.goodBtn, onClick: () => this.start() });
     }
+    if (this.peek) b.add({ x: this.x + this.w - 124, y: by, w: 54, h: 18, label: 'Peek', color: C.panelLight, onClick: () => (this.close(), this.peek()) });
     b.add({ x: this.x + this.w - 64, y: by, w: 54, h: 18, label: 'Back', color: C.panelLight, onClick: () => this.close() });
     b.focus = Math.min(keepFocus, b.items.length - 1);
   }
@@ -656,7 +659,7 @@ function offerReminders(game) {
 
 export const HOW_TO =
   'Move: arrow keys / WASD, or click the floor.\n' +
-  'Interact: SPACE / ENTER near a desk, printer, meeting room... or click it.\n' +
+  'Interact: SPACE / ENTER near a desk, printer, meeting room... or click it. Curious? Most other things react too.\n' +
   'Each task is a mini-game that costs coffee and earns paperclips (the office currency), XP and 0-3 KPI stars.\n' +
   'Collect enough stars on a floor, reach the seniority level and the keycard fee, then pass the HR performance review. Only then does the elevator take you up (going down is always fine).\n' +
   'Coffee refills over time (also offline). Tasks have cooldowns. Stock Options skip the waiting.\n' +

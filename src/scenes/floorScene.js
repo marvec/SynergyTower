@@ -29,6 +29,9 @@ import { BadgeWall } from './badgeWall.js';
 import * as K from '../core/desk.js';
 import * as V from '../core/events.js';
 import { MINIGAMES } from '../minigames/index.js';
+import * as Q from '../core/curios.js';
+import { FRIDGE_LINES } from '../data/curios.js';
+import { FridgeCloseUp, PlantCloseUp, FilesCloseUp } from './closeUp.js';
 
 const SPEED = 4.4;
 const R = 0.3;
@@ -80,6 +83,9 @@ export class FloorScene {
       const x0 = Math.floor(c.x / TILE);
       return { x: x0, y: p.y, w: Math.ceil((c.x + c.w) / TILE) - x0, h: 1, top: p.y * TILE - 12, ad: c.ad };
     });
+    // Curiosities: furniture that reacts when poked but is not gameplay (no focus brackets, no prompt). See core/curios.js.
+    this.curios = this.fl.items.filter((it) => Q.curioOf(this.fl, it)).map((it) => ({ kind: 'curio', it }));
+    this.pokes = new Map(); // item → times poked, so the next quip is a new one
     this.rng = createRng(floor * 17 + Date.now());
     this.cam = { x: 0, y: 0 };
     this.snapCamera();
@@ -224,10 +230,14 @@ export class FloorScene {
     const dy = Math.max(it.y - (p.y - 0.1), 0, p.y - 0.1 - (it.y + it.h));
     return Math.hypot(dx, dy);
   }
-  nearest() {
+  /** Curios that can be poked right now (the open turnstile and an unassigned desk only say something). */
+  curioTargets() {
+    return this.curios.filter((t) => !(t.it.interact === 'turnstile' && this.gateClosed) && !(t.it === this.fl.myDesk && this.hasDesk));
+  }
+  nearest(list = this.interactables()) {
     let best = null;
     let bd = REACH;
-    for (const t of this.interactables()) {
+    for (const t of list) {
       const d = this.distTo(t) - (t.kind === 'npc' ? 0 : 0.05);
       if (d < bd) {
         bd = d;
@@ -297,10 +307,13 @@ export class FloorScene {
     }
     const it = t.it;
     p.faceTowards(it.x + it.w / 2 - p.x, it.y + it.h / 2 - p.y);
-    if (t.kind === 'task') {
+    if (t.kind === 'curio') {
+      this.poke(it);
+    } else if (t.kind === 'task') {
       game.sfx('click');
       if (it.task.checkin && s.lobby === 'checkin') this.receptionist?.say('Quick test before your badge: spot the buzzwords!', 4);
-      game.push(new TaskCard(game, it.task, (task) => this.startTask(task)));
+      const peek = Q.closeUpOf(this.fl, it) ? () => this.poke(it) : null;
+      game.push(new TaskCard(game, it.task, (task) => this.startTask(task), { peek }));
     } else if (t.kind === 'turnstile') {
       this.useTurnstile();
     } else if (t.kind === 'mydesk') {
@@ -511,6 +524,50 @@ export class FloorScene {
     n.brain.talkPause = 3.5;
   }
 
+  /** Pokes a curiosity: a close-up for the fridge, plants and HR files, otherwise the player says something about it. */
+  poke(it) {
+    const game = this.game;
+    const fl = this.fl;
+    const seed = Q.itemSeed(fl, it);
+    const kind = Q.closeUpOf(fl, it);
+    if (kind === 'fridge') {
+      game.sfx('click');
+      game.push(new FridgeCloseUp(game, { seed, onClose: () => this.player.say(FRIDGE_LINES[seed % FRIDGE_LINES.length], 2.5) }));
+    } else if (kind === 'plant') {
+      game.sfx('click');
+      game.push(new PlantCloseUp(game, { seed }));
+    } else if (kind === 'files') {
+      game.sfx('click');
+      game.push(new FilesCloseUp(game, { people: this.personnel(), floor: this.floorNo }));
+    } else {
+      const n = this.pokes.get(it) || 0;
+      this.pokes.set(it, n + 1);
+      const line = Q.quipFor(fl, it, n);
+      if (!line) return;
+      game.sfx('blip');
+      this.player.say(line, 2.5 + line.length / 25);
+    }
+  }
+
+  /** Everyone HR keeps a folder on: colleagues on this and the neighbouring floors (let-go ones too), the HR rep, the receptionist and you. */
+  personnel() {
+    const s = this.game.state;
+    const fired = s.fired || {};
+    // The cabinet also holds the floors just below and above (HR shares the drawers, and the dust).
+    const floors = [this.floorNo, this.floorNo - 1, this.floorNo + 1].filter((f) => f >= 1 && f <= 40);
+    const people = floors.flatMap((f) => {
+      const fl = buildFloor(f);
+      return fl.npcs.map((n) => {
+        const id = npcIdentity(n.seed, fl.dept);
+        return { name: id.name, role: id.role, seed: n.seed, years: id.years, note: id.note, fired: !!fired[n.seed], floor: f };
+      });
+    });
+    if (this.hrRep) people.push({ ...this.hrRep.who, seed: this.floorNo * 91 + 7, floor: this.floorNo });
+    if (this.receptionist) people.push({ ...this.receptionist.who, seed: RECEPTIONIST_SEED, floor: 1 });
+    people.push({ name: s.player?.name || 'New Hire', role: 'You', you: true, file: Q.playerFile(s) });
+    return people;
+  }
+
   /** Terminal secret (`systemctl isolate levelXX.target`): ride straight to any floor. */
   async warp(f) {
     const game = this.game;
@@ -522,11 +579,16 @@ export class FloorScene {
     game.set(new ElevatorRide(game, from, f, { promoted: r.promoted, warp: true }));
   }
 
-  /** Item or NPC under a world-space point. */
+  /** Item or NPC under a world-space point; curios only when no gameplay target is there. */
   pick(wx, wy) {
+    // Walk-through decor (chairs, stools, beanbags) only answers a click within reach, so clicks still walk over it.
+    const curios = this.curioTargets().filter((t) => t.it.solid !== false || this.distTo(t) <= REACH);
+    return this.pickIn(wx, wy, this.interactables()) || this.pickIn(wx, wy, curios);
+  }
+  pickIn(wx, wy, list) {
     let hit = null;
     let hitBase = -1;
-    for (const t of this.interactables()) {
+    for (const t of list) {
       let x0, y0, x1, y1, base;
       if (t.kind === 'npc') {
         const a = t.n.a;
@@ -657,7 +719,10 @@ export class FloorScene {
     }
 
     this.focus = this.nearest();
-    if (input.confirm() && this.focus) this.interact(this.focus);
+    if (input.confirm()) {
+      const t = this.focus || this.nearest(this.curioTargets());
+      if (t) this.interact(t);
+    }
 
     for (const n of this.npcs) {
       n.brain.update(dt, (x, y) => Math.hypot(x - p.x, y - p.y) < 0.45);
