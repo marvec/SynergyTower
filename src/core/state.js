@@ -26,7 +26,11 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     played: {}, // mini-game id → times played with this character (any result)
     cooldowns: {},
     perks: {},
-    stats: { tasksPlayed: 0, perfectTasks: 0, soPurchased: 0, promotions: 0, fired: 0, warps: 0 },
+    stats: { tasksPlayed: 0, perfectTasks: 0, soPurchased: 0, promotions: 0, fired: 0, warps: 0, standups: 0, soSpent: 0, coffeeMachine: 0, events: {} },
+    daily: { day: null, streak: 0, best: 0 }, // daily stand-up (core/daily.js): last local day played + streak of days in a row
+    events: { nextAt: now + 5 * 60 * 1000 }, // random office events (core/events.js): none before this wall-clock time
+    desks: {}, // floor → { owned: [decor ids], show: { left, right, top } } (core/desk.js)
+    badges: {}, // badge id → unlocked at (core/achievements.js)
     settings: { music: true, sfx: true, reminders: false },
     flags: { introSeen: false, ceo: false, reminderOffered: false },
   };

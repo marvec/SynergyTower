@@ -46,6 +46,10 @@ export const taskCoffeeCost = (game) => gameTier(game);
 export const REVIEW_COFFEE = 2;
 /** The lobby turnstiles charge this once, on the new hire's first way in. */
 export const TURNSTILE_COFFEE = 1;
+/** Daily stand-up: a free quick favour once a day. Pays double paperclips, a cup and sometimes a Stock Option. */
+export const STANDUP_COFFEE = 1;
+export const STANDUP_SO_CHANCE = 0.2;
+export const STANDUP_STREAK_SO = 7; // every 7th day in a row pays a Stock Option for sure
 export const COOLDOWN_TIER_MULT = { 1: 4, 2: 1.5, 3: 0.75 };
 export const stationCount = (floor) => Math.min(14, 8 + Math.floor((floor - 1) / 6));
 
