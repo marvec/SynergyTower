@@ -14,6 +14,8 @@ const BOTTOM = { y0: 16, y1: 26 };
 const TOP_WALL_Y = 12;
 const BOTTOM_WALL_Y = 15;
 export const ELEVATOR_ROOM = { x0: 17, x1: 22 };
+/** The hallway rows between the two room bands; it runs the full width of every floor. */
+export const CORRIDOR = { y0: TOP_WALL_Y + 1, y1: BOTTOM_WALL_Y - 1 };
 
 // Which mini-games a station kind can host. The task assigner picks among these.
 export const STATION_GAMES = {

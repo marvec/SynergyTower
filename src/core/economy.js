@@ -50,6 +50,12 @@ export const TURNSTILE_COFFEE = 1;
 export const STANDUP_COFFEE = 1;
 export const STANDUP_SO_CHANCE = 0.2;
 export const STANDUP_STREAK_SO = 7; // every 7th day in a row pays a Stock Option for sure
+/** Random office events (core/events.js): quiet time on a floor first, then a gap between events. */
+export const EVENT_MIN_ON_FLOOR_S = 40;
+export const EVENT_GAP_MIN_S = 6 * 60;
+export const EVENT_GAP_MAX_S = 10 * 60;
+export const EVENT_CAKE_COFFEE = 2;
+export const AUDIT_LOCK_S = 90;
 export const COOLDOWN_TIER_MULT = { 1: 4, 2: 1.5, 3: 0.75 };
 export const stationCount = (floor) => Math.min(14, 8 + Math.floor((floor - 1) / 6));
 
