@@ -587,12 +587,16 @@ export class FateDialog extends Modal {
 }
 
 // ------------------------------------------------------------------ pause menu
+/** Menu height for n stacked 18 px buttons (22 px apart) under the title. */
+const menuH = (n) => 44 + n * 22;
+/** A button adder for a vertical menu modal. */
+const stacker = (m) => (label, onClick, color) =>
+  m.buttons.add({ x: m.x + 20, y: m.y + 22 + m.buttons.items.length * 22, w: m.w - 40, h: 18, label, onClick, color });
+
 export class PauseMenu extends Modal {
-  /** onBadges: optional, adds a "Badge wall" entry. */
-  constructor(game, { onQuit, onBadges = null }) {
-    super(game, { w: 200, h: (remindersSupported() ? 242 : 220) + (onBadges ? 22 : 0), title: 'Menu' });
+  constructor(game, { onQuit }) {
+    super(game, { w: 200, h: menuH(7), title: 'Menu' });
     this.onQuit = onQuit;
-    this.onBadges = onBadges;
     this.confirmReset = false;
   }
   build() {
@@ -600,21 +604,10 @@ export class PauseMenu extends Modal {
     const b = this.buttons;
     const f = b.focus;
     b.clear();
-    const add = (label, onClick, color) => b.add({ x: this.x + 20, y: this.y + 22 + b.items.length * 22, w: this.w - 40, h: 18, label, onClick, color });
+    const add = stacker(this);
     add('Resume', () => this.close());
-    add(`Music: ${s.settings.music ? 'ON' : 'OFF'}`, () => {
-      s.settings.music = !s.settings.music;
-      this.game.audio.setMusic(s.settings.music);
-      this.game.markDirty();
-    });
-    add(`Sound effects: ${s.settings.sfx ? 'ON' : 'OFF'}`, () => {
-      s.settings.sfx = !s.settings.sfx;
-      this.game.audio.setSfx(s.settings.sfx);
-      this.game.markDirty();
-    });
-    if (remindersSupported()) add(`Reminders: ${remindersOn(s) ? 'ON' : 'OFF'}`, () => toggleReminders(this.game));
+    add('Settings', () => this.game.push(new SettingsMenu(this.game)));
     add('How to play', () => this.game.push(howToDialog(this.game)));
-    if (this.onBadges) add('Badge wall', this.onBadges);
     add('Send feedback', () => openFeedback(`floor ${s.floor}, level ${s.level}, ${s.player.name} @ ${s.corp.name}`));
     add('Buy author a coffee', openCoffee, C.goodBtn);
     add('Save & quit to title', () => {
@@ -629,6 +622,33 @@ export class PauseMenu extends Modal {
       this.game.wipeSave();
       this.onQuit();
     }, C.bad);
+    b.focus = Math.min(f, b.items.length - 1);
+  }
+}
+
+/** Menu > Settings: music, sound effects and (where the browser has notifications) reminders. */
+export class SettingsMenu extends Modal {
+  constructor(game) {
+    super(game, { w: 200, h: menuH(remindersSupported() ? 4 : 3), title: 'Settings' });
+  }
+  build() {
+    const s = this.game.state;
+    const b = this.buttons;
+    const f = b.focus;
+    b.clear();
+    const add = stacker(this);
+    add(`Music: ${s.settings.music ? 'ON' : 'OFF'}`, () => {
+      s.settings.music = !s.settings.music;
+      this.game.audio.setMusic(s.settings.music);
+      this.game.markDirty();
+    });
+    add(`Sound effects: ${s.settings.sfx ? 'ON' : 'OFF'}`, () => {
+      s.settings.sfx = !s.settings.sfx;
+      this.game.audio.setSfx(s.settings.sfx);
+      this.game.markDirty();
+    });
+    if (remindersSupported()) add(`Reminders: ${remindersOn(s) ? 'ON' : 'OFF'}`, () => toggleReminders(this.game));
+    add('Back', () => this.close(), C.panelLight);
     b.focus = Math.min(f, b.items.length - 1);
   }
 }

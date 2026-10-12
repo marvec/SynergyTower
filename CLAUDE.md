@@ -122,14 +122,14 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
     Old per-floor `desks` saves merge on load. `DeskOverlay` (Shop / Collection tabs); `drawDeskDecor` in art.js.
   - **Badges** (`src/core/achievements.js`, `state.badges`): predicates over the state only; `game.checkBadges()` runs
     every 0.5 s while a FloorScene is on the stack (`inTower`, so never on the title screen). `stats.soSpent` = -1 for saves from before it was counted (never earns "Bootstrapped"). `BadgeWall`
-    opens from the HUD medal button and the menu.
+    opens from the HUD medal button and B (not from the menu).
 - **Office curiosities** (spec `docs/superpowers/specs/2026-10-12-office-curiosities-design.md`): non-gameplay furniture
   reacts to Space/click without focus brackets or prompt (gameplay targets always win; walk-through decor only answers a
   click within reach). `src/core/curios.js` decides (`curioOf`, `closeUpOf`, deterministic `fridgeContents`/`plantInfo`/
   `personnelFile`/`playerFile`), text lives in `src/data/curios.js` (quips per furniture type, ASCII), and
   `src/scenes/closeUp.js` draws the fridge, plant and HR filing-cabinet close-ups. Stations that are also a close-up get a
   Peek button on the TaskCard. Nothing is saved or paid. A new furniture type needs a `QUIPS` entry (`tests/curios.test.js`).
-- Reminders: opt-in browser notifications ("Reminders" in the ☰ menu, offered once via `offerReminders` when a task card
+- Reminders: opt-in browser notifications ("Reminders" in Menu > Settings (`SettingsMenu`), offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;
   `src/engine/reminders.js` schedules the soonest one when the tab is hidden and fires only if the tab is still hidden.
   Kept sparse on purpose: ≥5 min away, max 3/day (`localStorage['synergytower.reminders']`), quiet 22:00–08:00, each kind

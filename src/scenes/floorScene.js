@@ -152,7 +152,6 @@ export class FloorScene {
     const game = this.game;
     game.push(
       new PauseMenu(game, {
-        onBadges: () => game.push(new BadgeWall(game)),
         onQuit: async () => {
           const { TitleScene } = await import('./title.js');
           game.set(new TitleScene(game));
