@@ -2,8 +2,8 @@
 // Builds the C64 version: bakes the 40 floors, the font, sprites, music and texts out of the JS game, assembles the
 // boot file, the resident parts and the overlays (cc65), packs them and writes one disk image per disk side.
 //
-// The tower spans 9 disk sides (build/synergy-1a.d64 .. synergy-5a.d64): side 1 holds floors 1-2 (and the boot
-// file, the resident program and the title), side 2 floors 3-5, then one side per department (floors 6-10, ...).
+// The tower spans 8 disk sides (build/synergy-1a.d64 .. synergy-4b.d64), one per department (floors 1-5, 6-10,
+// ...); side 1 also holds the boot file, the resident program and the title.
 // Every side carries its floors, its department image (charset + colleague lines + a directory of the side's
 // files, always at the same track/sector), the mini-games of its floors built with that department's content,
 // the terminal and a save game.
@@ -55,7 +55,7 @@ for (const d of [GEN, join(B, 'obj'), join(B, 'disk')]) mkdirSync(d, { recursive
 
 // ---- disk sides
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
-const SIDES = [range(1, 2), range(3, 5), ...range(1, 7).map((d) => range(d * 5 + 1, d * 5 + 5))].map((floors, i) => ({
+const SIDES = range(0, 7).map((d) => range(d * 5 + 1, d * 5 + 5)).map((floors, i) => ({
   n: i + 1,
   label: `${Math.floor(i / 2) + 1}${i % 2 ? 'b' : 'a'}`,
   floors,
@@ -63,11 +63,11 @@ const SIDES = [range(1, 2), range(3, 5), ...range(1, 7).map((d) => range(d * 5 +
 }));
 const sideOf = (f) => SIDES.find((s) => s.floors.includes(f));
 // Test builds: --dept themes the games for that department, --diff forces every station's difficulty, and a game
-// with no station on floors 1-2 is put on a floor-1 station (instead of the first one that isn't the check-in).
+// with no station on side 1 (floors 1-5) is put on a floor-1 station (instead of the first one that isn't the check-in).
 const DEPT_OPT = opt('dept');
 if (DEPT_OPT && !DEPARTMENTS.some((d) => d.id === DEPT_OPT)) throw new Error(`--dept: no department ${DEPT_OPT} (${DEPARTMENTS.map((d) => d.id).join(', ')})`);
 const DIFF = opt('diff') === undefined ? undefined : Number(opt('diff'));
-if (AUTOPLAY && C64_GAMES[AUTO_GAME] && ![1, 2].some((f) => buildFloor(f).tasks.some((t) => t.task.game === AUTO_GAME))) {
+if (AUTOPLAY && C64_GAMES[AUTO_GAME] && !SIDES[0].floors.some((f) => buildFloor(f).tasks.some((t) => t.task.game === AUTO_GAME))) {
   buildFloor(1).items.find((it) => it.task && !it.task.checkin).task.game = AUTO_GAME;
 }
 // --autoplay=ceo: a test career on floor 40, one star short of the quota: it plays a station there (the disk swap to
@@ -96,9 +96,9 @@ const asm = (src, obj, extra = []) => run('ca65', ['-g', '-I', 'src', '-I', 'bui
 // revolution (7-block overlay: 1 = 1.3 s, 8 = 1.8 s, 11 = 2.0 s) and 12-15 catch the next sector (0.9 s).
 // 13 leaves a margin for real drives running a little fast.
 const FAST_INTERLEAVE = Number(opt('interleave') ?? 13);
-const checkedPack = (raw, name) => {
-  const p = pack(raw);
-  const back = unpack(p);
+const checkedPack = (raw, name, dict) => {
+  const p = pack(raw, dict);
+  const back = unpack(p, dict);
   if (back.length !== raw.length || back.some((v, i) => v !== raw[i])) throw new Error(`packer self-check failed: ${name}`);
   return p;
 };
@@ -135,7 +135,7 @@ const baseCharset = () => {
 writeFileSync(join(GEN, 'chars.inc'), baseCharset().inc);
 const { CORP_COLORS, SKIN_TONES, HAIR_COLORS } = await import('../src/data/corpColors.js');
 const { titleDataAsm } = await import('./tools/titledata.js');
-writeFileSync(join(GEN, 'title_data.s'), titleDataAsm({ bigText: (t) => bigText(glyphs, t), CORP_COLORS, SKIN_TONES, HAIR_COLORS, titles: [1, 2, 3].map((f) => titleForFloor(f)), games: games.length - 1 }));
+writeFileSync(join(GEN, 'title_data.s'), titleDataAsm({ bigText: (t) => bigText(glyphs, t), CORP_COLORS, SKIN_TONES, HAIR_COLORS, titles: [1, 2, 3].map((f) => titleForFloor(f)), games: games.length - 1, disk1Floors: SIDES[0].floors }));
 writeFileSync(join(GEN, 'boss.bin'), bossSprites());
 writeFileSync(join(GEN, 'sprites.bin'), personSprites());
 {
@@ -340,6 +340,17 @@ const deptGames = async (deptId) => {
 const sideFloorsBaked = {};
 
 // ---- one disk side
+// The floor template (src/loader.s): unpacked to the overlay slot for a floor's unpacking, kept packed under the
+// KERNAL; the packed floor loads above the template.
+// The template is the grids (map, colours, walk/interact) and the fixed part of the header (names, colleague and
+// interactable tables) of one floor; it is kept packed from the end of the far texts (src/main.s tpl_pack) to $fdc0.
+const TPL_SIZE = 3 * 40 * 28 + HDR.SP;
+const TPL_RAM_END = 0xfdc0;
+const TPL = 0x4000;
+const FLOOR_PACKED = 0x4f00;
+const TPL_COPY = 0x5900;
+const FLOOR_PACKED_MAX = TPL_COPY - FLOOR_PACKED;
+let TPL_PACK, TPL_MAX; // (from the resident program's labels)
 const DEPT_RESERVE = 26 * 254; // the department image's blocks, reserved first (so it starts at the same place)
 const sideReports = [];
 let side1 = null; // { disk, files } of side 1, finished after the resident program is placed
@@ -359,7 +370,25 @@ const buildSide = async (side) => {
   const deptId = DEPT_OPT ?? side.dept.id;
   const baked = side.floors.map((f) => bakeFloor(f, cs, gameIndex, { crowd: f === 1 && args.includes('--crowd'), diff: DIFF }));
   sideFloorsBaked[side.n] = baked;
-  const floorFiles = baked.map((fl, i) => add(`floor${String(side.floors[i]).padStart(2, '0')}`, checkedPack(fl.bin, 'floor'), fl.bin.length));
+  // The floors share their walls, corridors and lobby: each is packed against a template, the grids (map, colours,
+  // walk/interact) of the side's floor most like the others, which the department image carries (src/floor.s).
+  const GRIDS = 3 * 40 * 28;
+  const grid = (fl) => fl.bin.subarray(0, GRIDS);
+  const likeness = (a) => baked.reduce((n, b) => n + grid(a).reduce((m, v, i) => m + (v === grid(b)[i]), 0), 0);
+  const model = baked.reduce((best, fl) => (likeness(fl) > likeness(best) ? fl : best));
+  let tpl = model.bin.slice(0, TPL_SIZE);
+  let tplPacked = checkedPack(tpl, 'template');
+  if (tplPacked.length > TPL_MAX) {
+    tpl.fill(0, GRIDS); // (no room for its header part: the grids alone)
+    tplPacked = checkedPack(tpl, 'template');
+    console.log(`side ${side.n}: the floor template's header part doesn't fit ($${TPL_PACK.toString(16)}-$${TPL_RAM_END.toString(16)}), grids only`);
+  }
+  if (tplPacked.length > TPL_MAX) throw new Error(`side ${side.n}: the floor template packs to ${tplPacked.length} B, more than the ${TPL_MAX} B at $${TPL_PACK.toString(16)}`);
+  const floorFiles = baked.map((fl, i) => {
+    const p = checkedPack(fl.bin, 'floor', tpl);
+    if (p.length > FLOOR_PACKED_MAX) throw new Error(`floor ${side.floors[i]}: ${p.length} B packed, more than the ${FLOOR_PACKED_MAX} B load buffer (src/floor.s)`);
+    return add(`floor${String(side.floors[i]).padStart(2, '0')}`, p, fl.bin.length);
+  });
   // games of these floors (+ the review)
   const bins = await deptGames(deptId);
   const here = new Set(side.floors.flatMap((f) => buildFloor(f).tasks.map((t) => t.task.game)));
@@ -403,8 +432,8 @@ const buildSide = async (side) => {
   image.set(cs.bytes.subarray(0, 0x800), 0);
   image.set(far2, 0x800);
   const deptPacked = checkedPack(image, 'dept');
-  disk.rewrite(deptFile, deptPacked);
-  report.unshift({ name: 'dept', raw: image.length, packed: deptPacked.length, f: deptFile });
+  disk.rewrite(deptFile, Uint8Array.from([tplPacked.length & 0xff, tplPacked.length >> 8, ...tplPacked, ...deptPacked])); // (src/loader.s dept_tpl)
+  report.unshift({ name: 'dept', raw: image.length + tpl.length, packed: 2 + tplPacked.length + deptPacked.length, f: deptFile });
   if (deptFile.track !== DEPT_T || deptFile.sector !== DEPT_S) throw new Error('the department image moved');
   sideReports.push({ side, disk, report, missing, cells: cs.next - 128 });
   return { disk, report, deptFile, saveFile, floorFiles, gfile, baked };
@@ -414,12 +443,12 @@ const { DEPT_T, DEPT_S } = (() => {
   const f = new D64('x', 'st').add('dept', new Uint8Array(DEPT_RESERVE), FAST_INTERLEAVE);
   return { DEPT_T: f.track, DEPT_S: f.sector };
 })();
-writeFileSync(join(GEN, 'files.inc'), `DEPT_T = ${DEPT_T}\nDEPT_S = ${DEPT_S}\n`);
+writeFileSync(join(GEN, 'files.inc'), [`DEPT_T = ${DEPT_T}`, `DEPT_S = ${DEPT_S}`, ...Object.entries({ TPL, TPL_SIZE, TPL_RAM_END, FLOOR_PACKED, TPL_COPY }).map(([k, v]) => `${k} = ${v}`)].join('\n') + '\n');
 
 // ---- the test career's script (side 1 floors)
 const writeAutoplay = (baked) => {
   if (!AUTOPLAY) return;
-  let autoFloorNo = [1, 2].find((f) => buildFloor(f).tasks.some((t) => t.task.game === AUTO_GAME)) || 1;
+  let autoFloorNo = SIDES[0].floors.find((f) => buildFloor(f).tasks.some((t) => t.task.game === AUTO_GAME)) || 1;
   let autoFloor = baked[autoFloorNo - 1];
   let target = AUTO_GAME;
   if (CEO_TEST) {
@@ -447,7 +476,7 @@ const writeAutoplay = (baked) => {
 // The test script needs side 1's floors baked first (they only depend on the floor and the charset order).
 {
   const { cs } = baseCharset();
-  writeAutoplay([1, 2].map((f) => bakeFloor(f, cs, gameIndex, { crowd: f === 1 && args.includes('--crowd'), diff: DIFF })));
+  writeAutoplay(SIDES[0].floors.map((f) => bakeFloor(f, cs, gameIndex, { crowd: f === 1 && args.includes('--crowd'), diff: DIFF })));
 }
 asm('src/main.s', 'build/obj/main.o');
 run('ld65', ['-C', 'cfg/main.cfg', '-m', 'build/main.map', '-Ln', 'build/main.lbl', '-o', 'build/main.prg', 'build/obj/main.o']);
@@ -455,7 +484,10 @@ const mainRaw = readFileSync(join(B, 'main.prg')).subarray(2);
 const main2Raw = readFileSync(join(B, 'main2.bin'));
 const main3Raw = readFileSync(join(B, 'main3.bin'));
 const farRaw = readFileSync(join(B, 'far.bin'));
-if (0xe000 + farRaw.length > 0xfe00) throw new Error(`far texts reach $fe00 (the hair sprite frames): $${(0xe000 + farRaw.length).toString(16)}`);
+TPL_PACK = parseInt(readFileSync(join(B, 'main.lbl'), 'utf8').match(/al ([0-9A-F]+) \.tpl_pack\b/)[1], 16);
+if (TPL_PACK !== 0xe000 + farRaw.length) throw new Error('tpl_pack is not the end of the far texts');
+TPL_MAX = TPL_RAM_END - TPL_PACK;
+if (TPL_COPY + TPL_MAX > 0x6400 || TPL + TPL_SIZE > FLOOR_PACKED) throw new Error('floor template buffers overlap');
 const main3Packed = checkedPack(main3Raw, 'main3');
 
 // ---- the sides
@@ -478,7 +510,7 @@ for (const side of SIDES.filter((s) => BUILD_SIDES.includes(s.n))) {
   const main3File = report.find((r) => r.name === 'main3').f;
   writeFileSync(
     join(GEN, 'boot.inc'),
-    [`MAIN_T = ${mainFile.track}`, `MAIN_S = ${mainFile.sector}`, `MAIN3_T = ${main3File.track}`, `MAIN3_S = ${main3File.sector}`, `MAIN2_T = ${main2File.track}`, `MAIN2_S = ${main2File.sector}`, `FAR_T = ${farFile.track}`, `FAR_S = ${farFile.sector}`].join('\n') + '\n',
+    [`TPL_PACK = ${TPL_PACK}`, `MAIN_T = ${mainFile.track}`, `MAIN_S = ${mainFile.sector}`, `MAIN3_T = ${main3File.track}`, `MAIN3_S = ${main3File.sector}`, `MAIN2_T = ${main2File.track}`, `MAIN2_S = ${main2File.sector}`, `FAR_T = ${farFile.track}`, `FAR_S = ${farFile.sector}`].join('\n') + '\n',
   );
   run('ca65', ['-I', 'src', '-I', 'build', '--bin-include-dir', 'build', '-o', 'build/obj/boot.o', 'src/boot.s']);
   run('ld65', ['-C', 'cfg/boot.cfg', '-m', 'build/boot.map', '-o', 'build/disk/synergy', 'build/obj/boot.o']);
@@ -497,7 +529,7 @@ for (const { side, disk, report, missing, cells } of sideReports) {
   images.push(file);
   const verbose = args.includes('--verbose') || sideReports.length === 1;
   if (verbose) for (const r of report) console.log(`${r.name.padEnd(10)} ${String(r.raw).padStart(6)} B  -> ${String(r.packed).padStart(5)} B (lz)   track ${r.f.track} sector ${r.f.sector}, ${r.f.blocks} blocks`);
-  console.log(`side ${side.n} (disk ${side.label}, floors ${side.floors[0]}-${side.floors.at(-1)}, ${side.dept.id}): ${disk.blocksFree} blocks free, ${disk.files.length} files, ${cells}/128 tile cells${missing.length ? `; not ported yet: ${missing.join(' ')}` : ''}`);
+  console.log(`side ${side.n} (disk ${side.label}, floors ${side.floors[0]}-${side.floors.at(-1)}, ${side.dept.id}): ${disk.blocksFree} blocks free (+${disk.used[18].filter((u) => !u).length} on track 18${disk.dirTrackBlocks ? `, ${disk.dirTrackBlocks} used there` : ''}), ${disk.files.length} files, ${cells}/128 tile cells${missing.length ? `; not ported yet: ${missing.join(' ')}` : ''}`);
 }
 copyFileSync(join(B, 'synergy-1a.d64'), join(B, 'synergy.d64')); // (the tests and --run use side 1 under this name)
 const d64 = join(B, 'synergy.d64');

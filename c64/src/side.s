@@ -1,7 +1,8 @@
 ; ---- disk sides -----------------------------------------------------------------------------------------------
-; The tower spans 9 disk sides (build.js SIDES). Each starts with its department image at the same track/sector:
+; The tower spans 8 disk sides (build.js SIDES). Each starts with its department image at the same track/sector:
 ; the charset with that department's floor tiles ($c800) and, at $d000 (under the I/O), the side's directory
-; (gen/dir.inc: where its floors, games, terminal and save are) followed by the colleague lines. The directory is
+; (gen/dir.inc: where its floors, games, terminal and save are) followed by the colleague lines. Before it, packed,
+; the template its floors are packed against (TPL_PACK, under the KERNAL). The directory is
 ; copied to `dir` when a side is loaded.
 
 ; Load the department image of the side in the drive. C=1 on a disk error.
@@ -13,6 +14,7 @@ load_dept:
         bcc :+
         rts                     ; (C=1)
 :       jsr slot_src
+        jsr dept_tpl            ; (the floor template, src/floor.s)
         lda #<$c800
         sta DST
         lda #>$c800
@@ -163,7 +165,7 @@ newer_save:
         clc
         rts
 
-; A = side 1-9: append "3, side A" (two sides per disk).
+; A = side 1-8: append "3, side A" (two sides per disk).
 side_label:
         sec
         sbc #1

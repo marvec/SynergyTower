@@ -128,8 +128,66 @@ w64:    pha
         nop
 w12:    rts
 
+; SRC = a department image just loaded: the floor template packed before it (after its length) goes to TPL_PACK
+; (RAM under the KERNAL: writes reach it with the ROM in), SRC to the image's own stream.
+LZ_DICT_END = TPL + TPL_SIZE    ; floors unpack against the template unpacked here (src/floor.s)
+dept_tpl:
+        ldy #0
+        lda (SRC),y
+        sta LZLEN
+        iny
+        lda (SRC),y
+        sta LZLEN+1
+        lda SRC
+        clc
+        adc #2
+        sta MP
+        lda SRC+1
+        adc #0
+        sta MP+1
+        lda #<TPL_PACK
+        sta LZOFF
+        lda #>TPL_PACK
+        sta LZOFF+1
+        jsr copy_mem
+        lda MP                  ; (just past the template)
+        clc
+        adc LZLEN
+        sta SRC
+        lda MP+1
+        adc #0
+        sta SRC+1
+        rts
+
+; Copy LZLEN bytes from MP to LZOFF (lz_unpack's variables; MP ends one page past its start per whole page).
+copy_mem:
+        ldy #0
+        ldx LZLEN+1
+        beq @rest
+@page:  lda (MP),y
+        sta (LZOFF),y
+        iny
+        bne @page
+        inc MP+1
+        inc LZOFF+1
+        dex
+        bne @page
+@rest:  ldx LZLEN
+        beq @done
+@b:     lda (MP),y
+        sta (LZOFF),y
+        iny
+        dex
+        bne @b
+@done:  rts
+
 ; Unpack the bit-packed LZ stream at SRC to DST (format: tools/lz.js). Y stays 0.
 lz_unpack:
+        ldx #0
+; ... with a dictionary (floors: their side's template): X = the high byte of the output's start. A match from
+; below it copies from the dictionary, whose end is LZ_DICT_END (the packer keeps every match on one side).
+lz_unpack_dict:
+        stx LZDICT
         ldy #0
         lda #$80                ; no bits yet
         sta LZBITS
@@ -187,7 +245,18 @@ lz_copy:
         sta MP
         lda DST+1
         sbc LZOFF+1
-        sta MP+1
+        cmp LZDICT
+        bcs :+
+        tax                     ; in the dictionary: MP += LZ_DICT_END - LZDICT * 256
+        lda MP
+        clc
+        adc #<LZ_DICT_END
+        sta MP
+        txa
+        adc #>LZ_DICT_END
+        sec
+        sbc LZDICT
+:       sta MP+1
 @copy:  lda (MP),y
         sta (DST),y
         inc MP

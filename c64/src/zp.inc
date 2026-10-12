@@ -49,3 +49,4 @@ SB       = $89   ; word, text builder output (src/text.s)
 LZBITS   = $8b   ; lz_unpack: bits left (a 1 marks the end)
 LZLEN    = $8c   ; word, lz_unpack: run length
 LZOFF    = $8e   ; word, lz_unpack: the last match offset
+LZDICT   = $fb   ; lz_unpack_dict: the output's start page (a match from below copies from the dictionary)

@@ -1,10 +1,16 @@
 ; ---- the floor: loading, markers, interaction --------------------------------------------------------------
 
 ; Load floor st_floor (floorNN file) to $8000 and apply the saved state: turnstile gate, task markers.
+; Floors are packed against their side's template (build.js): the template is unpacked into the overlay slot
+; first, and matches reach back into it as if it stood right before $8000 (lz_unpack_dict).
 load_floor:
         lda st_floor            ; its disk side in the drive
         jsr ensure_side
         jsr set_loadbuf
+        lda #<FLOOR_PACKED      ; (above the template's place)
+        sta DST
+        lda #>FLOOR_PACKED
+        sta DST+1
         lda st_floor
         sec
         sbc dir + DIR_FIRST
@@ -17,12 +23,44 @@ load_floor:
         jsr fl_load
         bcc :+
         jmp disk_error
-:       jsr slot_src
+:       lda #<TPL_PACK          ; the packed template from under the KERNAL
+        sta MP
+        lda #>TPL_PACK
+        sta MP+1
+        lda #<TPL_COPY
+        sta LZOFF
+        lda #>TPL_COPY
+        sta LZOFF+1
+        lda #<(TPL_RAM_END - TPL_PACK)
+        sta LZLEN
+        lda #>(TPL_RAM_END - TPL_PACK)
+        sta LZLEN+1
+        sei
+        lda #$35
+        sta $01
+        jsr copy_mem
+        lda #$36
+        sta $01
+        cli
+        lda #<TPL_COPY          ; unpacked to TPL
+        sta SRC
+        lda #>TPL_COPY
+        sta SRC+1
+        lda #<TPL
+        sta DST
+        lda #>TPL
+        sta DST+1
+        jsr lz_unpack
+        lda #<FLOOR_PACKED      ; then the floor, against it
+        sta SRC
+        lda #>FLOOR_PACKED
+        sta SRC+1
         lda #<FL_MAP
         sta DST
         lda #>FL_MAP
         sta DST+1
-        jsr lz_unpack
+        ldx #>FL_MAP
+        jsr lz_unpack_dict
         lda st_lobby
         cmp #LOBBY_DONE
         bne :+

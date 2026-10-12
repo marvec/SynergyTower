@@ -1,6 +1,6 @@
 # SynergyTower for the Commodore 64
 
-The whole tower of the real game on five disks: 40 floors in 8 departments, all 33 mini-games plus the HR
+The whole tower of the real game on four disks: 40 floors in 8 departments, all 33 mini-games plus the HR
 performance review, promotions from unpaid intern to CEO, the CEO's personnel decisions and the ending. The same
 career as the browser version: title screen and career setup, the street intro, the lobby check-in, colleagues to
 talk to, posters, coffee, perks, training, the (demo) Stock Option shop, the elevator, the workstation terminal and
@@ -25,24 +25,23 @@ F1 completes a command, the up arrow types "~", RUN/STOP or `exit` leaves.
 
 | Image | Side | Floors | Department |
 |---|---|---|---|
-| `synergy-1a.d64` | 1 (boot) | 1-2 | Lobby & Mailroom |
-| `synergy-1b.d64` | 2 | 3-5 | Lobby & Mailroom |
-| `synergy-2a.d64` | 3 | 6-10 | Customer Support |
-| `synergy-2b.d64` | 4 | 11-15 | Sales |
-| `synergy-3a.d64` | 5 | 16-20 | Marketing |
-| `synergy-3b.d64` | 6 | 21-25 | IT |
-| `synergy-4a.d64` | 7 | 26-30 | Finance |
-| `synergy-4b.d64` | 8 | 31-35 | Legal & HR |
-| `synergy-5a.d64` | 9 | 36-40 | Executive Suite (and the CEO ending) |
+| `synergy-1a.d64` | 1 (boot) | 1-5 | Lobby & Mailroom |
+| `synergy-1b.d64` | 2 | 6-10 | Customer Support |
+| `synergy-2a.d64` | 3 | 11-15 | Sales |
+| `synergy-2b.d64` | 4 | 16-20 | Marketing |
+| `synergy-3a.d64` | 5 | 21-25 | IT |
+| `synergy-3b.d64` | 6 | 26-30 | Finance |
+| `synergy-4a.d64` | 7 | 31-35 | Legal & HR |
+| `synergy-4b.d64` | 8 | 36-40 | Executive Suite (and the CEO ending) |
 
 Boot from disk 1 side A (`LOAD"*",8,1`). When the elevator (or the terminal's `systemctl isolate`) takes you to a
-floor on another side, the game asks for it ("Please insert disk 3, side A") and checks that it got the right one.
-Every side carries its floors, its department image (charset, colleague lines and a directory of the side's files,
-always at the same track/sector), every mini-game of its floors built with that department's content, the terminal
+floor on another side, the game asks for it ("Please insert disk 2, side A") and checks that it got the right one.
+Every side carries its floors, its department image (charset, colleague lines, a directory of the side's files and
+the template its floors are packed against, always at the same track/sector), every mini-game of its floors built with that department's content, the terminal
 and a save game. The title screen is on side 1 only (quitting to the title asks for it).
 
 Saving: the career (three blocks: `save` and `save3`) is written to the save of the side in the drive, with a save counter and a career id. Continuing
-from side 1 follows the trail: if the newest save says you were on floor 23, the game asks for disk 3 side B and
+from side 1 follows the trail: if the newest save says you were on floor 23, the game asks for disk 3 side A and
 takes over the newer save it finds there (only one of the same career).
 
 ## The mini-games
@@ -86,7 +85,7 @@ codes, a repeat-offset match and an optimal parse; ~70% of the input) and writes
 | `$0002-$003f`, `$0080-$008f` | zero page (`$02-$13` shared with overlays, see `src/api.inc`; resident part in `src/zp.inc`) |
 | `$0200-$0257`, `$02a7-$02ff`, `$033c-$03fb` | multiplexer tables, context for overlays (HR review, floor quests), button labels |
 | `$0801-$3fff` | resident part 1: engine, API jump table at `$0810`, multiplexer, HUD, floor, economy, save, side handling, music |
-| `$4000-$5fff` | overlay slot (`mg.*`, `sys.term`, `sys.title`, `sys.end`); packed floors and department images load here too |
+| `$4000-$5fff` | overlay slot (`mg.*`, `sys.term`, `sys.title`, `sys.end`); packed floors and department images load here too, and the floor template is unpacked here while a floor unpacks |
 | `$6000-$63ff` | spill: the packed tail of an overlay unpacked in place, the game screen's colours while paused |
 | `$6400-$7fff` | resident part 3: menus, elevator, floor picker, the CEO, 40-floor tables, dialog texts (side 1, at boot) |
 | `$8000-$93ff` | the current floor |
@@ -96,7 +95,8 @@ codes, a repeat-offset match and an optimal parse; ~70% of the input) and writes
 | `$c000` / `$c400` | the two screens (VIC bank 3); the playfield alternates between them (overlays may use `$c400`: the terminal keeps its history and buffers there) |
 | `$c800` | charset (the side's department image) |
 | `$d000-$dfff` | RAM under the I/O: the side's directory and colleague lines (read with `$01 = $34`) |
-| `$e000-$fdff` | RAM under the KERNAL: person frames, overlay sprites, game help texts, perks, all songs |
+| `$e000-$fdbf` | RAM under the KERNAL: person frames, overlay sprites, game help texts, perks, all songs; after them, up to `$fdc0`, the side's floor template (packed) |
+| `$fdc0-$fdff` | the box a fired colleague carries out |
 | `$fe00-$feff` | your hair's 4 sprite frames |
 
 ## Tricks in use
@@ -114,6 +114,13 @@ codes, a repeat-offset match and an optimal parse; ~70% of the input) and writes
 - **Breadth-first route map**: a fired colleague walks out along a distance map of the floor from the elevator,
   built in the top of the overlay slot (`src/leave.s`; a floor quest's overlay stays below it).
 - **In-place unpacking**: overlays unpack over their own packed copy, so no load buffer is needed.
+- **Floors as differences from a template**: the floors of a side share their walls, corridors, lobby and much of
+  their header, so each is packed against a template (the grids and header tables of the side's most typical floor,
+  `tools/lz.js` with a dictionary). The department image carries the template; it stays packed under the KERNAL,
+  and a floor load unpacks it into the overlay slot, then the floor, whose matches reach back into it as if it stood
+  right before `$8000` (`lz_unpack_dict`). That saves about 3 blocks per side.
+- **The directory track's spare sectors**: when a side is full, files continue on track 18 after the directory
+  (the DOS never puts files there, the fast loader doesn't care). Side 1 needs this in test builds.
 - **A seconds clock in the raster IRQ** for coffee refills and cooldowns (deadlines in the save game).
 - **Overlays with a fixed ABI**: a jump table in the resident part (`API_*`) and a header at `$4000`.
 
@@ -137,11 +144,12 @@ memory dumps, screenshots, `@frames N`), and `--pre=LABEL:commands` runs command
 
 ```bash
 bun c64/build.js --autoplay=ceo
-python3 c64/tools/vmon.py run_ending "@frames 45" "screenshot \"/tmp/end.png\" 2" \
-  --pre='swap_prompt:attach "c64/build/synergy-5a.d64" 8' --d64=c64/build/synergy-1a.d64
+python3 c64/tools/vmon.py run_ending+3 "@frames 45" "screenshot \"/tmp/end.png\" 2" --secs=400 \
+  --pre='swap_prompt:attach "c64/build/synergy-4b.d64" 8' --d64=c64/build/synergy-1a.d64
 ```
 
-(Test builds don't wait for FIRE at the swap prompt.)
+(Test builds don't wait for FIRE at the swap prompt. `run_ending` itself sits at `$a800`, where the BASIC ROM also
+runs while VICE autostarts, hence the `+3`.)
 
 ## Measured in VICE (true drive emulation)
 
@@ -152,4 +160,4 @@ python3 c64/tools/vmon.py run_ending "@frames 45" "screenshot \"/tmp/end.png\" 2
 | mini-game start | 2-4 s the first time (the overlay stays loaded while you replay it) |
 | disk swap | ~8 s after FIRE: the department image and the side's save (~6 s, the first read after a swap retries after a head bump), then the floor |
 | terminal | ~5 s to open (an 8 KB overlay), back to the floor at once |
-| disks | 5 images, 110-263 blocks free per side |
+| disks | 4 images; side 1 is full (a few blocks free, plus spare sectors on track 18), the others 109-140 blocks free |

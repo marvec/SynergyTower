@@ -156,6 +156,7 @@ boot2:  lda #$36                    ; BASIC ROM out: part 2 unpacks to $9600-$bf
         ldx #DEPT_S                 ; colleague lines ($d000, under the I/O)
         ldy #>$c800
         jsr load_prep
+        jsr dept_tpl                ; (its floor template to $f9c0)
         sei
         lda #$34                    ; all RAM while unpacking
         sta $01

@@ -1383,7 +1383,8 @@ scene_cell:
 
 .segment "RODATA"
 s_climb:    .byte "Climb 40 floors of corporate absurdity.", 0
-s_disk:     .byte "This disk: floors 1-2 and ", '0' + GAMES_ON_DISK / 10, '0' + GAMES_ON_DISK .mod 10, " tasks.", 0
+.assert DISK1_LAST < 10, error, "s_disk: one digit"
+s_disk:     .byte "This disk: floors 1-", '0' + DISK1_LAST, " and ", '0' + GAMES_ON_DISK / 10, '0' + GAMES_ON_DISK .mod 10, " tasks.", 0
 s_footer:   .byte "v1.0 C64 - works offline - M: music", 0
 s_tip:      .byte "Buy a coffee: buymeacoffee.com/marvec", 0
 s_feedback: .byte "Feedback: synergytower.co.uk/feedback", 0

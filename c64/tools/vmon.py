@@ -5,7 +5,7 @@
                            [--port=6519] [--d64=path] [--lbl=path]
 
 Starts x64sc (warp, no sound) with the remote monitor on port 6519, sets a breakpoint at LABEL (from
-build/main.lbl), autostarts build/synergy.d64 and, each time the breakpoint hits (up to --hits), runs the
+build/main.lbl, also LABEL+offset; a breakpoint in $a000-$bfff also stops in the BASIC ROM while it boots), autostarts build/synergy.d64 and, each time the breakpoint hits (up to --hits), runs the
 commands. Label names in the commands are replaced by their addresses. --keys types text into the keyboard
 buffer when the breakpoint first hits (\\n = RETURN), or at the address --keysat (a breakpoint of its own,
 removed once used). Prints the monitor output.
@@ -76,7 +76,7 @@ try:
         pre_addr = labels.get(pre_label, pre_label).lower()
         send(f'break exec {pre_addr}')
         drain()
-    send(f'break exec {labels[label] if label in labels else label}')
+    send(f'break exec {sub(label)}')  # (a label, label+offset or an address)
     drain()
     send(f'autostart "{opts.get("d64", os.path.join(ROOT, "build", "synergy.d64"))}"')
     drain()

@@ -8,9 +8,14 @@ const offsetOf = (t, s) => {
   for (let k = 1; k < t; k++) n += sectorsOn(k);
   return (n + s) * 256;
 };
-// Data tracks nearest to the directory first, like the DOS: 17, 19, 16, 20, ...
+// Data tracks nearest to the directory first, like the DOS: 17, 19, 16, 20, ... and last the directory track's
+// own spare sectors (the DOS never puts files there, but the fast loader reads by track/sector anyway).
 const TRACK_ORDER = [];
 for (let d = 1; d < TRACKS; d++) for (const t of [18 - d, 18 + d]) if (t >= 1 && t <= TRACKS) TRACK_ORDER.push(t);
+TRACK_ORDER.push(18);
+// Directory sectors in the DOS's order (8 entries each); the first DIR_RESERVE are kept for it.
+const DIR_ORDER = [1, 4, 7, 10, 13, 16, 2, 5, 8, 11, 14, 17, 3, 6, 9, 12, 15, 18];
+const DIR_RESERVE = 8;
 
 const petscii = (s) => [...s.toUpperCase()].map((c) => c.charCodeAt(0));
 
@@ -21,7 +26,8 @@ export class D64 {
     this.files = []; // { name, track, sector, blocks }
     this.name = name;
     this.id = id;
-    this.used[18][0] = this.used[18][1] = true;
+    this.used[18][0] = true;
+    for (const d of DIR_ORDER.slice(0, DIR_RESERVE)) this.used[18][d] = true;
   }
 
   /** Allocate and write a file. `interleave` = sectors skipped between consecutive blocks. */
@@ -80,9 +86,9 @@ export class D64 {
     const bam = offsetOf(18, 0);
     const img = this.img;
     // Directory sectors 18/1, 18/4, 18/7, ... (8 entries each, linked), as the DOS lays them out.
-    const dirSectors = Array.from({ length: Math.max(1, Math.ceil(order.length / 8)) }, (_, i) => 1 + 3 * i);
-    if (dirSectors.length > 6) throw new Error('more than 48 files');
-    for (const d of dirSectors) this.used[18][d] = true;
+    const dirSectors = DIR_ORDER.slice(0, Math.max(1, Math.ceil(order.length / 8)));
+    if (dirSectors.length > DIR_RESERVE) throw new Error(`more than ${8 * DIR_RESERVE} files`);
+    for (const d of DIR_ORDER.slice(dirSectors.length, DIR_RESERVE)) this.used[18][d] = false; // (spare ones back)
     img.set([18, 1, 0x41, 0x00], bam);
     for (let t = 1; t <= TRACKS; t++) {
       const free = this.used[t].map((u) => !u);
@@ -112,9 +118,15 @@ export class D64 {
     return img;
   }
 
+  /** Free blocks as the DOS counts them (without the directory track). */
   get blocksFree() {
     let n = 0;
     for (let t = 1; t <= TRACKS; t++) if (t !== 18) n += this.used[t].filter((u) => !u).length;
     return n;
+  }
+
+  /** Data blocks on the directory track. */
+  get dirTrackBlocks() {
+    return this.files.reduce((n, f) => n + f.chain.filter(([t]) => t === 18).length, 0);
   }
 }

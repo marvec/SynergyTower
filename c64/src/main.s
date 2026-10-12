@@ -612,6 +612,7 @@ s_autoname: .byte "Tester", 0
 .include "state.s"
 .include "save.s"
 .include "text.s"
+TPL_PACK = tpl_pack
 .include "loader.s"
 .include "side.s"
 .include "leave.s"
@@ -867,3 +868,7 @@ RIDE_SHOW: .res 1
 RIDE_K:    .res 1
 RIDE_T:    .res 1
 RIDE_WARP: .res 1
+
+; The side's floor template, packed (src/loader.s dept_tpl), from the end of the far texts up to $fdc0.
+.segment "FAR"
+tpl_pack:

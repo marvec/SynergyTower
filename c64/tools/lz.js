@@ -10,6 +10,9 @@
 //   repeat match:    gamma(length): copy from the last offset again
 //   new offset:      gamma(((offset - 1) >> 8) + 1), one raw byte (offset - 1) & 255, gamma(length - 1)
 //                    (a high part of 256 ends the stream)
+//
+// With a dictionary (`pack(data, dict)`): matches may also copy from `dict`, as if it stood right before the
+// output; a match never runs from the dictionary into the output (the 6502 side keeps the dictionary elsewhere).
 const MAX_LIT = 512; // longest literal run the parser tries
 const MAX_CAND = 48; // match candidates per position (hash chain depth)
 const MAX_OFFSET = 0xffff;
@@ -63,6 +66,7 @@ export function pack(data, dict) {
   }
   // (the chains above run backwards from the last position; walk them from i, skipping positions >= i)
   const matchLen = (i, j, max) => {
+    if (j < start) max = Math.min(max, start - j); // (no match runs from the dictionary into the output)
     let l = 0;
     while (l < max && data[j + l] === data[i + l]) l++;
     return l;
@@ -174,8 +178,13 @@ export function pack(data, dict) {
 }
 
 /** Reference unpacker (mirrors the 6502 routine). With `track`, also returns the in-place gap (see inPlaceGap). */
-function run(src, track) {
-  const out = [];
+function run(src, track, dict = []) {
+  const out = [...dict];
+  const from = (off, len) => {
+    const at = out.length - off;
+    if (at < 0 || (at < dict.length && at + len > dict.length)) throw new Error('lz: match outside the data');
+    for (let k = 0; k < len; k++) put(out[at + k]);
+  };
   let p = 0;
   let bits = 0;
   let nb = 0;
@@ -214,22 +223,20 @@ function run(src, track) {
         afterLit = true;
         continue;
       }
-      const len = gamma();
-      for (let k = 0; k < len; k++) put(out[out.length - off]);
+      from(off, gamma());
       afterLit = false;
       continue;
     }
     const hi = gamma() - 1;
     if (hi === 255) break;
     off = ((hi << 8) | readByte()) + 1;
-    const len = gamma() + 1;
-    for (let k = 0; k < len; k++) put(out[out.length - off]);
+    from(off, gamma() + 1);
     afterLit = false;
   }
-  return track ? gap : Uint8Array.from(out);
+  return track ? gap : Uint8Array.from(out.slice(dict.length));
 }
 
-export const unpack = (src) => run(src, false);
+export const unpack = (src, dict) => run(src, false, dict);
 
 /**
  * Unpacking in place: the packed data sits higher up in the same memory and the output grows from below. Returns
