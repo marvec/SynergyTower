@@ -1,6 +1,6 @@
 // Modal overlays drawn above the floor: task card, elevator, shop + fake checkout, perks, training, menu, dialogs.
 import { W, H } from '../engine/screen.js';
-import { C, rect, panel, dim, icon, stars, bar, formatNum, formatTime, ButtonSet, frame, openCoffee } from '../engine/ui.js';
+import { C, rect, panel, dim, icon, stars, bar, formatNum, formatTime, ButtonSet, frame, openCoffee, drawLink } from '../engine/ui.js';
 import { drawText, drawWrapped, measureText, wrapText } from '../engine/font.js';
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
@@ -500,10 +500,14 @@ export class TrainOverlay extends Modal {
 
 // ------------------------------------------------------------------ dialog
 export class Dialog extends Modal {
-  /** action: optional second button { label, onClick, color }, shown left of the close button. */
-  constructor(game, { title = '', text = '', button = 'OK', w = 280, onClose = null, extra = null, action = null }) {
+  /**
+   * action: optional second button { label, onClick, color }, shown left of the close button.
+   * link: optional { text, url }, an external link at the bottom left (opened from the click itself, see drawLink).
+   */
+  constructor(game, { title = '', text = '', button = 'OK', w = 280, onClose = null, extra = null, action = null, link = null }) {
     super(game, { w, h: 60, title });
     this.action = action;
+    this.link = link;
     this.text = text;
     this.onClose = onClose;
     this.extra = extra;
@@ -529,8 +533,14 @@ export class Dialog extends Modal {
   renderBody(g, x, y) {
     const h = drawWrapped(g, this.text, x + 12, y + 6, this.w - 24);
     this.extra?.draw(g, x, y + 10 + h);
+    const l = this.link;
+    if (l) drawLink(g, this.game.input, l.text, this.x + 12 + measureText(l.text), this.y + this.h - 19, l.url);
   }
 }
+
+/** The in-game help, with a link to the full guide (public/how-to-play/). */
+export const howToDialog = (game) =>
+  new Dialog(game, { title: 'How to play', w: 320, text: HOW_TO, link: { text: 'Read more...', url: 'how-to-play/' } });
 
 // ------------------------------------------------------------------ CEO: personnel decision
 /** The CEO talks to a colleague and decides their fate. npc: { a (Actor), id: { name, role, years, note } }. */
@@ -600,7 +610,7 @@ export class PauseMenu extends Modal {
       this.game.markDirty();
     });
     if (remindersSupported()) add(`Reminders: ${remindersOn(s) ? 'ON' : 'OFF'}`, () => toggleReminders(this.game));
-    add('How to play', () => this.game.push(new Dialog(this.game, { title: 'How to play', w: 320, text: HOW_TO })));
+    add('How to play', () => this.game.push(howToDialog(this.game)));
     if (this.onBadges) add('Badge wall', this.onBadges);
     add('Send feedback', () => openFeedback(`floor ${s.floor}, level ${s.level}, ${s.player.name} @ ${s.corp.name}`));
     add('Buy author a coffee', openCoffee, C.goodBtn);

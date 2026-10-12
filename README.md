@@ -14,6 +14,9 @@ until you become CEO.
 - All art is drawn in code and all music and sound is synthesized with WebAudio: no external assets
 - Works offline (service worker)
 
+The illustrated player guide is at [synergytower.co.uk/how-to-play/](https://synergytower.co.uk/how-to-play/)
+(source: `public/how-to-play/`).
+
 ## Running it
 
 Requires [Bun](https://bun.sh) 1.3. There are no npm dependencies.

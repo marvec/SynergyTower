@@ -6,10 +6,12 @@ Play it at https://synergytower.co.uk/ . The game is drawn on an HTML canvas, so
 
 ## How to play
 
+The full illustrated guide, with a screenshot and description of every mini-game: https://synergytower.co.uk/how-to-play/
+
 - Move with the arrow keys / WASD, or click/tap the floor. Interact with SPACE / ENTER or by clicking a desk, printer, meeting room or colleague.
 - Each task is a mini-game (up to about 90 seconds) that costs coffee and pays paperclips, XP and 0-3 KPI stars.
 - To be promoted you need enough stars on the floor, the required seniority level and the keycard fee in paperclips, and then you must pass the HR performance review. Only then does the elevator take you up.
-- Coffee refills over time, even while you are away. Esc opens the menu, M toggles music, B opens the shop, P perks, T training.
+- Coffee refills over time, even while you are away. Esc opens the menu, M toggles music, O opens the shop, P perks, T training, B the badge wall, H the quick help.
 - On floor 40 you are CEO and decide which colleagues stay.
 - Once a day a colleague with a blue speech bubble asks for a quick favour: the daily stand-up pays double paperclips, a cup of coffee and sometimes a Stock Option, with a bonus for 7 days in a row.
 - Random office events liven up the floors: fire drills (reach the fire exit), printer meltdowns, cake in the kitchen (beat a colleague to it) and surprise audits.
@@ -38,6 +40,7 @@ SynergyTower also runs on a real or emulated Commodore 64: https://synergytower.
 ## Links
 
 - [Play SynergyTower](https://synergytower.co.uk/): the game
+- [How to play](https://synergytower.co.uk/how-to-play/): the complete guide: lobby check-in, coffee, KPI stars, promotions, bonuses, events, badges and all 33 mini-games with screenshots
 - [Commodore 64 version](https://synergytower.co.uk/c64/): download page for the C64 port (D64 disk images)
 - [Source code](https://github.com/marvec/SynergyTower): GitHub repository with README
 - [Support the author](https://buymeacoffee.com/marvec): Buy Me a Coffee

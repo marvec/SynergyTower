@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How to play SynergyTower · guide to every floor and mini-game</title>
+    <meta name="description" content="The complete SynergyTower guide: the lobby check-in, coffee, KPI stars, promotions and HR reviews, daily stand-ups, office events, your desk, badges and all 33 office mini-games with screenshots." />
+    <link rel="canonical" href="https://synergytower.co.uk/how-to-play/" />
+    <link rel="icon" href="../icon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#0d0f18" />
+    <meta name="color-scheme" content="dark" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="SynergyTower" />
+    <meta property="og:title" content="How to play SynergyTower" />
+    <meta property="og:description" content="Climb a 40-floor office tower one mini-game at a time: the complete guide with screenshots of every game." />
+    <meta property="og:url" content="https://synergytower.co.uk/how-to-play/" />
+    <meta property="og:image" content="https://synergytower.co.uk/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "How to play SynergyTower",
+        "description": "The complete guide to SynergyTower: gameplay, promotions, bonuses and all 33 office mini-games.",
+        "url": "https://synergytower.co.uk/how-to-play/",
+        "image": "https://synergytower.co.uk/og-image.png",
+        "author": { "@type": "Person", "name": "Martin Večeřa" },
+        "about": { "@type": "VideoGame", "name": "SynergyTower", "url": "https://synergytower.co.uk/" }
+      }
+    </script>
+    <style>
+      :root {
+        --bg: #0d0f18;
+        --panel: #171a28;
+        --panel2: #20243a;
+        --line: #2e3350;
+        --text: #dfe3f5;
+        --dim: #a3a9c6;
+        --gold: #ffd75e;
+        --accent: #6aa8ff;
+        --good: #3f8f5a;
+        --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      }
+      a {
+        color: var(--accent);
+      }
+      a:hover {
+        color: var(--gold);
+      }
+      img.shot {
+        display: block;
+        width: 100%;
+        max-width: 720px;
+        height: auto;
+        aspect-ratio: 16 / 9;
+        border: 2px solid var(--line);
+        border-radius: 4px;
+        background: #000;
+      }
+      header.top {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 16px;
+        background: rgba(13, 15, 24, 0.94);
+        border-bottom: 2px solid #2a6ad1;
+        backdrop-filter: blur(4px);
+      }
+      .brand {
+        font: bold 18px var(--mono);
+        color: var(--gold);
+        text-decoration: none;
+        letter-spacing: 1px;
+      }
+      .brand span {
+        color: #fff;
+      }
+      .play {
+        display: inline-block;
+        padding: 8px 16px;
+        font: bold 14px var(--mono);
+        color: #fff;
+        background: var(--good);
+        border: 2px solid #1a1a22;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .play:hover {
+        color: #fff;
+        background: #4ea76c;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 230px minmax(0, 1fr);
+        gap: 32px;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 24px 16px 64px;
+      }
+      nav.toc {
+        position: sticky;
+        top: 70px;
+        align-self: start;
+        max-height: calc(100vh - 90px);
+        overflow: auto;
+        font-size: 14px;
+      }
+      nav.toc ol {
+        margin: 0;
+        padding-left: 28px;
+      }
+      nav.toc > details > summary {
+        font: bold 14px var(--mono);
+        color: var(--gold);
+        list-style-position: outside;
+      }
+      nav.toc li {
+        margin: 3px 0;
+      }
+      nav.toc a {
+        color: var(--dim);
+        text-decoration: none;
+      }
+      nav.toc a:hover {
+        color: var(--gold);
+      }
+      nav.toc details {
+        margin-top: 4px;
+      }
+      nav.toc summary {
+        cursor: pointer;
+        color: var(--dim);
+      }
+      main {
+        min-width: 0;
+      }
+      h1,
+      h2,
+      h3,
+      h4 {
+        font-family: var(--mono);
+        line-height: 1.25;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(26px, 5vw, 38px);
+        color: var(--gold);
+      }
+      h2 {
+        margin: 56px 0 12px;
+        padding-top: 8px;
+        font-size: 24px;
+        color: var(--gold);
+        border-top: 2px solid var(--line);
+        scroll-margin-top: 70px;
+      }
+      h3 {
+        margin: 32px 0 8px;
+        font-size: 19px;
+        color: #fff;
+        scroll-margin-top: 70px;
+      }
+      h3 .count {
+        color: var(--dim);
+        font-size: 14px;
+        font-weight: normal;
+      }
+      .lead {
+        font-size: 18px;
+        color: var(--dim);
+        max-width: 720px;
+      }
+      figure {
+        margin: 16px 0 24px;
+      }
+      figcaption {
+        margin-top: 6px;
+        font-size: 14px;
+        color: var(--dim);
+      }
+      .pair {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        max-width: 960px;
+      }
+      .pair figure {
+        margin: 8px 0 16px;
+      }
+      kbd {
+        display: inline-block;
+        min-width: 1.6em;
+        padding: 0 5px;
+        font: 13px var(--mono);
+        text-align: center;
+        color: #fff;
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-bottom-width: 3px;
+        border-radius: 3px;
+      }
+      table {
+        width: 100%;
+        max-width: 760px;
+        border-collapse: collapse;
+        margin: 12px 0 20px;
+        font-size: 15px;
+      }
+      th,
+      td {
+        padding: 6px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--gold);
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: normal;
+        text-transform: uppercase;
+      }
+      .scroll {
+        overflow-x: auto;
+      }
+      .note {
+        max-width: 760px;
+        padding: 12px 16px;
+        background: var(--panel);
+        border-left: 4px solid var(--gold);
+      }
+      .games {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 18px;
+      }
+      .game {
+        display: flex;
+        flex-direction: column;
+        background: var(--panel);
+        border: 2px solid var(--line);
+        border-radius: 4px;
+        overflow: hidden;
+        scroll-margin-top: 70px;
+      }
+      .game img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 9;
+        background: #000;
+      }
+      .game-body {
+        padding: 10px 14px 14px;
+      }
+      .game h4 {
+        margin: 0 0 6px;
+        font-size: 16px;
+        color: #fff;
+      }
+      .game p {
+        margin: 6px 0;
+        font-size: 15px;
+      }
+      .tag {
+        display: inline-block;
+        margin-left: 4px;
+        padding: 0 6px;
+        font: 12px var(--mono);
+        color: var(--bg);
+        background: var(--gold);
+        border-radius: 2px;
+        vertical-align: 2px;
+      }
+      .controls {
+        color: var(--dim);
+      }
+      ul.badges {
+        columns: 2 300px;
+        padding-left: 20px;
+      }
+      ul.badges li {
+        break-inside: avoid;
+        margin-bottom: 4px;
+      }
+      ul.badges b {
+        color: var(--gold);
+        font-weight: 600;
+      }
+      footer {
+        margin-top: 64px;
+        padding-top: 16px;
+        border-top: 2px solid var(--line);
+        color: var(--dim);
+        font-size: 14px;
+      }
+      @media (max-width: 860px) {
+        .layout {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0;
+        }
+        nav.toc {
+          position: static;
+          max-height: none;
+          margin-bottom: 8px;
+          padding: 12px 16px;
+          background: var(--panel);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="../">SYNERGY<span>TOWER</span></a>
+      <a class="play" href="../">Play now</a>
+    </header>
+
+    <div class="layout">
+      <nav class="toc" aria-label="Contents">
+        <details id="contents" open>
+        <summary>Contents</summary>
+        <ol>
+          <li><a href="#goal">The goal</a></li>
+          <li><a href="#controls">Controls</a></li>
+          <li><a href="#first-day">Your first day: the lobby</a></li>
+          <li><a href="#tasks">Tasks and KPI stars</a></li>
+          <li><a href="#coffee">Coffee</a></li>
+          <li><a href="#promotion">Getting promoted</a></li>
+          <li><a href="#currencies">Paperclips, XP and Stock Options</a></li>
+          <li><a href="#perks">Perks, training and the shop</a></li>
+          <li><a href="#quests">Floor quests</a></li>
+          <li><a href="#standup">The daily stand-up</a></li>
+          <li><a href="#events">Office events</a></li>
+          <li><a href="#desk">Your desk</a></li>
+          <li><a href="#badges">Badges</a></li>
+          <li><a href="#ceo">Floor 40: the CEO</a></li>
+          <li><a href="#extras">Extras</a></li>
+          <li><a href="#minigames">All the mini-games</a></li>
+          <li><a href="#tips">Tips</a></li>
+        </ol>
+        <details>
+          <summary>Mini-games A-Z</summary>
+          <ol>
+            <li><a href="#game-feedback">360 Feedback</a></li>
+            <li><a href="#game-tailgate">Badge Tailgate</a></li>
+            <li><a href="#game-stealth">Boss Alert</a></li>
+            <li><a href="#game-cables">Cable Spaghetti</a></li>
+            <li><a href="#game-defender">Calendar Defender</a></li>
+            <li><a href="#game-frogger">Coffee Crossing</a></li>
+            <li><a href="#game-coffee">Coffee Run</a></li>
+            <li><a href="#game-quiz">Corporate Quiz</a></li>
+            <li><a href="#game-plant">Desk Plant Survival</a></li>
+            <li><a href="#game-pitch">Elevator Pitch</a></li>
+            <li><a href="#game-expense">Expense Fraud Detective</a></li>
+            <li><a href="#game-math">Expense Report</a></li>
+            <li><a href="#game-spreadsheet">Fix the Spreadsheet</a></li>
+            <li><a href="#game-fridge">Fridge Tetris</a></li>
+            <li><a href="#game-inbox">Inbox Triage</a></li>
+            <li><a href="#game-jargon">Jargon Decoder</a></li>
+            <li><a href="#game-lostpw">Lost Password</a></li>
+            <li><a href="#game-chart">Magic Chart</a></li>
+            <li><a href="#game-bingo">Meeting Buzzword Bingo</a></li>
+            <li><a href="#game-meeting">Meeting Survival</a></li>
+            <li><a href="#game-memory">Name Badge Memory</a></li>
+            <li><a href="#game-orgchart">Org Chart Shuffle</a></li>
+            <li><a href="#game-password">Password Policy</a></li>
+            <li><a href="#game-timing">Perfect Timing</a></li>
+            <li><a href="#game-karaoke">PowerPoint Karaoke</a></li>
+            <li><a href="#game-stocks">Quarterly Ticker</a></li>
+            <li><a href="#game-typing">Rapid Reply</a></li>
+            <li><a href="#game-replyall">Reply-All Apocalypse</a></li>
+            <li><a href="#game-calendar">Schedule the Meeting</a></li>
+            <li><a href="#game-simon">Server Rack Sequence</a></li>
+            <li><a href="#game-order">Slide Deck Order</a></li>
+            <li><a href="#game-whack">Whack-a-Bug</a></li>
+            <li><a href="#game-compose">Write the Email</a></li>
+          </ol>
+        </details>
+        </details>
+      </nav>
+
+      <main>
+        <h1>How to play SynergyTower</h1>
+        <p class="lead">
+          You are the new hire at the bottom of a 40-floor corporate tower. Walk each floor, do the office chores as short
+          mini-games, earn paperclips and KPI stars, impress HR and ride the elevator up, floor by floor, until the corner
+          office on floor 40 is yours. This guide covers everything, from the lobby turnstiles to all 33 mini-games.
+        </p>
+        <p><a class="play" href="../">Play SynergyTower in your browser</a></p>
+
+        <h2 id="goal">The goal</h2>
+        <p>
+          The tower has 40 floors in eight departments of five floors each. Every floor you reach gives you a new job title,
+          from Unpaid Intern in the lobby to Chief Executive Officer at the top. Your career is saved in your browser as you
+          play, and the game works offline once loaded.
+        </p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr><th>Floors</th><th>Department</th><th>Job titles</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>1-5</td><td>Lobby &amp; Mailroom</td><td>Unpaid Intern → Facilities Coordinator</td></tr>
+              <tr><td>6-10</td><td>Customer Support</td><td>Support Agent I → Support Team Lead</td></tr>
+              <tr><td>11-15</td><td>Sales</td><td>Sales Development Rep → Regional Sales Director</td></tr>
+              <tr><td>16-20</td><td>Marketing</td><td>Marketing Coordinator → Head of Synergy Marketing</td></tr>
+              <tr><td>21-25</td><td>IT &amp; Engineering</td><td>Helpdesk Technician → Principal Architect</td></tr>
+              <tr><td>26-30</td><td>Finance</td><td>Junior Accountant → Director of Finance</td></tr>
+              <tr><td>31-35</td><td>Legal &amp; HR</td><td>HR Generalist → VP People &amp; Culture</td></tr>
+              <tr><td>36-40</td><td>Executive Suite</td><td>Vice President → Chief Executive Officer</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The mini-games take on the look and content of the department: the same game plays differently in Sales than in IT.</p>
+
+        <h2 id="controls">Controls</h2>
+        <p>Everything works with the keyboard, a mouse or touch.</p>
+        <div class="scroll">
+          <table>
+            <tbody>
+              <tr><td>Walk</td><td><kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>, or click / tap the floor</td></tr>
+              <tr><td>Interact</td><td><kbd>Space</kbd> or <kbd>Enter</kbd> next to a desk, printer, colleague or door, or click it</td></tr>
+              <tr><td>Menu / back / pause</td><td><kbd>Esc</kbd></td></tr>
+              <tr><td>Shop</td><td><kbd>O</kbd></td></tr>
+              <tr><td>Perks</td><td><kbd>P</kbd></td></tr>
+              <tr><td>Training</td><td><kbd>T</kbd></td></tr>
+              <tr><td>Badge wall</td><td><kbd>B</kbd></td></tr>
+              <tr><td>Music on / off</td><td><kbd>M</kbd></td></tr>
+              <tr><td>Quick help</td><td><kbd>H</kbd></td></tr>
+              <tr><td>Give up a floor quest</td><td><kbd>G</kbd></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Each mini-game shows its own controls at the start and along the bottom of the screen.</p>
+
+        <h2 id="first-day">Your first day: the lobby</h2>
+        <p>
+          A new career starts outside the tower. Pick your company name and colour, your name and your look, then walk in.
+          You arrive in the Grand Lobby with 50 paperclips, 5 Stock Options and an empty coffee pot.
+        </p>
+        <h3>Check in at the front desk</h3>
+        <p>
+          The receptionist waves you over. The front desk task is always the Jargon Decoder ("Decode the Memo") and it is
+          free while you check in. Any result counts: finishing it fills your coffee pot, starts the refill and pays the
+          usual rewards. It also unlocks the Signed In badge.
+        </p>
+        <div class="pair">
+          <figure>
+            <img class="shot" src="img/lobby-checkin.png" width="960" height="540" alt="The lobby with the receptionist asking you to check in" />
+            <figcaption>The receptionist asks you to check in first.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/checkin-card.png" width="960" height="540" alt="The check-in task card: Decode the Memo, free" />
+            <figcaption>The check-in task is free. Any result loads your coffee card.</figcaption>
+          </figure>
+        </div>
+        <h3>The turnstiles</h3>
+        <p>
+          The lobby turnstiles stay closed until you have checked in. The first time through, they take one cup of coffee
+          from your new card. After that they are always free. Beyond them are the rest of the lobby floor and the elevator.
+        </p>
+        <figure>
+          <img class="shot" src="img/turnstile.png" width="960" height="540" alt="The lobby turnstiles: one coffee to pass" />
+          <figcaption>The first pass through the turnstiles costs one coffee.</figcaption>
+        </figure>
+
+        <h2 id="tasks">Tasks and KPI stars</h2>
+        <p>
+          Every floor has 8 workstations (rising to 14 on the top floors). A yellow <b>!</b> marks a station that is ready.
+          Walk up to it and press <kbd>Space</kbd> to open its task card, which shows the mini-game, its coffee cost, the
+          rewards, your best result so far and how long the station rests after you play.
+        </p>
+        <div class="pair">
+          <figure>
+            <img class="shot" src="img/floor.png" width="960" height="540" alt="An office floor with task stations marked by exclamation marks" />
+            <figcaption>A Customer Support floor. Stations with a yellow ! are ready.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/taskcard.png" width="960" height="540" alt="A task card for Buzzword Bingo" />
+            <figcaption>The task card: cost, rewards and the cooldown after playing.</figcaption>
+          </figure>
+        </div>
+        <p>
+          Each mini-game lasts up to about 90 seconds and ends with a score. The score turns into 0-3 KPI stars, and the stars
+          decide the reward:
+        </p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr><th>Score</th><th>KPI stars</th><th>Paperclips &amp; XP</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>under 35%</td><td>0</td><td>30% of the base reward</td></tr>
+              <tr><td>35-59%</td><td>★</td><td>100%</td></tr>
+              <tr><td>60-84%</td><td>★★</td><td>150%</td></tr>
+              <tr><td>85% and more</td><td>★★★</td><td>220%, plus a 5% chance of a bonus Stock Option</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Rewards grow with the floor: a 1-star task pays 25 paperclips on floor 1, about 100 on floor 10 and over 2,000 on
+          floor 30. Stars add up every time you play, so replaying a station is always worth it; your personal best per
+          station is kept separately. You can pause any mini-game with <kbd>Esc</kbd>. Giving up scores 0.
+        </p>
+        <figure>
+          <img class="shot" src="img/results.png" width="960" height="540" alt="The results screen with three stars" />
+          <figcaption>Three stars: paperclips, XP and KPI stars towards the floor quota.</figcaption>
+        </figure>
+        <h3>Cooldowns</h3>
+        <p>
+          After you play, the station rests. Simple games come back slowly and complex ones quickly, so every game type is
+          worth playing. The base cooldown is one minute on floor 1 and grows 8% per floor.
+        </p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr><th>Game type</th><th>Coffee</th><th>Cooldown</th><th>Floor 1</th><th>Floor 10</th><th>Floor 30</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Quick</td><td>1</td><td>4× base</td><td>4:00</td><td>8:00</td><td>37:16</td></tr>
+              <tr><td>Medium</td><td>2</td><td>1.5× base</td><td>1:30</td><td>3:00</td><td>13:59</td></tr>
+              <tr><td>Complex</td><td>3</td><td>0.75× base</td><td>0:45</td><td>1:30</td><td>6:59</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>A Stock Option skips a station's cooldown instantly (from the task card).</p>
+
+        <h2 id="coffee">Coffee</h2>
+        <p>
+          Coffee is your energy. Your pot holds 6 cups on the first floors and one more every five floors (14 on floor 40).
+          It refills one cup every 2 minutes, even while the game is closed.
+        </p>
+        <ul>
+          <li><b>The coffee machine</b> in the kitchen (most floors have one) pours 3 free cups once every 15 minutes, per floor. It can fill your pot past the maximum.</li>
+          <li><b>Promotions</b> top your pot up to full.</li>
+          <li><b>The daily stand-up</b> pays a cup, and winning the <b>office cake</b> race pays two.</li>
+          <li><b>Stock Options:</b> 3 SO refill the whole pot at once.</li>
+          <li><b>Perks:</b> the Bigger Mug adds 2 cups per level and the Espresso Machine refills 10% faster per level.</li>
+        </ul>
+        <figure>
+          <img class="shot" src="img/coffee-machine.png" width="960" height="540" alt="Standing at the kitchen coffee machine" />
+          <figcaption>The kitchen coffee machine: 3 cups every 15 minutes.</figcaption>
+        </figure>
+        <p class="note">
+          Ran dry? You can switch on browser <b>Reminders</b> in the menu: the game then tells you when your coffee is full
+          again (only while the tab is open in the background, at most 3 a day and never at night).
+        </p>
+
+        <h2 id="promotion">Getting promoted</h2>
+        <p>To leave a floor you need four things. The elevator panel shows your progress on each one.</p>
+        <ol>
+          <li><b>KPI stars</b> earned on this floor: 8 on floor 1, then 2 more per floor (26 on floor 10, 66 on floor 30).</li>
+          <li><b>Seniority level</b> of at least the next floor's number (level 10 to go to floor 10).</li>
+          <li><b>The keycard fee</b> in paperclips: 75 on floor 1, 1,233 on floor 10, about 76,000 on floor 30.</li>
+          <li><b>The HR performance review.</b> Once the first three are met, the HR office on the floor will see you.</li>
+        </ol>
+        <div class="pair">
+          <figure>
+            <img class="shot" src="img/elevator.png" width="960" height="540" alt="The elevator panel listing the promotion requirements" />
+            <figcaption>The elevator panel: what you still need, and every floor you can already ride to.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/review-card.png" width="960" height="540" alt="The HR office offering a performance review" />
+            <figcaption>When you are ready, HR invites you to the performance review.</figcaption>
+          </figure>
+        </div>
+        <p>
+          The review costs 2 coffee: seven questions where you tell HR what they want to hear. Get 60% right to pass. If you
+          fail, HR makes you wait (twice a station's base cooldown) before you can try again. Once you pass, take the
+          elevator up: you pay the keycard fee and get a new floor, a new title, a full coffee pot and a Stock Option. Going
+          down to floors you have already reached is always free.
+        </p>
+
+        <h2 id="currencies">Paperclips, XP and Stock Options</h2>
+        <ul>
+          <li>
+            <b>Paperclips</b> are the office currency. You earn them from tasks and spend them on keycard fees, perks,
+            training and desk decorations.
+          </li>
+          <li>
+            <b>XP</b> fills your seniority level. Every level-up also pays a Stock Option. You need the right level for each
+            promotion.
+          </li>
+          <li>
+            <b>Stock Options (SO)</b> are the premium currency. You start with 5 and earn more from level-ups, promotions,
+            lucky 3-star results and daily stand-ups. Spend them to skip a cooldown (1 SO), refill your coffee (3 SO) or buy
+            the two executive perks.
+          </li>
+        </ul>
+        <p>
+          The bar at the top of the screen shows your paperclips, KPI stars against this floor's quota, your level, Stock
+          Options, how many different mini-games you have played and your coffee with the time to the next cup. Click any of
+          them for details.
+        </p>
+
+        <h2 id="perks">Perks, training and the shop</h2>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr><th>Perk</th><th>Effect</th><th>Levels</th><th>Price</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Bigger Mug</td><td>+2 max coffee</td><td>5</td><td>150 paperclips, rising</td></tr>
+              <tr><td>Espresso Machine</td><td>-10% coffee refill time</td><td>5</td><td>250 paperclips, rising</td></tr>
+              <tr><td>Ergonomic Chair</td><td>+8% XP from tasks</td><td>5</td><td>300 paperclips, rising</td></tr>
+              <tr><td>Second Monitor</td><td>+8% paperclips from tasks</td><td>5</td><td>300 paperclips, rising</td></tr>
+              <tr><td>Golden Stapler</td><td>+10% paperclips, forever</td><td>1</td><td>40 Stock Options</td></tr>
+              <tr><td>Corner Office Plant</td><td>-15% task cooldowns</td><td>1</td><td>60 Stock Options</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The <b>Training Center</b> (<kbd>T</kbd>) turns paperclips into XP at 4 paperclips per XP, handy when you have the
+          stars and the fee but not the level. The <b>Shop</b> (<kbd>O</kbd>) sells Stock Option packs. It is a demo: the
+          checkout is simulated and no real money is ever charged.
+        </p>
+        <div class="pair">
+          <figure>
+            <img class="shot" src="img/perks.png" width="960" height="540" alt="The Office Perks overlay" />
+            <figcaption>Office perks (<kbd>P</kbd>).</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/training.png" width="960" height="540" alt="The Training Center" />
+            <figcaption>The Training Center (<kbd>T</kbd>).</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/shop.png" width="960" height="540" alt="The Stock Option shop, marked as a demo" />
+            <figcaption>The Stock Option shop (<kbd>O</kbd>): a demo, no real payments.</figcaption>
+          </figure>
+        </div>
+
+        <h2 id="quests">Floor quests</h2>
+        <p>
+          Two stations send you out onto the floor before the desk part starts. A timer runs at the top of the screen;
+          <kbd>G</kbd> gives up.
+        </p>
+        <ul>
+          <li><b>360 Feedback:</b> find the named colleague, chat with them, then return to the station and fill in their review from what they told you.</li>
+          <li><b>Lost Password:</b> your password is your pet's name. Search the floor's temporary whiteboards for your pet's photo, then log back in.</li>
+        </ul>
+        <div class="pair">
+          <figure>
+            <img class="shot" src="img/quest-feedback.png" width="960" height="540" alt="360 Feedback quest: find a colleague" />
+            <figcaption>360 Feedback: find the colleague and have a chat.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/quest-lostpw.png" width="960" height="540" alt="Lost Password quest: search the whiteboards" />
+            <figcaption>Lost Password: check the whiteboards for your pet.</figcaption>
+          </figure>
+        </div>
+
+        <h2 id="standup">The daily stand-up</h2>
+        <p>
+          Once a day (after your check-in), a colleague on your floor has a blue speech bubble: they need a quick favour
+          before stand-up. The favour is one of the quick mini-games and it is completely free: no coffee, no cooldown and
+          it does not count towards your KPI stars. In return you get double paperclips, XP, a cup of coffee and a 20% chance
+          of a Stock Option. Do it seven days in a row and the seventh day pays a Stock Option for sure.
+        </p>
+        <div class="pair">
+          <figure>
+            <img class="shot" src="img/standup-marker.png" width="960" height="540" alt="A colleague with a blue speech bubble" />
+            <figcaption>Look for the blue speech bubble.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/standup-dialog.png" width="960" height="540" alt="The stand-up favour dialog" />
+            <figcaption>The favour: free, once a day.</figcaption>
+          </figure>
+        </div>
+
+        <h2 id="events">Office events</h2>
+        <p>
+          Office life is unpredictable. After you have spent some time on a floor, a random event can break out (roughly every
+          6-10 minutes). Winning pays a bonus; losing costs nothing.
+        </p>
+        <div class="pair">
+          <figure>
+            <img class="shot" src="img/event-drill.png" width="960" height="540" alt="Fire drill event" />
+            <figcaption><b>Fire drill.</b> Get to the green EXIT at the end of the hallway in time. Everyone heads out, and nothing else works until it is over. Pays paperclips and XP.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/event-printer.png" width="960" height="540" alt="Printer meltdown event" />
+            <figcaption><b>Printer meltdown.</b> The copier is smoking. Run over and kick it back to life three times before IT finds out. Pays paperclips and XP.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/event-cake.png" width="960" height="540" alt="Cake in the kitchen event" />
+            <figcaption><b>Cake in the kitchen.</b> A colleague heard about it too. Beat them to the kitchen for 2 cups of coffee.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/event-audit.png" width="960" height="540" alt="Surprise audit event" />
+            <figcaption><b>Surprise audit.</b> Three stations are locked for 90 seconds. Find the auditor and talk to them to wrap it up early (pays XP).</figcaption>
+          </figure>
+        </div>
+
+        <h2 id="desk">Your desk</h2>
+        <p>
+          Every floor you reach has a desk with your nameplate, marked MY DESK until you decorate it. Your decorations move
+          with you from floor to floor: one on the left, one on the right and one on top of the monitor. Each floor's shop
+          sells its own selection of seven items (always some stationery) plus that floor's "Best Employee" trophy, which you
+          can only buy after meeting the floor's KPI star quota. Swap what is on show any time in the Collection tab.
+        </p>
+        <div class="pair">
+          <figure>
+            <img class="shot" src="img/desk-overlay.png" width="960" height="540" alt="The desk overlay with the floor shop" />
+            <figcaption>Your desk: this floor's shop and your collection.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/my-desk.png" width="960" height="540" alt="A decorated desk on the floor" />
+            <figcaption>A plant, a mug and a rubber duck, on show on every floor.</figcaption>
+          </figure>
+        </div>
+
+        <h2 id="badges">Badges</h2>
+        <p>
+          35 badges hang on the badge wall (<kbd>B</kbd> or the medal button). Some come naturally, others take
+          a whole career:
+        </p>
+        <ul class="badges">
+          <li><b>First Day</b> Finish your first task.</li>
+          <li><b>Signed In</b> Check in at the front desk.</li>
+          <li><b>Overachiever</b> Get 3 stars on a task.</li>
+          <li><b>Employee of the Month</b> Get 3 stars on 25 tasks.</li>
+          <li><b>Workaholic</b> Play 100 tasks.</li>
+          <li><b>Generalist</b> Try every kind of mini-game.</li>
+          <li><b>Middle Management</b> Reach floor 10.</li>
+          <li><b>Upper Management</b> Reach floor 20.</li>
+          <li><b>Executive Material</b> Reach floor 30.</li>
+          <li><b>Corner Office</b> Become CEO.</li>
+          <li><b>Bootstrapped</b> Reach floor 10 without spending Stock Options.</li>
+          <li><b>Seasoned</b> Reach Seniority Lv20.</li>
+          <li><b>Feedback Loop</b> Pass 10 HR performance reviews.</li>
+          <li><b>sudo make me CEO</b> Change floors from a workstation terminal.</li>
+          <li><b>Restructuring</b> Fire 10 colleagues.</li>
+          <li><b>Clean Sweep</b> Fire the whole board on floor 40.</li>
+          <li><b>Daily Scrum</b> Do a daily stand-up.</li>
+          <li><b>Agile Evangelist</b> Do the daily stand-up 7 days in a row.</li>
+          <li><b>Safety Officer</b> Reach the fire exit in time in 3 fire drills.</li>
+          <li><b>Let Them Eat Cake</b> Get to the office cake first 3 times.</li>
+          <li><b>Printer Whisperer</b> Fix 3 printer meltdowns.</li>
+          <li><b>Compliance Champion</b> Help a surprise audit along.</li>
+          <li><b>Home Office</b> Put a decoration on your desk.</li>
+          <li><b>Interior Designer</b> Collect 12 desk decorations.</li>
+          <li><b>Best Employee</b> Put a floor&#x27;s Best Employee trophy on your desk.</li>
+          <li><b>Caffeine Addict</b> Use the coffee machine 25 times.</li>
+          <li><b>Paperclip Maximiser</b> Hold 1,000,000 paperclips.</li>
+          <li><b>Lobby Master</b> 3 stars on every task on floors 1-5.</li>
+          <li><b>Support Master</b> 3 stars on every task on floors 6-10.</li>
+          <li><b>Sales Master</b> 3 stars on every task on floors 11-15.</li>
+          <li><b>Marketing Master</b> 3 stars on every task on floors 16-20.</li>
+          <li><b>IT Master</b> 3 stars on every task on floors 21-25.</li>
+          <li><b>Finance Master</b> 3 stars on every task on floors 26-30.</li>
+          <li><b>Legal &amp; HR Master</b> 3 stars on every task on floors 31-35.</li>
+          <li><b>Executive Master</b> 3 stars on every task on floors 36-40.</li>
+        </ul>
+        <figure>
+          <img class="shot" src="img/badges.png" width="960" height="540" alt="The badge wall" />
+          <figcaption>The badge wall. Locked badges show a question mark.</figcaption>
+        </figure>
+
+        <h2 id="ceo">Floor 40: the CEO</h2>
+        <p>
+          Reach the top floor and you are the Chief Executive Officer. You can now decide your colleagues' fate: talk to anyone
+          on floor 40 and choose Fire, Keep or Later. Fire ten people for the Restructuring badge, or the whole board for
+          Clean Sweep.
+        </p>
+        <div class="pair">
+          <figure>
+            <img class="shot" src="img/ceo-floor.png" width="960" height="540" alt="Floor 40, the CEO penthouse" />
+            <figcaption>The CEO penthouse on floor 40.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/ceo-fate.png" width="960" height="540" alt="The personnel decision dialog: fire or keep" />
+            <figcaption>A personnel decision: Fire, Keep or Later.</figcaption>
+          </figure>
+        </div>
+
+        <h2 id="extras">Extras</h2>
+        <ul>
+          <li>
+            <b>The workstation terminal.</b> One desk on every floor shows a <code>&gt;_</code> prompt. It opens a terminal;
+            type <code>help</code> and see what a curious employee can do.
+          </li>
+          <li>
+            <b>Hallway posters.</b> Every floor has a "YOUR LOGO HERE" spot and a (fake) ad. If you would like a real poster in
+            the game, <a href="../feedback/">get in touch</a>.
+          </li>
+          <li><b>The menu</b> (<kbd>Esc</kbd>) has music and sound switches, reminders, the badge wall, feedback and "Save &amp; quit to title".</li>
+        </ul>
+        <div class="pair">
+          <figure>
+            <img class="shot" src="img/terminal.png" width="960" height="540" alt="The workstation terminal" />
+            <figcaption>The workstation terminal.</figcaption>
+          </figure>
+          <figure>
+            <img class="shot" src="img/menu.png" width="960" height="540" alt="The game menu" />
+            <figcaption>The menu.</figcaption>
+          </figure>
+        </div>
+
+        <h2 id="minigames">All the mini-games</h2>
+        <p>
+          33 mini-games are shared out across the tower's stations, so every floor has a different mix. They
+          come in three types; the type sets the coffee cost and the cooldown. Every game has a time limit of about 90 seconds or
+          less, and works with the keyboard, the mouse and touch. The screenshots show the Customer Support versions; other
+          departments use their own words and props.
+        </p>
+    <h3 id="tier-1">Quick tasks: 1 coffee <span class="count">(11 games)</span></h3>
+    <p>Reflex games and one-choice-per-round games. Cheap to play, but the station then rests the longest (4x the base cooldown).</p>
+    <div class="games">
+      <article class="game" id="game-tailgate">
+        <img src="img/mg-tailgate.png" width="960" height="540" loading="lazy" alt="Badge Tailgate mini-game screenshot" />
+        <div class="game-body">
+          <h4>Badge Tailgate <span class="tag">1 coffee</span></h4>
+          <p>Guard the badge gate. Stop anyone without a badge beep or a VISITOR sticker before they get through; stopping legitimate staff costs you.</p>
+          <p class="controls"><b>Controls:</b> Stop people without a badge (green BEEP) or VISITOR sticker before they pass the gate. SPACE stops the marked person (Left/Right to change), or click a person.</p>
+        </div>
+      </article>
+      <article class="game" id="game-stealth">
+        <img src="img/mg-stealth.png" width="960" height="540" loading="lazy" alt="Boss Alert mini-game screenshot" />
+        <div class="game-body">
+          <h4>Boss Alert <span class="tag">1 coffee</span></h4>
+          <p>You are playing solitaire at work. Alt-tab right before the boss with the red tie walks past your desk; false alarms cost you.</p>
+          <p class="controls"><b>Controls:</b> Press SPACE (or click) to alt-tab right before the BOSS (red tie) passes your desk. False alarms cost you.</p>
+        </div>
+      </article>
+      <article class="game" id="game-quiz">
+        <img src="img/mg-quiz.png" width="960" height="540" loading="lazy" alt="Corporate Quiz mini-game screenshot" />
+        <div class="game-body">
+          <h4>Corporate Quiz <span class="tag">1 coffee</span></h4>
+          <p>Corporate trivia with a ticking clock: pick the best answer to each question.</p>
+          <p class="controls"><b>Controls:</b> Pick the best answer before time runs out. Keys 1-4 or arrows + Space, or click.</p>
+        </div>
+      </article>
+      <article class="game" id="game-pitch">
+        <img src="img/mg-pitch.png" width="960" height="540" loading="lazy" alt="Elevator Pitch mini-game screenshot" />
+        <div class="game-body">
+          <h4>Elevator Pitch <span class="tag">1 coffee</span></h4>
+          <p>Thirty seconds in the elevator with the CEO. Stop each slot reel on the word the CEO will love; the rumour at the top tells you what they like.</p>
+          <p class="controls"><b>Controls:</b> Stop each reel (Space/Enter, click STOP or the reel) on the word the CEO will love. Follow the rumour icon!</p>
+        </div>
+      </article>
+      <article class="game" id="game-math">
+        <img src="img/mg-math.png" width="960" height="540" loading="lazy" alt="Expense Report mini-game screenshot" />
+        <div class="game-body">
+          <h4>Expense Report <span class="tag">1 coffee</span></h4>
+          <p>Receipts versus budget. Add up the receipts and pick how much budget is left from four amounts.</p>
+          <p class="controls"><b>Controls:</b> Add up the receipts and pick the right amount. Keys 1-4 or arrows + Space, or click.</p>
+        </div>
+      </article>
+      <article class="game" id="game-inbox">
+        <img src="img/mg-inbox.png" width="960" height="540" loading="lazy" alt="Inbox Triage mini-game screenshot" />
+        <div class="game-body">
+          <h4>Inbox Triage <span class="tag">1 coffee</span></h4>
+          <p>Mail, tickets and requests drop into your inbox one after another. Sort each one into the right of three bins before it slips past (the bins follow the department, e.g. Solve / Escalate / Close in Customer Support).</p>
+          <p class="controls"><b>Controls:</b> Sort each item into the right bin. Keys: ← ↓ → (or 1 2 3), or click a bin.</p>
+        </div>
+      </article>
+      <article class="game" id="game-jargon">
+        <img src="img/mg-jargon.png" width="960" height="540" loading="lazy" alt="Jargon Decoder mini-game screenshot" />
+        <div class="game-body">
+          <h4>Jargon Decoder <span class="tag">1 coffee</span></h4>
+          <p>The boss says a buzzword. Pick what it REALLY means.</p>
+          <p class="controls"><b>Controls:</b> The boss says a buzzword. Pick what it REALLY means. Keys 1-4 or arrows + Space, or click.</p>
+        </div>
+      </article>
+      <article class="game" id="game-bingo">
+        <img src="img/mg-bingo.png" width="960" height="540" loading="lazy" alt="Meeting Buzzword Bingo mini-game screenshot" />
+        <div class="game-body">
+          <h4>Meeting Buzzword Bingo <span class="tag">1 coffee</span></h4>
+          <p>Sit through a meeting with a buzzword bingo card. Mark a word the moment someone says it and complete as many lines as you can.</p>
+          <p class="controls"><b>Controls:</b> When someone says a word on your card, press Space or click it. Complete the lines!</p>
+        </div>
+      </article>
+      <article class="game" id="game-timing">
+        <img src="img/mg-timing.png" width="960" height="540" loading="lazy" alt="Perfect Timing mini-game screenshot" />
+        <div class="game-body">
+          <h4>Perfect Timing <span class="tag">1 coffee</span></h4>
+          <p>Fix the jammed printer: mash to fill the power bar, then strike when the needle is in the green zone (yellow counts half).</p>
+          <p class="controls"><b>Controls:</b> First MASH Space (or click) to fill the bar, then press it when the needle is in the green zone. Yellow = half.</p>
+        </div>
+      </article>
+      <article class="game" id="game-calendar">
+        <img src="img/mg-calendar.png" width="960" height="540" loading="lazy" alt="Schedule the Meeting mini-game screenshot" />
+        <div class="game-body">
+          <h4>Schedule the Meeting <span class="tag">1 coffee</span></h4>
+          <p>Busy colleagues, one meeting. Find the time slot where every attendee is free and book it, round after round.</p>
+          <p class="controls"><b>Controls:</b> Find the slot where everyone is free. ← → to choose, Space to book, or click the column.</p>
+        </div>
+      </article>
+      <article class="game" id="game-whack">
+        <img src="img/mg-whack.png" width="960" height="540" loading="lazy" alt="Whack-a-Bug mini-game screenshot" />
+        <div class="game-body">
+          <h4>Whack-a-Bug <span class="tag">1 coffee</span></h4>
+          <p>Bugs (or tickets) pop up on a 3x3 grid. Hit them before they escape, but spare the decoys like thank-you notes.</p>
+          <p class="controls"><b>Controls:</b> Hit targets as they pop up: numpad keys 7-9/4-6/1-3, arrows + SPACE, or click. Spare the decoys!</p>
+        </div>
+      </article>
+    </div>
+    <h3 id="tier-2">Medium tasks: 2 coffee <span class="count">(13 games)</span></h3>
+    <p>Memory, typing and juggling games. Two cups, 1.5x the base cooldown.</p>
+    <div class="games">
+      <article class="game" id="game-frogger">
+        <img src="img/mg-frogger.png" width="960" height="540" loading="lazy" alt="Coffee Crossing mini-game screenshot" />
+        <div class="game-body">
+          <h4>Coffee Crossing <span class="tag">2 coffee</span></h4>
+          <p>Carry your coffee from the kitchen to your desk across the busy office floor without bumping into anyone. Hold an arrow key to keep hopping.</p>
+          <p class="controls"><b>Controls:</b> Carry your coffee from the kitchen to your desk. Arrows hop (hold to keep going) or click beside you. Dodge traffic!</p>
+        </div>
+      </article>
+      <article class="game" id="game-coffee">
+        <img src="img/mg-coffee.png" width="960" height="540" loading="lazy" alt="Coffee Run mini-game screenshot" />
+        <div class="game-body">
+          <h4>Coffee Run <span class="tag">2 coffee</span></h4>
+          <p>Memorise every colleague&#x27;s coffee order (size, drink, milk), then rebuild each order from memory.</p>
+          <p class="controls"><b>Controls:</b> Memorise every order, then rebuild each one. Keys 1-4, arrows + Space, or click.</p>
+        </div>
+      </article>
+      <article class="game" id="game-plant">
+        <img src="img/mg-plant.png" width="960" height="540" loading="lazy" alt="Desk Plant Survival mini-game screenshot" />
+        <div class="game-body">
+          <h4>Desk Plant Survival <span class="tag">2 coffee</span></h4>
+          <p>Keep the desk plant alive for a quarter: water and light in the green bands, blinds open or closed, pests sprayed.</p>
+          <p class="controls"><b>Controls:</b> Keep water and light in the green bands and squash pests. 1/W water, 2/B blinds, 3/SPACE spray, or click.</p>
+        </div>
+      </article>
+      <article class="game" id="game-expense">
+        <img src="img/mg-expense.png" width="960" height="540" loading="lazy" alt="Expense Fraud Detective mini-game screenshot" />
+        <div class="game-body">
+          <h4>Expense Fraud Detective <span class="tag">2 coffee</span></h4>
+          <p>Expense claims under the microscope. Approve the legitimate receipts and reject the fraud: check dates, amounts, reasons and duplicates.</p>
+          <p class="controls"><b>Controls:</b> Check each receipt: APPROVE (A / Right / click) the legit ones, REJECT (R / Left / click) the fraud. Watch for duplicates!</p>
+        </div>
+      </article>
+      <article class="game" id="game-meeting">
+        <img src="img/mg-meeting.png" width="960" height="540" loading="lazy" alt="Meeting Survival mini-game screenshot" />
+        <div class="game-body">
+          <h4>Meeting Survival <span class="tag">2 coffee</span></h4>
+          <p>Stay awake in a long meeting: sip coffee to keep your eyelids up (not too often, or the jitters get you) and nod only when a buzzword is said.</p>
+          <p class="controls"><b>Controls:</b> Stay awake: SPACE or click the mug to sip (not too often!). Nod with N / Up / NOD button ONLY at buzzwords.</p>
+        </div>
+      </article>
+      <article class="game" id="game-memory">
+        <img src="img/mg-memory.png" width="960" height="540" loading="lazy" alt="Name Badge Memory mini-game screenshot" />
+        <div class="game-body">
+          <h4>Name Badge Memory <span class="tag">2 coffee</span></h4>
+          <p>Name badges lie face down. Flip two at a time and match the pairs in as few turns as possible.</p>
+          <p class="controls"><b>Controls:</b> Flip two badges at a time and match the pairs. Arrows + Space, or click.</p>
+        </div>
+      </article>
+      <article class="game" id="game-karaoke">
+        <img src="img/mg-karaoke.png" width="960" height="540" loading="lazy" alt="PowerPoint Karaoke mini-game screenshot" />
+        <div class="game-body">
+          <h4>PowerPoint Karaoke <span class="tag">2 coffee</span></h4>
+          <p>Present slides you have never seen. For each chart, pick the narration that actually matches it.</p>
+          <p class="controls"><b>Controls:</b> Present slides you have never seen: pick the narration that matches the chart. Keys 1-4, arrows + Space, or click.</p>
+        </div>
+      </article>
+      <article class="game" id="game-stocks">
+        <img src="img/mg-stocks.png" width="960" height="540" loading="lazy" alt="Quarterly Ticker mini-game screenshot" />
+        <div class="game-body">
+          <h4>Quarterly Ticker <span class="tag">2 coffee</span></h4>
+          <p>A live share price. Buy when it is low, sell when it is high and reach the profit target before the closing bell.</p>
+          <p class="controls"><b>Controls:</b> BUY (↑ / 1 / click) when low, SELL (↓ / 2 / click) when high. Reach the profit target before the bell.</p>
+        </div>
+      </article>
+      <article class="game" id="game-typing">
+        <img src="img/mg-typing.png" width="960" height="540" loading="lazy" alt="Rapid Reply mini-game screenshot" />
+        <div class="game-body">
+          <h4>Rapid Reply <span class="tag">2 coffee</span></h4>
+          <p>A chat window full of customers. Type each canned reply exactly as shown: speed counts, typos cost accuracy.</p>
+          <p class="controls"><b>Controls:</b> Type each phrase exactly. No keyboard? Click the tile with the next letter.</p>
+        </div>
+      </article>
+      <article class="game" id="game-replyall">
+        <img src="img/mg-replyall.png" width="960" height="540" loading="lazy" alt="Reply-All Apocalypse mini-game screenshot" />
+        <div class="game-body">
+          <h4>Reply-All Apocalypse <span class="tag">2 coffee</span></h4>
+          <p>Someone hit Reply All. Delete the &quot;RE:&quot; replies before the inbox overflows, and never delete starred mail.</p>
+          <p class="controls"><b>Controls:</b> Someone hit Reply All. Delete the RE: replies (click, or Up/Down + SPACE or X) before the inbox overflows. Never delete starred mail!</p>
+        </div>
+      </article>
+      <article class="game" id="game-simon">
+        <img src="img/mg-simon.png" width="960" height="540" loading="lazy" alt="Server Rack Sequence mini-game screenshot" />
+        <div class="game-body">
+          <h4>Server Rack Sequence <span class="tag">2 coffee</span></h4>
+          <p>The server rack blinks a sequence of lights. Repeat it from memory; every round adds one more light.</p>
+          <p class="controls"><b>Controls:</b> Watch the lights, then repeat them with keys 1-6 or by clicking. Each round adds one more.</p>
+        </div>
+      </article>
+      <article class="game" id="game-order">
+        <img src="img/mg-order.png" width="960" height="540" loading="lazy" alt="Slide Deck Order mini-game screenshot" />
+        <div class="game-body">
+          <h4>Slide Deck Order <span class="tag">2 coffee</span></h4>
+          <p>A process has been shuffled. Pick its steps in the correct order to rebuild the slide deck.</p>
+          <p class="controls"><b>Controls:</b> Pick the steps in the correct order. Number keys, arrows + Space, or click.</p>
+        </div>
+      </article>
+      <article class="game" id="game-compose">
+        <img src="img/mg-compose.png" width="960" height="540" loading="lazy" alt="Write the Email mini-game screenshot" />
+        <div class="game-body">
+          <h4>Write the Email <span class="tag">2 coffee</span></h4>
+          <p>An email with gaps in it. Pick the phrase that fits each blank so the message makes (corporate) sense.</p>
+          <p class="controls"><b>Controls:</b> Fill each blank with the right phrase. Keys 1-4 or arrows + Space, or click.</p>
+        </div>
+      </article>
+    </div>
+    <h3 id="tier-3">Complex tasks: 3 coffee <span class="count">(9 games)</span></h3>
+    <p>Puzzles and multi-step tasks, including the floor quests. Three cups, but the station is ready again soonest (0.75x).</p>
+    <div class="games">
+      <article class="game" id="game-cables">
+        <img src="img/mg-cables.png" width="960" height="540" loading="lazy" alt="Cable Spaghetti mini-game screenshot" />
+        <div class="game-body">
+          <h4>Cable Spaghetti <span class="tag">3 coffee</span></h4>
+          <p>A tangle of patch cables. Re-patch each port to the socket of its colour without ever touching PROD.</p>
+          <p class="controls"><b>Controls:</b> Re-patch every cable to the socket with its colour. Click a port, then a socket (or arrows + SPACE). Never touch PROD!</p>
+        </div>
+      </article>
+      <article class="game" id="game-defender">
+        <img src="img/mg-defender.png" width="960" height="540" loading="lazy" alt="Calendar Defender mini-game screenshot" />
+        <div class="game-body">
+          <h4>Calendar Defender <span class="tag">3 coffee</span></h4>
+          <p>Tower defence on your calendar: place excuses (Decline, Out of Office, Double-booked, Headphones) to stop meeting invites from reaching your Focus Time.</p>
+          <p class="controls"><b>Controls:</b> Defend your Focus Time from meeting invites. Pick a defence (1-4 or click the bar), then place it on the calendar (click, or arrows + SPACE).</p>
+        </div>
+      </article>
+      <article class="game" id="game-spreadsheet">
+        <img src="img/mg-spreadsheet.png" width="960" height="540" loading="lazy" alt="Fix the Spreadsheet mini-game screenshot" />
+        <div class="game-body">
+          <h4>Fix the Spreadsheet <span class="tag">3 coffee</span></h4>
+          <p>A quarterly report where some Totals are wrong. Flag every row whose Total is not the sum of its columns, then submit. Flagging correct rows costs points.</p>
+          <p class="controls"><b>Controls:</b> Flag every wrong Total (click it, or Up/Down + Space). Enter or Submit when done.</p>
+        </div>
+      </article>
+      <article class="game" id="game-fridge">
+        <img src="img/mg-fridge.png" width="960" height="540" loading="lazy" alt="Fridge Tetris mini-game screenshot" />
+        <div class="game-body">
+          <h4>Fridge Tetris <span class="tag">3 coffee</span></h4>
+          <p>Fridge Tetris: fit the lunches into the office fridge and fill whole shelves to clear them.</p>
+          <p class="controls"><b>Controls:</b> Fit the lunches into the fridge and fill whole shelves to clear them. Arrows move, UP rotates, SPACE drops; or aim with the mouse, click to drop, wheel to rotate.</p>
+        </div>
+      </article>
+      <article class="game" id="game-chart">
+        <img src="img/mg-chart.png" width="960" height="540" loading="lazy" alt="Magic Chart mini-game screenshot" />
+        <div class="game-body">
+          <h4>Magic Chart <span class="tag">3 coffee</span></h4>
+          <p>Turn the knobs, sliders and switches until the KPI chart climbs to the target line. Each control moves the chart in its own way.</p>
+          <p class="controls"><b>Controls:</b> Tune the knobs, sliders and switches until the chart climbs to the target. ←/→ pick, ↑/↓ adjust (or click / drag / wheel).</p>
+        </div>
+      </article>
+      <article class="game" id="game-orgchart">
+        <img src="img/mg-orgchart.png" width="960" height="540" loading="lazy" alt="Org Chart Shuffle mini-game screenshot" />
+        <div class="game-body">
+          <h4>Org Chart Shuffle <span class="tag">3 coffee</span></h4>
+          <p>A surprise reorg and a leaked HR memo. Drag every badge into the org chart so that all the clues hold, then submit the reorg.</p>
+          <p class="controls"><b>Controls:</b> Surprise reorg! Drag each badge into the chart so every clue holds (or click a badge, then a box). Keys: arrows + SPACE to pick/drop. SUBMIT REORG when done.</p>
+        </div>
+      </article>
+      <article class="game" id="game-password">
+        <img src="img/mg-password.png" width="960" height="540" loading="lazy" alt="Password Policy mini-game screenshot" />
+        <div class="game-body">
+          <h4>Password Policy <span class="tag">3 coffee</span></h4>
+          <p>IT forces a password change. Type a password that turns every rule green, submit, and a new rule appears. Three failed attempts lock you out.</p>
+          <p class="controls"><b>Controls:</b> IT forces a password change. When every rule is green, SUBMIT (Enter) - then a new rule appears. Type, or click the key tiles. 3 failed attempts lock you out!</p>
+        </div>
+      </article>
+      <article class="game" id="game-feedback">
+        <img src="img/mg-feedback.png" width="960" height="540" loading="lazy" alt="360 Feedback mini-game screenshot" />
+        <div class="game-body">
+          <h4>360 Feedback <span class="tag">3 coffee · floor quest</span></h4>
+          <p>A floor quest. Find the named colleague somewhere on the floor and chat with them, then come back to the station and fill in their 360 review from what they told you.</p>
+          <p class="controls"><b>Controls:</b> Track down the colleague on this floor and chat with them, then come back here and fill in their review from what they said.</p>
+        </div>
+      </article>
+      <article class="game" id="game-lostpw">
+        <img src="img/mg-lostpw.png" width="960" height="540" loading="lazy" alt="Lost Password mini-game screenshot" />
+        <div class="game-body">
+          <h4>Lost Password <span class="tag">3 coffee · floor quest</span></h4>
+          <p>A floor quest. You are locked out and your password is your pet&#x27;s name. Search the floor&#x27;s whiteboards for the photo of your pet, then log back in.</p>
+          <p class="controls"><b>Controls:</b> You are locked out! Your password is your pet&#x27;s name and a photo of your pet is on a whiteboard somewhere on this floor. Find it, then log back in.</p>
+        </div>
+      </article>
+    </div>
+    <h3 id="hr-review">The HR performance review</h3>
+    <p>Not a station game: you play it at the HR desk once you are promotion-ready (see <a href="#promotion">Getting promoted</a>).</p>
+    <div class="games">
+      <article class="game" id="game-review">
+        <img src="img/mg-review.png" width="960" height="540" loading="lazy" alt="Performance Review mini-game screenshot" />
+        <div class="game-body">
+          <h4>Performance Review <span class="tag">2 coffee · HR desk</span></h4>
+          <p>The HR performance review. Tell HR what they want to hear; you need 60% of the answers right to pass.</p>
+          <p class="controls"><b>Controls:</b> Tell HR what they want to hear. Score 60% to pass. Keys 1-4, arrows + Space, or click.</p>
+        </div>
+      </article>
+    </div>
+
+        <h2 id="tips">Tips</h2>
+        <ul>
+          <li>Mix the game types: complex games cost more coffee but come back quickly, quick games are cheap but rest for a while.</li>
+          <li>Stars add up, so a 2-star replay often beats waiting for a perfect run.</li>
+          <li>Visit the coffee machine on the floors you pass: each one has its own 15-minute timer.</li>
+          <li>Do the daily stand-up first: it is free and pays double.</li>
+          <li>Short on level but rich in paperclips? The Training Center closes the gap.</li>
+          <li>The Bigger Mug and Espresso Machine are the best early perks: more coffee means more tasks per session.</li>
+        </ul>
+
+        <footer>
+          <p>
+            <a class="play" href="../">Play SynergyTower</a>
+          </p>
+          <p>
+            SynergyTower is a free pixel-art browser game. No sign-up, no cookies, works offline.
+            Questions, ideas or a bug? <a href="../feedback/">Contact the author</a>.
+          </p>
+        </footer>
+      </main>
+    </div>
+    <script>
+      // Phones: the contents start folded so the guide itself comes first.
+      if (matchMedia('(max-width: 860px)').matches) document.getElementById('contents').open = false;
+    </script>
+  </body>
+</html>

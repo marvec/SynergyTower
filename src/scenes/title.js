@@ -7,7 +7,7 @@ import { openFeedback } from '../engine/feedback.js';
 import { drawText, measureText } from '../engine/font.js';
 import { CORP_COLORS } from '../data/corpColors.js';
 import { drawSky, drawSkyline, drawTower, towerHeight, TOWER_W } from './cityscape.js';
-import { Dialog, HOW_TO } from './overlays.js';
+import { howToDialog } from './overlays.js';
 import { titleForFloor } from '../data/departments.js';
 
 // Station mini-games (the HR review isn't one).
@@ -34,7 +34,7 @@ export class TitleScene {
     }
     b.add({ x, y, w: 150, h: 20, label: this.saved ? 'New career' : 'Start your career', onClick: () => this.newGame() });
     y += 26;
-    b.add({ x, y, w: 150, h: 20, label: 'How to play', color: C.panelLight, onClick: () => this.game.push(new Dialog(this.game, { title: 'How to play', w: 320, text: HOW_TO })) });
+    b.add({ x, y, w: 150, h: 20, label: 'How to play', color: C.panelLight, onClick: () => this.game.push(howToDialog(this.game)) });
     y += 28;
     // Other platforms: the C64 version's download page; the phone apps aren't out yet. Centred under the menu.
     const widths = STORES.map((s) => 17 + Math.max(measureText(s.top), measureText(s.name)));

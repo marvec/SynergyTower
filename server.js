@@ -17,7 +17,7 @@ const server = Bun.serve({
   },
   async fetch(req) {
     const { pathname } = new URL(req.url);
-    const file = Bun.file(`./public${pathname}`);
+    const file = Bun.file(`./public${pathname}${pathname.endsWith('/') ? 'index.html' : ''}`); // folders serve index.html, like GitHub Pages
     if (pathname !== '/' && !pathname.includes('..') && (await file.exists())) return new Response(file);
     return new Response('Not found', { status: 404 });
   },

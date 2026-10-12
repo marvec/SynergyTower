@@ -19,7 +19,7 @@ import { openFeedback } from '../engine/feedback.js';
 import { track } from '../engine/analytics.js';
 import { FloorView, Actor, NpcBrain, npcLook, npcIdentity, posterContent } from './floorWorld.js';
 import { Hud, HUD_H } from './hud.js';
-import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, HOW_TO, ReviewCard, hrNotice, FateDialog } from './overlays.js';
+import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, howToDialog, ReviewCard, hrNotice, FateDialog } from './overlays.js';
 import { TerminalScene } from './terminal.js';
 import { MinigameScene } from './minigameScene.js';
 import { FloorQuest } from './floorQuest.js';
@@ -584,7 +584,7 @@ export class FloorScene {
       game.sfx('click');
       return this.openMenu();
     }
-    if (input.pressedExact('h') || input.pressedExact('?')) game.push(new Dialog(game, { title: 'How to play', w: 320, text: HOW_TO }));
+    if (input.pressedExact('h') || input.pressedExact('?')) game.push(howToDialog(game));
     if (this.quest) {
       if (input.pressedExact('g')) this.quest.giveUp();
       else this.quest.update(dt);
