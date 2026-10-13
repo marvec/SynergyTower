@@ -5,8 +5,9 @@ import { BADGES } from '../core/achievements.js';
 import { dayKey } from '../core/daily.js';
 import { Modal } from './overlays.js';
 
-const COLS = 9;
-const CW = 36;
+// 37 badges: 8 columns make full rows and a last row of 5 (9 columns left a single badge on its own).
+export const COLS = 8;
+export const CW = 36;
 const CH = 28;
 const ROWS = Math.ceil(BADGES.length / COLS);
 const RIBBONS = ['#e2504a', '#2a6ad1', '#2e8540', '#7a3bb6'];

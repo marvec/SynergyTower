@@ -118,3 +118,12 @@ test('department mastery: 3 stars on every task of its five floors', () => {
   s.bestByTask[one] = 3;
   expect(ids(A.checkBadges(s, 2))).toEqual(['dept_finance']);
 });
+
+test('the badge wall has no lonely badge in its last row, and the grid fits the dialog', async () => {
+  const { installMockDocument } = await import('./mock-canvas.js');
+  installMockDocument();
+  const { COLS, CW } = await import('../src/scenes/badgeWall.js');
+  const last = A.BADGES.length % COLS || COLS;
+  expect(last).toBeGreaterThan(1);
+  expect(COLS * CW).toBeLessThanOrEqual(344 - 20);
+});
