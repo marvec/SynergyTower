@@ -34,6 +34,7 @@ export const activityDone = (s, game) => !!s.vacation?.done[game];
  */
 export function completeActivity(s, game, score) {
   const stars = E.starsFromScore(score);
+  s.played[game] = (s.played[game] || 0) + 1; // counts towards games played, any result
   const first = stars > 0 && !!s.vacation && !s.vacation.done[game];
   if (!first) return { stars, coffee: 0, first: false };
   s.vacation.done[game] = true;

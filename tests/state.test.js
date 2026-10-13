@@ -145,7 +145,7 @@ test('old saves without reviews load and need a review', () => {
 
 test('games played counts distinct mini-game types per character, any result, and survives old saves', () => {
   const s = S.newGame({ playerName: 'Pat' }, 0);
-  expect(S.gamesPlayed(s)).toEqual({ played: 0, total: ALL_GAMES.length });
+  expect(S.gamesPlayed(s)).toEqual({ played: 0, total: S.COUNTED_GAMES.length });
   const task = (game, id) => ({ id, game, difficulty: 0, seed: 1 });
   S.completeTask(s, task('inbox', 'f1-1'), 1, 0, 0); // even a zero-star attempt counts
   S.completeTask(s, task('inbox', 'f1-2'), 1, 1, 0);
@@ -159,6 +159,16 @@ test('games played counts distinct mini-game types per character, any result, an
   expect(S.gamesPlayed(loaded).played).toBe(0);
   S.completeTask(loaded, task('quiz', 'f1-4'), 1, 1, 0);
   expect(S.gamesPlayed(loaded).played).toBe(1);
+});
+
+test('games played also counts the holiday activities: 33 office games + 8 at the hotel', async () => {
+  const { ACTIVITIES } = await import('../src/data/vacation.js');
+  const s = S.newGame({ playerName: 'Pat' }, 0);
+  expect(S.gamesPlayed(s).total).toBe(ALL_GAMES.length + ACTIVITIES.length);
+  expect(S.gamesPlayed(s).total).toBe(41);
+  s.played.swim = 1;
+  s.played.inbox = 3;
+  expect(S.gamesPlayed(s).played).toBe(2);
 });
 
 test('complex games cost more coffee and cool down faster', () => {

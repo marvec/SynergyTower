@@ -9,6 +9,14 @@ import { buildWalkable, bfs, isItemReachable, T_WATER } from '../src/core/floorg
 import { MINIGAMES } from '../src/minigames/index.js';
 import { ALL_GAMES } from '../src/core/tasks.js';
 
+test('a holiday activity counts towards games played, whatever the result', () => {
+  const s = game();
+  V.requestVacation(s, 20, NOON);
+  V.completeActivity(s, 'sunbathe', 0.1); // burnt: no coffee, but it was played
+  V.completeActivity(s, 'sunbathe', 0.9);
+  expect(s.played.sunbathe).toBe(2);
+});
+
 const MIN = 60 * 1000;
 const NOON = new Date(2026, 9, 13, 12).getTime();
 const game = (floor = 20, sp = 6000) => {

@@ -40,12 +40,21 @@ test('progress badges follow the state', () => {
   s.stats.warps = 1;
   s.stats.coffeeMachine = 25;
   s.sp = 1e6;
-  for (const g of ALL_GAMES) s.played[g] = 1;
+  for (const g of S.COUNTED_GAMES) s.played[g] = 1;
   const got = ids(A.checkBadges(s, 1));
   for (const id of ['floor10', 'floor20', 'level20', 'perfect', 'perfect25', 'tasks100', 'generalist', 'hacker', 'caffeine', 'maximiser'])
     expect(got).toContain(id);
   expect(got).not.toContain('floor30');
   expect(got).not.toContain('ceo');
+});
+
+test('Generalist means every kind of mini-game the counter shows, the holiday activities included', async () => {
+  const { ACTIVITIES } = await import('../src/data/vacation.js');
+  const s = player();
+  for (const g of ALL_GAMES) s.played[g] = 1;
+  expect(ids(A.checkBadges(s, 1))).not.toContain('generalist');
+  for (const a of ACTIVITIES) s.played[a.game] = 1;
+  expect(ids(A.checkBadges(s, 2))).toContain('generalist');
 });
 
 test('reaching floor 10 without spending Stock Options; old saves never qualify', () => {

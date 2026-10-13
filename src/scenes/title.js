@@ -1,4 +1,3 @@
-import { MINIGAMES } from '../minigames/index.js';
 // Title screen: animated tower at dusk, logo, continue / new career.
 import { W, H } from '../engine/screen.js';
 import { C, ButtonSet, rect, frame, drawLink, openCoffee } from '../engine/ui.js';
@@ -9,9 +8,10 @@ import { CORP_COLORS } from '../data/corpColors.js';
 import { drawSky, drawSkyline, drawTower, towerHeight, TOWER_W } from './cityscape.js';
 import { howToDialog } from './overlays.js';
 import { titleForFloor } from '../data/departments.js';
+import { COUNTED_GAMES } from '../core/tasks.js';
 
-// Station mini-games (the HR review isn't one).
-const GAME_COUNT = Object.keys(MINIGAMES).length - 1;
+// Every kind of mini-game the games-played counter counts: office stations and holiday activities (not the HR review).
+export const GAME_COUNT = COUNTED_GAMES.length;
 
 export class TitleScene {
   constructor(game) {

@@ -11,6 +11,12 @@ const { TitleScene } = await import('../src/scenes/title.js');
 const audio = { setMusic() {}, setSfx() {}, play() {}, sfx() {}, unlock() {} };
 const g = () => mockCanvas().getContext('2d');
 
+test('the title counts every mini-game the games-played counter does (office and holiday)', async () => {
+  const { GAME_COUNT } = await import('../src/scenes/title.js');
+  const S = await import('../src/core/state.js');
+  expect(GAME_COUNT).toBe(S.gamesPlayed(newGame({}, 0)).total);
+});
+
 test('the title loads the last played career and survives it being deleted from the picker', () => {
   const game = createGame({ screen: {}, input: createInput(), audio });
   game.newCareer(newGame({ corpName: 'A Corp', playerName: 'Ann' }, 0));

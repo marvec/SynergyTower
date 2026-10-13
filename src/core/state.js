@@ -1,6 +1,7 @@
 // Game state + all player actions as pure-ish functions (mutate the passed state, never touch the DOM).
 import * as E from './economy.js';
-import { ALL_GAMES, buildFloor } from './tasks.js';
+import { COUNTED_GAMES, buildFloor } from './tasks.js';
+export { COUNTED_GAMES };
 import { mergeOldDesks } from './desk.js';
 
 export const SAVE_VERSION = 1;
@@ -126,9 +127,9 @@ export function completeTask(s, task, floor, score, now, rng = Math.random, { sp
   return { stars, sp: reward.sp, xp: reward.xp, levelsGained: lv.levelsGained, soGained, newBest: stars > prevBest, ceoUnlocked, checkedIn };
 }
 
-/** How many of the station mini-game types this character has played at least once. */
+/** How many of the mini-game types (station games and holiday activities) this character has played at least once. */
 export function gamesPlayed(s) {
-  return { played: ALL_GAMES.filter((g) => s.played?.[g]).length, total: ALL_GAMES.length };
+  return { played: COUNTED_GAMES.filter((g) => s.played?.[g]).length, total: COUNTED_GAMES.length };
 }
 
 export function promotionStatus(s) {

@@ -1,7 +1,7 @@
 // Badges: long-term goals checked from the state alone (no event plumbing), shown on the badge wall
 // (src/scenes/badgeWall.js). s.badges[id] = when it was unlocked. Pure, no DOM.
 import * as E from './economy.js';
-import { ALL_GAMES, buildFloor } from './tasks.js';
+import { COUNTED_GAMES, buildFloor } from './tasks.js';
 import { DEPARTMENTS } from '../data/departments.js';
 
 const ev = (s, kind) => s.stats.events?.[kind] || 0;
@@ -21,7 +21,7 @@ export const BADGES = [
   { id: 'perfect', name: 'Overachiever', desc: 'Get 3 stars on a task.', icon: 'star', test: (s) => s.stats.perfectTasks >= 1 },
   { id: 'perfect25', name: 'Employee of the Month', desc: 'Get 3 stars on 25 tasks.', icon: 'star', test: (s) => s.stats.perfectTasks >= 25 },
   { id: 'tasks100', name: 'Workaholic', desc: 'Play 100 tasks.', icon: 'clock', test: (s) => s.stats.tasksPlayed >= 100 },
-  { id: 'generalist', name: 'Generalist', desc: 'Try every kind of mini-game.', icon: 'pad', test: (s) => ALL_GAMES.every((g) => s.played?.[g]) },
+  { id: 'generalist', name: 'Generalist', desc: 'Try every kind of mini-game.', icon: 'pad', test: (s) => COUNTED_GAMES.every((g) => s.played?.[g]) },
   { id: 'floor10', name: 'Middle Management', desc: 'Reach floor 10.', icon: 'up', test: (s) => s.maxFloor >= 10 },
   { id: 'floor20', name: 'Upper Management', desc: 'Reach floor 20.', icon: 'up', test: (s) => s.maxFloor >= 20 },
   { id: 'floor30', name: 'Executive Material', desc: 'Reach floor 30.', icon: 'up', test: (s) => s.maxFloor >= 30 },
