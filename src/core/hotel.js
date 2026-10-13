@@ -160,7 +160,8 @@ function generateHotel() {
     floor: VACATION_FLOOR, hotel: true, foreign: true, look, dept: dept.id, w: W, h: H, tiles, roomOf, rooms, items, entrance, ground,
     hedgeFrom: WALL_Y + 1,
   };
-  fl.arrive = { x: ENTRANCE_X + 1, y: 1.7 };
+  // Arrive in the middle of the lobby, well clear of the front door (walking up into it checks out).
+  fl.arrive = { x: ENTRANCE_X + 1, y: 6.5 };
   Object.assign(fl, { elevator: null, hrDesk: null, hrRep: null, receptionist, turnstile: null, posters: [], myDesk: null, tasks: [] });
   fl.activities = items.filter((it) => it.activity);
   fl.walk = buildWalkable(fl);

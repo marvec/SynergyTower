@@ -112,9 +112,17 @@ test('the front door checks out at once, back to floor 20 with the coffee', asyn
   game.set(hotel);
   await tick(game);
   expect(game.top).toBe(hotel); // arriving inside the door does not leave
+  // You arrive in the middle of the lobby, well away from the door: a first step up stays in the hotel.
+  const door = hotel.fl.entrance;
+  expect(hotel.player.y - door.y).toBeGreaterThanOrEqual(5);
+  game.input.keyDown('ArrowUp');
+  await tick(game, 20);
+  game.input.keyUp('ArrowUp');
+  await tick(game);
+  expect(game.top).toBe(hotel);
   V.completeActivity(game.state, 'swim', 1);
   game.input.keyDown('ArrowUp');
-  await tick(game, 40);
+  await tick(game, 240);
   game.input.keyUp('ArrowUp');
   await tick(game);
   expect(game.state.vacation).toBeNull();
