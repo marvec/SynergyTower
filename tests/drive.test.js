@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { buildTrack, createDrive, autopilot, SEG, MAX_SPEED, STAGES, OFFROAD_LIMIT, LANES, WRECK_AT, SPIN_S } from '../src/core/drive.js';
+import { buildTrack, createDrive, autopilot, SEG, MAX_SPEED, STAGES, OFFROAD_LIMIT, LANES, WRECK_AT, SPIN_S, CAR_LEN } from '../src/core/drive.js';
 
 const run = (track, controls, maxS = 400) => {
   const d = createDrive(track);
@@ -185,4 +185,28 @@ test('passing a checkpoint adds time on the clock', () => {
   expect(d.events).toContain('checkpoint');
   expect(d.stage).toBe(1);
   expect(d.time).toBeGreaterThan(before + 40);
+});
+
+test("after the finish gate the car pulls up in front of the client's building, however fast or wide it arrives", () => {
+  const t = buildTrack(10, 0);
+  const at = t.segments.findIndex((seg) => seg.sprites.some((s) => s.kind === 'client')) * SEG;
+  for (const [speed, x] of [[MAX_SPEED, 0], [MAX_SPEED, 0.95], [MAX_SPEED * 0.1, -1.6]]) {
+    const d = createDrive(t);
+    d.cars.length = 0;
+    d.d = d.finishD - 20;
+    d.speed = speed;
+    d.x = x;
+    d.update(1 / 60, { accel: true });
+    expect(d.status).toBe('arrived');
+    let stopped = Infinity;
+    for (let n = 0; n < 8 * 60; n++) {
+      d.update(1 / 60, {});
+      if (d.speed === 0 && stopped === Infinity) stopped = n / 60;
+    }
+    expect(stopped).toBeLessThan(4.5); // parked well before the outro is over
+    expect(d.speed).toBe(0);
+    expect(d.d + CAR_LEN).toBeLessThan(at - SEG); // in front of it, not in it
+    expect(d.d).toBeGreaterThan(at - 12 * SEG); // and right at the door
+    expect(Math.abs(d.x)).toBeLessThanOrEqual(0.6); // facing the building, not beside it
+  }
 });

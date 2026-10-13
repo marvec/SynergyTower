@@ -134,7 +134,7 @@ test('arriving starts the 15-minute visit in the client office; tasks there pay 
   expect(ds.result).toBe('arrived');
   expect(T.tripStatus(game.state, 10)).toBe('done');
   expect(T.tripActive(game.state, game.now())).toBe(true);
-  await tick(game, 160);
+  for (let n = 0; n < 400 && ds.phase !== 'result'; n++) await tick(game, 1); // the car parks first
   ds.buttons.items[0].onClick();
   await tick(game);
   const co = game.top;
@@ -346,6 +346,25 @@ test('M switches the radio off (no music at all) and on again; T or a click whil
   const r = ds.radioRect();
   await clickAt(game, r.x + 4, r.y + 4);
   expect(ds.radioOn).toBe(true);
+});
+
+test("the arrival card waits until the car has parked in front of the client's building", async () => {
+  const game = career();
+  T.departTrip(game.state, 10);
+  const ds = new DriveScene(game, 10);
+  game.set(ds);
+  ds.phase = 'drive';
+  ds.drive.cars.length = 0;
+  ds.drive.d = ds.drive.finishD - 50;
+  ds.drive.speed = 2000; // crawling over the line: the car still rolls up to the door
+  await tick(game, 2);
+  expect(ds.result).toBe('arrived');
+  await tick(game, 150);
+  expect(ds.phase).toBe('outro'); // still rolling
+  for (let n = 0; n < 400 && ds.phase === 'outro'; n++) await tick(game, 1);
+  expect(ds.phase).toBe('result');
+  expect(ds.drive.speed).toBe(0);
+  expect(ds.drive.d).toBe(ds.drive.parkD);
 });
 
 test('the radio buttons are labelled M and T: clicking M switches it off and on, T tunes, a key press pushes its button in', async () => {

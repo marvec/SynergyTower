@@ -28,6 +28,11 @@ export const GRACE_S = 1.5;
 const RECOVER_X = 0.7; // a crash off the road puts the car back this far from the centre line
 export const BARRIER_X = 1.12;
 const STEP = 1 / 60;
+/** The client's building stands CLIENT_AT segments past the finish gate; the car parks PARK_GAP segments short of it. */
+const CLIENT_AT = 48;
+const PARK_GAP = 6;
+const PARK_X = 0.5; // ...and pulls in towards the middle of the road, in front of the entrance
+const CREEP = MAX_SPEED * 0.2; // a car that crawls over the line still rolls up to the door
 
 export const STAGES = [
   { id: 'downtown', name: 'Downtown' },
@@ -119,7 +124,7 @@ export function buildTrack(seed, hard = 0) {
   const last = stages[stages.length - 1];
   segments[finish].finish = true;
   // The client's building stands where the car rolls to a stop after the finish gate.
-  segments[finish + 48].sprites.push({ kind: 'client', x: 0 });
+  segments[finish + CLIENT_AT].sprites.push({ kind: 'client', x: 0 });
   for (const st of stages.slice(1)) segments[st.start].checkpoint = true;
   segments[last.end - 1].sprites = segments[last.end - 1].sprites.filter((sp) => !SPRITES[sp.kind].solid);
 
@@ -196,6 +201,10 @@ export function createDrive(track) {
     get finishD() {
       return track.finish * SEG;
     },
+    /** Where the car comes to a stop after arriving: in front of the client's building. */
+    get parkD() {
+      return (track.finish + CLIENT_AT - PARK_GAP) * SEG;
+    },
     get progress() {
       return Math.min(1, drive.d / drive.finishD);
     },
@@ -246,7 +255,8 @@ export function createDrive(track) {
     // Steering bites with speed; curves push the car outwards.
     const dx = dt * STEER * sp;
     drive.x += steer * dx - dx * sp * seg.curve * CENTRIFUGAL;
-    if (!ctl) drive.speed -= BRAKE * 0.6 * dt;
+    if (drive.status === 'arrived') park(dt);
+    else if (!ctl) drive.speed -= BRAKE * 0.6 * dt;
     else if (c.accel) drive.speed += ACCEL * (1 - 0.35 * sp) * dt;
     else if (c.brake) drive.speed -= BRAKE * dt;
     else drive.speed -= DECEL * dt;
@@ -261,6 +271,10 @@ export function createDrive(track) {
     drive.speed = Math.max(0, Math.min(MAX_SPEED, drive.speed));
     const before = drive.d;
     drive.d += drive.speed * dt;
+    if (drive.status === 'arrived' && drive.d >= drive.parkD) {
+      drive.d = drive.parkD;
+      drive.speed = 0;
+    }
 
     for (const car of cars) {
       car.d += car.speed * dt;
@@ -310,6 +324,15 @@ export function createDrive(track) {
     }
 
     tick(dt);
+  }
+
+  /** Past the finish gate: brake just hard enough to stop at parkD (never harder than BRAKE), steering in front of the door. */
+  function park(dt) {
+    const left = Math.max(0, drive.parkD - drive.d);
+    if (drive.speed < CREEP) drive.speed += ACCEL * dt;
+    drive.speed = Math.min(drive.speed, Math.sqrt(2 * BRAKE * left));
+    const tx = Math.max(-PARK_X, Math.min(PARK_X, drive.x));
+    drive.x += Math.sign(tx - drive.x) * Math.min(Math.abs(tx - drive.x), dt * 1.2);
   }
 
   /** The clock, the checkpoints and the finish. */

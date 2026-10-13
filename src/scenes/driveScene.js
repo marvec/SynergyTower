@@ -254,7 +254,8 @@ export class DriveScene {
       for (const e of d.events) this.onEvent(e);
     } else if (this.phase === 'outro') {
       d.update(dt, {});
-      if (this.t > (this.result === 'arrived' ? 2.4 : 1.8)) {
+      // Arrived: the card waits until the car has pulled up in front of the client's building.
+      if (this.result === 'arrived' ? this.t > 2.4 && d.speed === 0 : this.t > 1.8) {
         this.phase = 'result';
         this.buildResult();
       }

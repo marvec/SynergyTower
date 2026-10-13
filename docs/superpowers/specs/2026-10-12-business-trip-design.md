@@ -19,7 +19,7 @@ indicator.
    Not now keeps the offer. No offer while a floor quest or office event runs.
 2. **Drive** (`DriveScene`). Briefing card, start lights, then a pseudo-3D road drive through four stages (Downtown,
    Countryside, Motorway, Business Park) with checkpoints that add time, traffic to overtake, curves that push the car out
-   and hills. The client's building is at the finish.
+   and hills. The client's building is just past the finish gate; after the gate the car pulls up and parks in front of its entrance before the arrival card.
    - Crash = hitting a car or a roadside object too fast. Slower bumps only cost speed. A crash dents the car: it stops,
      spins out for 1.2 s (no control, the clock runs on) and is put back on the road, then blinks for 1.5 s during which
      hits are only bumps (no chain crashes into the same tree). "CRASH!" plus a quip and the damage in per cent; the 4th
