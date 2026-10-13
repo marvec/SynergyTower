@@ -166,3 +166,18 @@ test('hotel decor answers a poke with holiday lines; activities stay gameplay', 
     for (const l of lines) expect(measureText(l), `${type}: ${l}`).toBeLessThanOrEqual(560);
   }
 });
+
+test('the suite rug lies flat: you are drawn on top of it wherever you stand on it', async () => {
+  const { installMockDocument } = await import('./mock-canvas.js');
+  installMockDocument();
+  const { FloorView, itemDepth } = await import('../src/scenes/floorWorld.js');
+  const { TILE } = await import('../src/engine/art.js');
+  const fl = buildHotel();
+  const view = new FloorView(fl, { color: '#3366cc', dark: '#22448a', light: '#88aaee' });
+  const rug = view.sprites.find((s) => s.it.type === 'rug');
+  expect(rug).toBeTruthy();
+  for (let y = rug.it.y; y <= rug.it.y + rug.it.h; y += 0.25) expect(itemDepth(rug)).toBeLessThan(y * TILE);
+  // Standing furniture still sorts by its base, in front of someone standing behind it.
+  const bed = view.sprites.find((s) => s.it.type === 'hotelbed');
+  expect(itemDepth(bed)).toBeGreaterThan(bed.it.y * TILE);
+});

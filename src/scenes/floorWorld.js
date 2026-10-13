@@ -316,8 +316,7 @@ export class FloorView {
     for (const s of this.sprites) {
       const it = s.it;
       if (it.y + it.h < y0 - 1 || it.y > y1 + 2) continue;
-      // Non-solid decor (chairs) sorts slightly behind characters on the same row.
-      list.push({ base: (it.y + it.h) * TILE - (s.solid ? 0.25 : 8), kind: 'item', s });
+      list.push({ base: itemDepth(s), kind: 'item', s });
     }
     for (const a of actors) list.push({ base: a.y * TILE, kind: 'actor', a });
     list.sort((p, q) => p.base - q.base);
@@ -347,6 +346,16 @@ export class FloorView {
       }
     }
   }
+}
+
+/**
+ * Depth-sort key of a baked item (world px; actors sort by their feet, a.y * TILE). Flat decor with no height (a rug)
+ * lies on the floor under everyone; non-solid decor (chairs) sorts slightly behind characters on the same row.
+ */
+export function itemDepth(s) {
+  const it = s.it;
+  if (!s.solid && !s.lift) return it.y * TILE - TILE;
+  return (it.y + it.h) * TILE - (s.solid ? 0.25 : 8);
 }
 
 /** Wandering NPC brain. */
