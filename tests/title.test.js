@@ -31,3 +31,11 @@ test('the title loads the last played career and survives it being deleted from 
   expect(game.state.player.name).toBe('Ann');
   title.render(g());
 });
+
+test('the elevator doors split the company name at the space nearest the middle (never across the seam)', async () => {
+  const { splitName } = await import('../src/scenes/elevatorRide.js');
+  expect(splitName('MegaCorp Holdings')).toEqual(['MegaCorp', 'Holdings']);
+  expect(splitName('Synergy Corp')).toEqual(['Synergy', 'Corp']);
+  expect(splitName('Acme')).toEqual(['Ac', 'me']);
+  expect(splitName('The Big Paper Company')).toEqual(['The Big Paper', 'Company']);
+});

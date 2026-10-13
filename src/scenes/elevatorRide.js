@@ -1,12 +1,21 @@
 // Elevator interior: doors close, floor counter runs, ding, doors open. Promotions get a fanfare + card.
 import { W, H } from '../engine/screen.js';
 import { C, rect, panel, icon, ButtonSet } from '../engine/ui.js';
-import { drawText } from '../engine/font.js';
+import { drawText, measureText } from '../engine/font.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
 import { characterSheet } from './floorWorld.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
 import * as E from '../core/economy.js';
 import { isTouch } from '../engine/platform.js';
+
+/** Splits a name in two for the doors: at the space nearest the middle, or mid-word for a single word. */
+export function splitName(name) {
+  const n = name.trim();
+  let at = -1;
+  for (let i = 0; i < n.length; i++) if (n[i] === ' ' && (at < 0 || Math.abs(i - n.length / 2) < Math.abs(at - n.length / 2))) at = i;
+  if (at < 0) return [n.slice(0, Math.ceil(n.length / 2)), n.slice(Math.ceil(n.length / 2))];
+  return [n.slice(0, at), n.slice(at + 1)];
+}
 
 export class ElevatorRide {
   /** warp: arrived through the terminal's `systemctl isolate` (no fee, no signing bonus). */
@@ -62,7 +71,6 @@ export class ElevatorRide {
     this.game.set(new FloorScene(this.game, this.to, { arrival: 'elevator' }));
   }
   render(g) {
-    const corp = this.game.corpColor();
     rect(g, 0, 0, W, H, '#2a2620');
     // Cabin walls.
     rect(g, 60, 20, W - 120, H - 40, '#6b5a44');
@@ -94,7 +102,16 @@ export class ElevatorRide {
       rect(g, W - 60 - dw, 64, dw, H - 104, '#9aa1ad');
       rect(g, 60 + dw - 2, 64, 2, H - 104, '#6a707c');
       rect(g, W - 60 - dw, 64, 2, H - 104, '#6a707c');
-      if (this.phase === 'moving') drawText(g, `${corp.name}`, W / 2, H / 2, { align: 'center', color: '#6a707c' });
+      if (this.phase === 'moving') {
+        // The company name, split between the two doors so the seam never cuts a letter; double size unless a half
+        // would not fit on its door.
+        const [left, right] = splitName(this.game.state.corp.name);
+        const gap = 12; // from the seam to each half
+        const scale = Math.max(measureText(left), measureText(right)) * 2 <= half - gap - 10 ? 2 : 1;
+        const y = H / 2 - 3 * scale;
+        drawText(g, left, W / 2 - gap, y, { align: 'right', color: '#6a707c', scale });
+        drawText(g, right, W / 2 + gap, y, { color: '#6a707c', scale });
+      }
     }
     if (this.phase === 'moving') {
       const shake = Math.round(Math.sin(this.t * 40));
