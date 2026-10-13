@@ -29,7 +29,7 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 | Content | `src/data/` | Pure data: departments/titles/NPC lines, corp colours, task titles, music, `mg-*.js` mini-game content. |
 | Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit. |
 | Scenes | `src/scenes/` | title → setup → exterior → floor ⇄ (overlays, mini-game host, elevator ride) → ending. |
-| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review, + 8 holiday activities for the vacation hotel), registered in `src/minigames/index.js`. |
+| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review, + `compliance`, the compliance training, + 8 holiday activities for the vacation hotel), registered in `src/minigames/index.js`. |
 
 - `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`),
   throttled autosave of the career being played (`game.slot`), toasts.
@@ -127,7 +127,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
   coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, vacation_start, vacation_activity {game, stars}, vacation_end {coffee, activities, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
-  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
+  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
   c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing. The apps send Umami events too, tagged `app-ios`/`app-android`.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
@@ -194,6 +194,16 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   `VACATION_COFFEE` once per activity per stay, on top of the pot. The 8 holiday games (`sleep`, `buffet`, `beachball`,
   `swim`, `sunbathe`, `cocktail`, `massage`, `sandcastle`) are in `MINIGAMES` but not `STATION_GAMES`/`GAME_TIER`; each has
   a `peek()` for the attentive/idle player tests in `tests/holiday.test.js`. Text in `src/data/vacation.js`, song `tropical`.
+- **Office conduct** (`src/core/conduct.js`, `state.conduct`, text in `src/data/conduct.js`): on every tower floor one
+  colleague (`CD.chatSeed`, never `fl.npcs[0]`; `FloorScene.chatNpc`, kept out of the stand-up pool) opens a `ChatCard`
+  (overlays.js: Small talk / Ask for a drink / Bye, HR notes) instead of a bubble. The first ask per colleague is free (a
+  polite no); every ask after their no is a strike; `HOLD_STRIKES` (5, economy.js) start a compliance hold: tasks, the
+  elevator, workstations and your desk are taped off (`drawHoldTape`), no events, stand-ups, trips or leave; the HR desk
+  offers the `compliance` mini-game (MinigameScene mode `'compliance'`, never on stations, not counted). Passing
+  (`COMPLIANCE_PASS_SCORE`) clears the strikes; failing also demotes one floor (`completeTraining`: `maxFloor - 1`, both
+  floors' reviews due again, an elevator ride down if you stood on the lost floor). After a training the drink question
+  is gone for good. Console: `__conduct()` opens the card with a clean record, `__conduct(4)` one ask from the hold,
+  `__conduct('hold')` straight to the hold.
 - Reminders: opt-in browser notifications ("Reminders" in Menu > Settings (`SettingsMenu`), offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;
   `src/engine/reminders.js` schedules the soonest one when the tab is hidden and fires only if the tab is still hidden.
@@ -212,6 +222,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - `__step(frames)`: advance the loop manually (rAF pauses in background tabs).
 - `__mg('spreadsheet', 0.7)`: launch any mini-game at a given difficulty (needs a loaded career). Dev server only.
 - `__trip()` / `__trip(30)` / `__trip('client')`: the business trip again (resets it), or straight into the client's office.
+- `__conduct()` / `__conduct(4)` / `__conduct('hold')`: the coffee break chat on this floor with a clean record, one ask away
+  from the hold, or straight into the compliance hold.
 - `__vacation()`: floor 20 with the leave request open, free (no paperclips) and repeatable (resets today's holiday);
   `__vacation('hotel')` goes straight to the hotel, also free.
   Dev server only: it lives in `src/debug.js`, which `main.js` imports unless `__DEV__` is false; the production build

@@ -37,6 +37,8 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     trip: null, // the client visit under way: { floor, endsAt, sp, tasks }
     vacations: { day: null, count: 0 }, // vacation (core/vacation.js): the local day of the last one + how many so far
     vacation: null, // the hotel stay under way: { endsAt, done: { game: true }, coffee }
+    // conduct (core/conduct.js): strikes for asking a colleague out again after their no; hold = compliance hold
+    conduct: { strikes: 0, refused: {}, hold: null, trained: false, holds: 0, demotions: 0 },
     settings: { music: true, sfx: true, reminders: false },
     flags: { introSeen: false, ceo: false, reminderOffered: false },
   };

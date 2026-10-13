@@ -4,6 +4,7 @@ import { C, rect, panel, dim, icon, stars, bar, formatNum, formatTime, ButtonSet
 import { drawText, drawWrapped, measureText, wrapText } from '../engine/font.js';
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
+import * as C_ from '../core/conduct.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
@@ -599,6 +600,83 @@ export class FateDialog extends Modal {
     drawText(g, `With the company: ${id.years} year${id.years === 1 ? '' : 's'}`, tx, y + 41, { color: C.dim });
     drawText(g, `File: ${id.note}`, tx, y + 52, { color: C.dim });
     drawWrapped(g, `"${this.line}"`, x + 10, y + 68, this.w - 20, { color: C.so });
+  }
+}
+
+// ------------------------------------------------------------------ coffee break chat (core/conduct.js)
+const MOODS = ['', 'polite', 'guarded', 'annoyed', 'icy', 'icy'];
+
+/**
+ * The one colleague per floor who can be asked out. onTalk() returns their small-talk line; onAsk() returns
+ * { line, strike, hold } (the card closes on hold). The HR notes row shows the career's strikes once there are any.
+ */
+export class ChatCard extends Modal {
+  constructor(game, { npc, line, dept, floor, onTalk, onAsk }) {
+    super(game, { w: 300, h: 162, title: 'Coffee Break Chat' });
+    this.npc = npc;
+    this.line = line;
+    this.dept = dept;
+    this.floor = floor;
+    this.onTalk = onTalk;
+    this.onAsk = onAsk;
+    this.flashT = 0;
+  }
+  get ask() {
+    return C_.askState(this.game.state, this.npc.seed);
+  }
+  build() {
+    const b = this.buttons;
+    const f = b.focus;
+    b.clear();
+    const by = this.y + this.h - 26;
+    b.add({ x: this.x + 10, y: by, w: 86, h: 18, label: 'Small talk', hotkey: 't', onClick: () => (this.line = this.onTalk()) });
+    const ask = this.ask;
+    if (ask) {
+      b.add({
+        x: this.x + 102, y: by, w: 124, h: 18, label: ask === 'ask' ? 'Ask for a drink (D)' : 'Ask again (D)', hotkey: 'd', color: ask === 'ask' ? '#2f5d8a' : '#7a3b3b',
+        onClick: () => {
+          const r = this.onAsk();
+          if (!r) return;
+          this.line = r.line;
+          this.flashT = r.strike ? 1.2 : 0;
+          if (r.hold) this.close();
+        },
+      });
+    }
+    b.add({ x: this.x + this.w - 64, y: by, w: 54, h: 18, label: 'Bye', color: C.panelLight, onClick: () => this.close() });
+    b.focus = Math.min(f, b.items.length - 1);
+  }
+  update(dt) {
+    this.flashT = Math.max(0, this.flashT - dt);
+    super.update(dt);
+  }
+  renderBody(g, x, y) {
+    const s = this.game.state;
+    const c = C_.conduct(s);
+    const { a, id, seed } = this.npc;
+    rect(g, x + 10, y + 8, 40, 52, C.panelDark);
+    frame(g, x + 10, y + 8, 40, 52, C.border);
+    g.drawImage(a.sheet, 0, 0, CHAR_W, CHAR_H, x + 14, y + 12, CHAR_W * 2, CHAR_H * 2);
+    const tx = x + 60;
+    drawText(g, id.name, tx, y + 8, { color: C.gold });
+    drawText(g, id.role, tx, y + 19, { color: C.text });
+    drawText(g, `${this.dept} · floor ${this.floor}`, tx, y + 30, { color: C.dim });
+    const refused = c.refused[seed] || 0;
+    if (refused) drawText(g, `Mood: ${MOODS[Math.min(refused, MOODS.length - 1)]}`, tx, y + 41, { color: refused > 2 ? C.bad : C.dim });
+    else drawText(g, `With the company: ${id.years} year${id.years === 1 ? '' : 's'}`, tx, y + 41, { color: C.dim });
+    drawWrapped(g, `"${this.line}"`, x + 10, y + 68, this.w - 20, { color: C.so });
+    if (c.strikes > 0 || refused) {
+      const ny = y + 98;
+      drawText(g, 'HR notes:', x + 10, ny, { color: C.dim });
+      for (let i = 0; i < E.HOLD_STRIKES; i++) {
+        const on = i < c.strikes;
+        const flash = on && i === c.strikes - 1 && this.flashT > 0 && Math.floor(this.flashT * 8) % 2 === 0;
+        const bx = x + 60 + i * 12;
+        rect(g, bx, ny - 1, 9, 9, C.border);
+        rect(g, bx + 1, ny, 7, 7, flash ? '#ff5a4a' : on ? (c.strikes >= E.HOLD_STRIKES - 1 ? C.bad : C.warn) : C.panelDark);
+      }
+      drawText(g, `${c.strikes}/${E.HOLD_STRIKES}`, x + 60 + E.HOLD_STRIKES * 12 + 4, ny, { color: c.strikes ? C.warn : C.dim });
+    }
   }
 }
 

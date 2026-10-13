@@ -73,6 +73,12 @@ export const VACATION_FLOOR = 20;
 export const VACATION_COST = 5000;
 export const VACATION_S = 15 * 60;
 export const VACATION_COFFEE = 1;
+/**
+ * Conduct (core/conduct.js): asking a colleague out once is fine; every ask after their no is a strike, and
+ * HOLD_STRIKES strikes put the player on compliance hold until they take the training at HR. Failing it demotes.
+ */
+export const HOLD_STRIKES = 5;
+export const COMPLIANCE_PASS_SCORE = 0.7;
 export const COOLDOWN_TIER_MULT = { 1: 4, 2: 1.5, 3: 0.75 };
 export const stationCount = (floor) => Math.min(14, 8 + Math.floor((floor - 1) / 6));
 

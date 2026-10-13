@@ -19,7 +19,7 @@ import { openFeedback } from '../engine/feedback.js';
 import { track } from '../engine/analytics.js';
 import { FloorView, Actor, NpcBrain, npcLook, npcIdentity, posterContent, suit } from './floorWorld.js';
 import { Hud, HUD_H } from './hud.js';
-import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, howToDialog, ReviewCard, hrNotice, FateDialog } from './overlays.js';
+import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, howToDialog, ReviewCard, hrNotice, FateDialog, ChatCard } from './overlays.js';
 import { TerminalScene } from './terminal.js';
 import { MinigameScene } from './minigameScene.js';
 import { FloorQuest } from './floorQuest.js';
@@ -37,6 +37,8 @@ import { CLIENTS, TRIP_TEASERS, TRIP_OFFER, TRIP_AFTER } from '../data/trip.js';
 import * as L from '../core/vacation.js'; // leave
 import { BOSS_TEASERS, BOSS_AFTER, VACATION_OFFER } from '../data/vacation.js';
 import { isTouch } from '../engine/platform.js';
+import * as CD from '../core/conduct.js';
+import { ASK_LINES, ASK_AGAIN_LINES, FIRST_NO, REPEAT_NO, FROSTY_LINES, GOSSIP_LINES, HR_CALL_LINES, HR_PASSED_LINES, HR_FAILED_LINES, HOLD_INTRO } from '../data/conduct.js';
 
 const SPEED = 4.4;
 const R = 0.3;
@@ -115,6 +117,11 @@ export class FloorScene {
     // Vacation (core/vacation.js): on floor 20 the first colleague is your own manager, who signs leave requests.
     this.bossNpc = !this.foreign && floor === E.VACATION_FLOOR ? this.npcs.find((n) => n.seed === this.fl.npcs[0]?.seed) || null : null;
     if (this.bossNpc) this.bossNpc.a.who.role = 'Your Manager';
+    // Conduct (core/conduct.js): one colleague per tower floor gets the coffee break chat, with the drink question.
+    const chat = this.foreign ? null : CD.chatSeed(this.fl, floor);
+    this.chatNpc = chat == null ? null : this.npcs.find((n) => n.seed === chat) || null;
+    this.chatMemos = new Map(); // line list → pickLine memo, so answers come at random without repeats
+    this.hrCallT = 2;
     this.teaseT = 5;
     this.hud = new Hud(game, {
       shop: () => game.push(new ShopOverlay(game)),
@@ -138,7 +145,7 @@ export class FloorScene {
     this.game.audio.play(this.dept.music);
     const s = this.game.state;
     this.refreshStandup();
-    if (this.standupNpc && !this.standupToast) {
+    if (this.standupNpc && !this.standupToast && !CD.onHold(s)) {
       this.standupToast = true;
       this.game.toast(`Daily stand-up: ${this.standupNpc.id.name} is looking for you.`, C.xp);
     }
@@ -306,6 +313,13 @@ export class FloorScene {
         return;
       }
     }
+    const hold = CD.onHold(s);
+    if (hold && ['task', 'elevator', 'terminal', 'mydesk'].includes(t.kind)) {
+      game.sfx('bad');
+      game.toast('Compliance hold: complete your training at the HR office first.', C.bad);
+      this.hrRep?.say(this.chatLine(HR_CALL_LINES), 3);
+      return;
+    }
     if (t.kind === 'npc') {
       const a = t.n.a;
       a.faceTowards(p.x - a.x, p.y - a.y);
@@ -313,10 +327,11 @@ export class FloorScene {
       t.n.brain.talkPause = 3.5;
       a.path = null;
       const trip = t.n === this.tripNpc ? T.tripStatus(s, this.floorNo) : null;
-      if (trip === 'available' && !q && !ev) return this.askTrip(t.n);
+      if (trip === 'available' && !q && !ev && !hold) return this.askTrip(t.n);
       const leave = t.n === this.bossNpc ? L.vacationStatus(s, this.floorNo, game.now()) : null;
-      if (leave === 'available' && !q && !ev) return this.askVacation(t.n);
-      if (t.n === this.standupNpc && !q) return this.askStandup(t.n);
+      if (leave === 'available' && !q && !ev && !hold) return this.askVacation(t.n);
+      if (t.n === this.standupNpc && !q && !hold) return this.askStandup(t.n);
+      if (t.n === this.chatNpc && !q && !ev) return this.openChat(t.n);
       const tripAfter = trip && trip !== 'available' && this.rng.chance(0.5) ? this.rng.pick(TRIP_AFTER[trip]) : null;
       const after = tripAfter || (leave === 'today' && this.rng.chance(0.5) ? this.rng.pick(BOSS_AFTER) : null);
       const line = q?.hintLine(t.n) || after || this.nextLine();
@@ -347,7 +362,10 @@ export class FloorScene {
     } else if (t.kind === 'hr') {
       const r = S.reviewStatus(s, game.now());
       game.sfx('click');
-      if (['available', 'cooldown', 'coffee'].includes(r.state)) {
+      if (hold) {
+        this.hrRep?.say('Sit down. This will not take long. Well, it might.', 3);
+        game.push(new Dialog(game, { title: 'HR Office · Compliance hold', w: 320, text: HOLD_INTRO, button: 'Later', action: { label: 'Start the training', color: C.goodBtn, onClick: () => this.startCompliance() } }));
+      } else if (['available', 'cooldown', 'coffee'].includes(r.state)) {
         this.hrRep?.say('Have a seat. Let us talk about your growth.', 2.5);
         game.push(new ReviewCard(game, () => this.startReview()));
       } else {
@@ -505,8 +523,8 @@ export class FloorScene {
     }
     const day = D.dayKey(now);
     if (this.standupNpc && this.standupDay === day && !this.standupNpc.brain.exit) return;
-    // Not the account manager or your manager: their trip / leave offer would hide the favour.
-    const pool = this.npcs.filter((n) => !n.brain.exit && n !== this.tripNpc && n !== this.bossNpc);
+    // Not the account manager, your manager or the coffee-chat colleague: their own card would hide the favour.
+    const pool = this.npcs.filter((n) => !n.brain.exit && n !== this.tripNpc && n !== this.bossNpc && n !== this.chatNpc);
     let h = this.floorNo;
     for (const ch of day) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     this.standupNpc = pool.length ? createRng(h).pick(pool) : null;
@@ -545,6 +563,113 @@ export class FloorScene {
         this.standupNpc = null;
         n.a.say(this.rng.pick(STANDUP_THANKS), 4);
       }, { mode: 'standup' }),
+    );
+  }
+
+  // ------------------------------------------------------------ conduct (core/conduct.js)
+  /** A line from the list at random, without repeats until the list is used up. */
+  chatLine(list) {
+    if (!this.chatMemos.has(list)) this.chatMemos.set(list, {});
+    return Q.pickLine(list, this.chatMemos.get(list));
+  }
+
+  /** Small talk with the chat colleague: office talk, or frosty once they have said no more than twice. */
+  chatSmallTalk(n) {
+    const refused = CD.conduct(this.game.state).refused[n.seed] || 0;
+    return refused >= 3 ? this.chatLine(FROSTY_LINES) : this.nextLine();
+  }
+
+  /** The coffee break chat card: small talk, the drink question (once fine, again after a no = a strike), bye. */
+  openChat(n) {
+    const game = this.game;
+    n.brain.talkPause = 8;
+    const line = this.chatSmallTalk(n);
+    n.a.say(line, 3.5);
+    game.sfx('blip');
+    game.push(
+      new ChatCard(game, {
+        npc: n,
+        line,
+        dept: this.dept.name,
+        floor: this.floorNo,
+        onTalk: () => {
+          n.brain.talkPause = 8;
+          const l = this.chatSmallTalk(n);
+          n.a.say(l, 3.5);
+          game.sfx('blip');
+          return l;
+        },
+        onAsk: () => this.askOut(n),
+      }),
+    );
+  }
+
+  askOut(n) {
+    const game = this.game;
+    const s = game.state;
+    const again = CD.askState(s, n.seed) === 'again';
+    const r = CD.askOut(s, n.seed, game.now());
+    if (!r) return null;
+    n.brain.talkPause = 8;
+    this.player.say(this.chatLine(again ? ASK_AGAIN_LINES : ASK_LINES), 1.6);
+    const line = r.kind === 'first' ? this.chatLine(FIRST_NO) : this.chatLine(REPEAT_NO[Math.min(r.strike, REPEAT_NO.length) - 1]);
+    n.a.say(line, 4.5, 1.2); // the answer, once the question has been asked
+    track('ask_out', { strike: r.strike || 0, floor: s.maxFloor });
+    game.markDirty();
+    game.saveNow();
+    if (r.kind === 'first') game.sfx('blip');
+    else {
+      game.sfx('bad');
+      if (r.strike >= 3 && !r.hold) this.gossip(n);
+    }
+    if (r.hold) this.startHold();
+    return { line, strike: r.strike || 0, hold: r.hold };
+  }
+
+  /** Someone else nearby has noticed. */
+  gossip(about) {
+    const p = this.player;
+    const near = this.npcs.filter((m) => m !== about && !m.brain.exit && !m.a.bubble && Math.hypot(m.a.x - p.x, m.a.y - p.y) < 9);
+    if (!near.length) return;
+    const m = this.rng.pick(near);
+    m.a.say(this.chatLine(GOSSIP_LINES), 4.5, 2.5);
+  }
+
+  startHold() {
+    const game = this.game;
+    track('compliance_hold', { floor: game.state.maxFloor });
+    game.sfx('fail');
+    game.toast('Compliance hold! Report to the HR office for training.', C.bad);
+    this.hrCallT = 1.5;
+  }
+
+  /** On hold, the HR rep calls you in now and then. */
+  updateHrCall(dt) {
+    const r = this.hrRep;
+    if (!r || r.bubble || !CD.onHold(this.game.state)) return;
+    this.hrCallT -= dt;
+    if (this.hrCallT > 0) return;
+    this.hrCallT = 14;
+    r.say(this.chatLine(HR_CALL_LINES), 4);
+  }
+
+  /** The compliance training at the HR desk: pass and the hold is lifted; fail and you go down a floor. */
+  startCompliance() {
+    const game = this.game;
+    const s = game.state;
+    if (!CD.onHold(s)) return;
+    const f = s.maxFloor;
+    const task = { id: 'compliance', game: 'compliance', title: 'Compliance & Ethics', difficulty: Math.min(1, ((f - 1) / 39) * 0.8 + 0.1), seed: f * 13 + 5 };
+    game.push(
+      new MinigameScene(game, task, async (r) => {
+        if (!r?.compliance) return;
+        this.hrRep?.say(this.chatLine(r.passed ? HR_PASSED_LINES : HR_FAILED_LINES), 4);
+        if (r.passed) return game.toast('Training complete. The compliance hold is lifted.', C.good);
+        if (this.floorNo <= s.floor) return game.toast(r.demoted ? `Demoted to ${titleForFloor(r.to)}. Your HR review is due again.` : 'Noted in your file. Your HR review is due again.', C.warn);
+        // You lost the floor you are standing on: the elevator takes you down to your new desk.
+        const { ElevatorRide } = await import('./elevatorRide.js');
+        game.set(new ElevatorRide(game, this.floorNo, s.floor, { promoted: false }));
+      }, { mode: 'compliance' }),
     );
   }
 
@@ -774,7 +899,7 @@ export class FloorScene {
     if (this.event) {
       this.event.update(dt);
       if (this.event.over) this.event = null;
-    } else if (!this.quest && !this.foreign && V.canStartEvent(game.state, game.now(), { onFloorS: this.onFloorS, busy: false })) this.startEvent();
+    } else if (!this.quest && !this.foreign && !CD.onHold(game.state) && V.canStartEvent(game.state, game.now(), { onFloorS: this.onFloorS, busy: false })) this.startEvent();
 
     // Keyboard movement.
     let kx = (input.down('ArrowRight') ? 1 : 0) - (input.down('ArrowLeft') ? 1 : 0);
@@ -855,6 +980,7 @@ export class FloorScene {
     this.updateReceptionist(dt);
     this.updateTripTease(dt);
     this.updateBossTease(dt);
+    this.updateHrCall(dt);
     this.standupT -= dt;
     if (this.standupT <= 0) {
       this.standupT = 1;
@@ -914,6 +1040,7 @@ export class FloorScene {
 
     this.drawPrompt(g, s, now);
     this.hud.render(g);
+    if (CD.onHold(s)) this.drawHoldStrip(g);
     this.quest?.renderHud(g);
     this.event?.renderHud(g);
     if (this.banner > 0) this.drawBanner(g);
@@ -933,11 +1060,16 @@ export class FloorScene {
 
   drawMarkers(g, s, now) {
     const bob = Math.round(Math.sin(this.time * 4) * 1.5);
+    const hold = CD.onHold(s);
     for (const it of this.fl.items) {
       const cx = Math.round((it.x + it.w / 2) * TILE);
       const top = this.view.itemTop(it) - 3;
       if (it.task) {
         if (this.event?.hidesMarker(it)) continue;
+        if (hold) {
+          this.drawHoldTape(g, cx, top);
+          continue;
+        }
         const left = S.cooldownLeft(s, it.task.id, now);
         if (left > 0) {
           const t = formatTime(left);
@@ -956,7 +1088,8 @@ export class FloorScene {
           if (best != null) for (let i = 0; i < 3; i++) rect(g, cx - 7 + i * 5, y - 4, 4, 3, i < best ? C.gold : '#4a5068');
         }
       } else if (it.interact === 'elevator') {
-        if (s.floor === s.maxFloor && S.promotionStatus(s).can) {
+        if (hold) this.drawHoldTape(g, cx, top);
+        else if (s.floor === s.maxFloor && S.promotionStatus(s).can) {
           const y = top - 14 + bob;
           rect(g, cx - 6, y, 12, 12, C.border);
           rect(g, cx - 5, y + 1, 10, 10, C.good);
@@ -965,7 +1098,13 @@ export class FloorScene {
       } else if (it.interact === 'hr') {
         const r = S.reviewStatus(s, now);
         const y = top - 24 + bob;
-        if (r.state === 'available' || r.state === 'coffee') {
+        if (hold) {
+          const c = Math.floor(this.time * 3) % 2 ? C.bad : '#ff8a6a';
+          rect(g, cx - 12, y, 24, 12, C.border);
+          rect(g, cx - 11, y + 1, 22, 10, c);
+          drawText(g, 'HR!', cx, y + 3, { align: 'center', color: C.ink });
+          rect(g, cx - 1, y + 12, 2, 2, C.border);
+        } else if (r.state === 'available' || r.state === 'coffee') {
           rect(g, cx - 10, y, 20, 12, C.border);
           rect(g, cx - 9, y + 1, 18, 10, C.so);
           drawText(g, 'HR', cx, y + 3, { align: 'center', color: C.ink });
@@ -997,10 +1136,33 @@ export class FloorScene {
     }
   }
 
+  /** Compliance hold: a strip under the HUD until the training is done. */
+  drawHoldStrip(g) {
+    const text = 'COMPLIANCE HOLD - report to the HR office';
+    const w = measureText(text) + 12;
+    const x = Math.round((W - w) / 2);
+    const y = HUD_H + 2;
+    rect(g, x, y, w, 12, C.border);
+    rect(g, x + 1, y + 1, w - 2, 10, Math.floor(this.time * 2) % 2 ? '#7a2b2b' : '#9a3530');
+    drawText(g, text, W / 2, y + 3, { align: 'center', color: '#ffe8a0' });
+  }
+
+  /** Compliance hold: black and yellow "ON HOLD" tape over a station or the elevator. */
+  drawHoldTape(g, cx, top) {
+    const text = 'ON HOLD';
+    const w = measureText(text) + 16;
+    const x = Math.round(cx - w / 2);
+    const y = top - 12;
+    rect(g, x - 1, y - 1, w + 2, 11, C.border);
+    rect(g, x, y, w, 9, '#1a1a1a');
+    for (const ex of [x, x + w - 5]) for (let i = 0; i < 5; i += 2) rect(g, ex + i, y, 1, 9, '#f2c230');
+    drawText(g, text, cx, y + 1, { align: 'center', color: '#f2c230' });
+  }
+
   /** A blue speech bubble over the colleague with today's stand-up favour. */
   drawStandupMarker(g) {
     const n = this.standupNpc;
-    if (!n || n.a.bubble || this.quest) return;
+    if (!n || n.a.bubble || this.quest || CD.onHold(this.game.state)) return;
     const bob = Math.round(Math.sin(this.time * 4) * 1.5);
     const cx = Math.round(n.a.x * TILE);
     const y = Math.round(n.a.y * TILE) - CHAR_H - 14 + bob;
@@ -1019,7 +1181,8 @@ export class FloorScene {
     if (t.kind === 'npc') {
       text = 'Talk';
       if (t.n === this.event?.auditor) sub = `${t.n.id.name} - wrap up the audit`;
-      else sub = t.n === this.standupNpc && !this.quest ? `${t.n.id.name} - daily stand-up` : S.canFire(s) && !this.quest ? `${t.n.id.name} - decide their fate` : t.n.id.name;
+      else if (t.n === this.chatNpc && !this.quest) sub = `${t.n.id.name} - coffee break chat`;
+      else sub = t.n === this.standupNpc && !this.quest && !CD.onHold(s) ? `${t.n.id.name} - daily stand-up` : S.canFire(s) && !this.quest ? `${t.n.id.name} - decide their fate` : t.n.id.name;
     } else if (t.kind === 'terminal') {
       text = 'Workstation';
       sub = 'open terminal';
@@ -1050,6 +1213,7 @@ export class FloorScene {
       text = 'HR office';
       const r = S.reviewStatus(s, now);
       sub = { available: 'performance review', coffee: 'performance review', cooldown: `retry ${formatTime(r.left)}`, passed: 'review passed', notReady: 'not promotion-ready yet' }[r.state] || '';
+      if (CD.onHold(s)) sub = 'compliance training';
     }
     else {
       text = t.it.task.title;
@@ -1059,6 +1223,7 @@ export class FloorScene {
       if (this.quest) sub = this.quest.isStation(t.it) ? this.quest.stationSub() : 'finish your task first';
       if (this.event?.isLocked(t.it)) sub = 'locked for the audit';
     }
+    if (CD.onHold(s) && ['task', 'elevator', 'terminal', 'mydesk'].includes(t.kind)) sub = 'on hold: see HR';
     const w = measureText(text) + measureText(sub) + 56;
     const x = 4;
     const y = H - 20;

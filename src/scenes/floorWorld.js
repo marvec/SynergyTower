@@ -45,13 +45,15 @@ export class Actor {
     if (Math.abs(dx) > Math.abs(dy)) this.dir = dx > 0 ? 'right' : 'left';
     else if (dy) this.dir = dy > 0 ? 'down' : 'up';
   }
-  say(text, t = 3.5) {
-    this.bubble = { text, t };
+  /** wait: seconds before the bubble shows (an answer after the question). */
+  say(text, t = 3.5, wait = 0) {
+    this.bubble = { text, t, wait };
   }
   update(dt) {
     if (this.moving) this.anim += dt * 8;
     else this.anim = 0;
-    if (this.bubble) {
+    if (this.bubble?.wait > 0) this.bubble.wait -= dt;
+    else if (this.bubble) {
       this.bubble.t -= dt;
       if (this.bubble.t <= 0) this.bubble = null;
     }
@@ -82,7 +84,7 @@ export class Actor {
   }
   /** view: the visible world rect { x, y, w, h, top } (top = HUD bar height); the bubble stays inside it. */
   drawBubble(g, view) {
-    if (!this.bubble) return;
+    if (!this.bubble || this.bubble.wait > 0) return;
     const lines = wrapText(this.bubble.text, 120);
     const who = this.who;
     const head = who ? 20 : 0;

@@ -9,6 +9,7 @@ import * as E from '../core/economy.js';
 import { completeStandup } from '../core/daily.js';
 import { completeTripTask, tripLeft } from '../core/trip.js';
 import { completeActivity, vacationLeft } from '../core/vacation.js';
+import { completeTraining } from '../core/conduct.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { departmentForFloor, titleForFloor } from '../data/departments.js';
 import { drawStarsLarge } from './overlays.js';
@@ -18,7 +19,8 @@ export class MinigameScene {
    * opts.mode: 'task' (default, rewards + KPI stars), 'review' (HR performance review: pass/fail gate) or 'standup'
    * (the daily stand-up favour: a daily bonus, no KPI stars or cooldown) or 'trip' (a client's office on a business
    * trip: double paperclips, no KPI stars) or 'vacation' (a holiday activity at the hotel: free, a coffee for 1 star or
-   * more, once per stay; no paperclips, XP or KPI stars).
+   * more, once per stay; no paperclips, XP or KPI stars) or 'compliance' (the compliance training that ends a
+   * compliance hold: pass or be demoted, see core/conduct.js).
    */
   constructor(game, task, onDone, opts = {}) {
     this.game = game;
@@ -95,6 +97,7 @@ export class MinigameScene {
   }
   complete(score) {
     if (this.mode === 'review') return this.completeReview(score);
+    if (this.mode === 'compliance') return this.completeCompliance(score);
     if (this.mode === 'standup') return this.completeStandup(score);
     if (this.mode === 'vacation') return this.completeVacation(score);
     const s = this.game.state;
@@ -124,6 +127,34 @@ export class MinigameScene {
     this.game.sfx(this.result.passed ? 'levelup' : 'fail');
     this.buttons.clear();
     this.buttons.add({ x: W / 2 - 50, y: H / 2 + 62, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  completeCompliance(score) {
+    this.result = { compliance: true, score, ...completeTraining(this.game.state, score) };
+    track('compliance', { passed: this.result.passed, demoted: this.result.demoted, floor: this.result.from });
+    this.game.markDirty();
+    this.game.saveNow();
+    this.phase = 'result';
+    this.t = 0;
+    this.game.sfx(this.result.passed ? 'levelup' : 'fail');
+    this.buttons.clear();
+    this.buttons.add({ x: W / 2 - 50, y: H / 2 + 62, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  renderComplianceResult(g) {
+    const r = this.result;
+    dim(g, 0.65);
+    const x = W / 2 - 130;
+    const y = H / 2 - 80;
+    panel(g, x, y, 260, 168, { title: r.passed ? 'TRAINING COMPLETE' : 'TRAINING FAILED', titleColor: r.passed ? C.goodBtn : '#7a2b2b' });
+    const k = Math.min(1, this.t * 4);
+    drawText(g, r.passed ? 'CERTIFIED' : r.demoted ? 'DEMOTED' : 'ON FILE', W / 2, y + 28, { align: 'center', scale: k > 0.9 ? 2 : 1, color: r.passed ? C.good : C.bad, shadow: C.border });
+    drawText(g, `Score ${Math.round(r.score * 100)}%  (pass mark ${Math.round(E.COMPLIANCE_PASS_SCORE * 100)}%)`, W / 2, y + 54, { align: 'center', color: C.dim });
+    const lines = r.passed
+      ? ['Your record is clear. The hold is lifted.', 'Colleagues who said no still mean it.']
+      : r.demoted
+        ? [`Back on floor ${r.to}: ${titleForFloor(r.to)}`, `Your HR review on floor ${r.to} is due again.`, 'The hold is lifted. Lesson learned, hopefully.']
+        : ['A note goes in your file, and your HR review', 'on this floor is due again. The hold is lifted.'];
+    lines.forEach((l, i) => drawText(g, l, W / 2, y + 74 + i * 12, { align: 'center', color: C.text }));
+    this.buttons.render(g);
   }
   completeStandup(score) {
     const s = this.game.state;
@@ -244,11 +275,12 @@ export class MinigameScene {
     } else if (this.phase === 'paused') {
       dim(g, 0.6);
       panel(g, W / 2 - 110, H / 2 - 30, 220, 66, { title: 'Paused' });
-      const msg = { standup: 'Give up? The favour still counts.', vacation: 'Give up? You can try again later.' }[this.mode] || 'Give up? Coffee is not refunded.';
+      const msg = { standup: 'Give up? The favour still counts.', vacation: 'Give up? You can try again later.', compliance: 'Give up? That counts as failing.' }[this.mode] || 'Give up? Coffee is not refunded.';
       drawText(g, msg, W / 2, H / 2 - 10, { align: 'center' });
       this.buttons.render(g);
     } else if (this.phase === 'result') {
       if (this.mode === 'review') this.renderReviewResult(g);
+      else if (this.mode === 'compliance') this.renderComplianceResult(g);
       else if (this.mode === 'standup') this.renderStandupResult(g);
       else if (this.mode === 'vacation') this.renderVacationResult(g);
       else this.renderResult(g);
