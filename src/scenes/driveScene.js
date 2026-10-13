@@ -70,9 +70,20 @@ export class DriveScene {
   radioRect() {
     return { x: 4, y: H - 30, w: 118, h: 26 };
   }
-  onRadio(p) {
+  /** The two buttons either side of the display, labelled with their keys: M (power, by the light) and T (tune). */
+  radioButtons() {
     const r = this.radioRect();
+    return [
+      { key: 'M', x: r.x + 5, y: r.y + 7, w: 11, h: 11 },
+      { key: 'T', x: r.x + r.w - 16, y: r.y + 7, w: 11, h: 11 },
+    ];
+  }
+  onRadio(p, r = this.radioRect()) {
     return p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
+  }
+  /** A button shows pushed in for a moment after its key or a click. */
+  radioPressed(key) {
+    return this.radioPush?.key === key && this.time - this.radioPush.at < 0.15;
   }
   setRadio(on) {
     const s = this.game.state.settings;
@@ -90,12 +101,17 @@ export class DriveScene {
     this.game.audio.play(this.station.song);
   }
   updateRadio(input) {
-    if (input.pressedExact('m')) this.setRadio(!this.radioOn);
-    if (input.pressedExact('t')) this.tune();
+    const push = (key) => {
+      this.radioPush = { key, at: this.time };
+      if (key === 'M') this.setRadio(!this.radioOn);
+      else this.tune();
+    };
+    if (input.pressedExact('m')) push('M');
+    if (input.pressedExact('t')) push('T');
     if (input.pointer.clicked && this.onRadio(input.pointer)) {
       input.consumeClick();
       this.game.sfx('click');
-      this.tune();
+      push(this.onRadio(input.pointer, this.radioButtons()[0]) ? 'M' : 'T'); // anywhere but M tunes
     }
   }
   /** The electric motor: a gentle hum that rises with the speed, from the start lights until the car is parked or wrecked. */
@@ -559,12 +575,14 @@ export class DriveScene {
     rect(g, r.x, r.y, r.w, r.h, '#0d0f18');
     rect(g, r.x + 1, r.y + 1, r.w - 2, r.h - 2, '#262a36');
     rect(g, r.x + 1, r.y + 1, r.w - 2, 1, '#3c4152');
-    for (const kx of [r.x + 5, r.x + r.w - 15]) {
-      rect(g, kx, r.y + 8, 10, 10, '#0d0f18');
-      rect(g, kx + 1, r.y + 9, 8, 8, '#4a4f60');
-      rect(g, kx + 4, r.y + 9, 2, 4, '#c8ccd4');
+    for (const b of this.radioButtons()) {
+      const d = this.radioPressed(b.key) ? 1 : 0; // pushed in
+      rect(g, b.x, b.y, b.w, b.h, '#0d0f18');
+      rect(g, b.x + 1, b.y + 1 + d, b.w - 2, b.h - 2 - d, '#4a4f60');
+      if (!d) rect(g, b.x + 1, b.y + 1, b.w - 2, 1, '#6a7084');
+      drawText(g, b.key, b.x + 3, b.y + 2 + d, { color: '#c8ccd4' });
     }
-    rect(g, r.x + 9, r.y + 4, 2, 2, on ? C.good : C.bad); // power light
+    rect(g, r.x + 9, r.y + 3, 3, 2, on ? C.good : C.bad); // power light, above M
     const lx = r.x + 19;
     const lw = r.w - 38;
     rect(g, lx, r.y + 4, lw, r.h - 8, on ? '#16240f' : '#12141a');

@@ -348,6 +348,36 @@ test('M switches the radio off (no music at all) and on again; T or a click whil
   expect(ds.radioOn).toBe(true);
 });
 
+test('the radio buttons are labelled M and T: clicking M switches it off and on, T tunes, a key press pushes its button in', async () => {
+  const { game, plays } = radioCareer();
+  const ds = new DriveScene(game, 10);
+  game.set(ds);
+  await tick(game);
+  const b = ds.radioButtons();
+  expect(b.map((k) => k.key)).toEqual(['M', 'T']);
+  const r = ds.radioRect();
+  for (const k of b) {
+    expect(k.x).toBeGreaterThanOrEqual(r.x); // on the faceplate
+    expect(k.x + k.w).toBeLessThanOrEqual(r.x + r.w);
+  }
+  const [m, t] = b;
+  await clickAt(game, m.x + m.w / 2, m.y + m.h / 2);
+  expect(ds.radioOn).toBe(false);
+  const n = plays().length;
+  await clickAt(game, m.x + m.w / 2, m.y + m.h / 2);
+  expect(ds.radioOn).toBe(true);
+  expect(plays().length).toBe(n); // back on, same station
+  await clickAt(game, t.x + t.w / 2, t.y + t.h / 2);
+  expect(plays().at(-1)).toBe('radio2');
+  game.input.keyDown('t');
+  await tick(game, 1);
+  expect(ds.radioPressed('T')).toBe(true);
+  expect(ds.radioPressed('M')).toBe(false);
+  game.input.keyUp('t');
+  await tick(game, 30);
+  expect(ds.radioPressed('T')).toBe(false);
+});
+
 test('pressing on the radio tunes it without driving off; the electric hum follows the speed and stops on the way out', async () => {
   const { game, calls } = radioCareer();
   const ds = new DriveScene(game, 10);

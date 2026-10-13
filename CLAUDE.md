@@ -146,7 +146,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   pseudo-3D drive (~3 min, checkpoint clock; a crash dents the car and spins it out, the 5th (`WRECK_AT`) wrecks it; wreck or time-out = missed) over the pure sim in `src/core/drive.js`
   (`buildTrack`, `createDrive`, plus an `autopilot` the tests use for timing). The car has a radio (bottom left) playing six
   cover versions (`RADIO`/`RADIO_SONGS` in `src/data/radio.js`, transcribed from Martin's `tunes.mp3`, which is not shipped):
-  T or a click tunes to the next (`settings.radio`), M switches it off (the music setting); an electric hum (`audio.hum(level)`,
+  its buttons are labelled with their keys: T (or a click on the radio) tunes to the next (`settings.radio`), M (or its button) switches it off (the music setting); an electric hum (`audio.hum(level)`,
   on the SFX bus) follows the speed. Arriving starts `state.trip` (15-minute
   wall clock) in `ClientOfficeScene` (a FloorScene subclass, `foreign`: no events, stand-up, firing) on the 64×46
   `buildClientFloor` (`src/core/clientFloor.js`, built with floorgen's `createPlanner`, which tower floors share
