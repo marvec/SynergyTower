@@ -573,7 +573,7 @@ export class DriveScene {
       for (let k = 0; k < 14; k++) rect(g, lx + 2 + ((k * 37 + Math.floor(this.time * 60) * 11) % (lw - 4)), r.y + 6 + ((k * 7) % 13), 2, 1, lcd);
     } else {
       const st = this.station;
-      drawText(g, `FM ${st.freq}`, lx + 3, r.y + 6, { color: lcd });
+      drawText(g, `FM ${st.freq}`, lx + 3, r.y + 5, { color: lcd });
       drawText(g, st.title.toUpperCase(), lx + 3, r.y + 13, { color: lcd });
       for (let k = 0; k < 3; k++) {
         const h = 2 + Math.floor((Math.sin(this.time * (7 + k * 3) + k * 2) * 0.5 + 0.5) * 9);
