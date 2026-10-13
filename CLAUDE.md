@@ -157,7 +157,10 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   15-minute stay). `HotelScene` (`src/scenes/hotel.js`, FloorScene subclass, `foreign`) runs on `buildHotel()`
   (`src/core/hotel.js`, 48×42): the building at the top (suite, lobby with the EXIT front door in the top wall, restaurant),
   garden with pool, tiki bar and spa cabana, beach, jetty. Water is tile `T_WATER` (not walkable), outdoor floor styles come
-  from `fl.ground`, outdoor walls are hedges (`fl.hedgeFrom`), `fl.arrive` is the spawn. Activities are items with
+  from `fl.ground`, outdoor walls are hedges (`fl.hedgeFrom`), `fl.arrive` is the spawn (mid-lobby, clear of the front door).
+  Guests walk `fl.npcWalk` (`NpcBrain` prefers it to `fl.walk`), which keeps them out of the suite. Hotel decor is a curio
+  with its own lines (`HOTEL_QUIPS`, read instead of the office `QUIPS` when `fl.hotel`); the reception desk is the
+  concierge's (`CONCIERGE_LINES`, a `concierge` target in `HotelScene`). Activities are items with
   `it.activity` (not `it.task`) running MinigameScene mode `'vacation'`: free, no paperclips/XP/KPI, ≥1 star pays
   `VACATION_COFFEE` once per activity per stay, on top of the pot. The 8 holiday games (`sleep`, `buffet`, `beachball`,
   `swim`, `sunbathe`, `cocktail`, `massage`, `sandcastle`) are in `MINIGAMES` but not `STATION_GAMES`/`GAME_TIER`; each has

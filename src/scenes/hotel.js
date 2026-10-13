@@ -11,7 +11,8 @@ import { buildHotel } from '../core/hotel.js';
 import { T_WATER } from '../core/floorgen.js';
 import * as V from '../core/vacation.js';
 import * as E from '../core/economy.js';
-import { ACTIVITIES, HOTEL_NAME, HOTEL_LINES, HOTEL_WRAP_LINES } from '../data/vacation.js';
+import { ACTIVITIES, HOTEL_NAME, HOTEL_LINES, HOTEL_WRAP_LINES, CONCIERGE_LINES } from '../data/vacation.js';
+import { pickLine } from '../core/curios.js';
 import { FloorScene } from './floorScene.js';
 import { MinigameScene } from './minigameScene.js';
 import { Dialog } from './overlays.js';
@@ -35,6 +36,11 @@ export class HotelScene extends FloorScene {
       n.a.who.role = 'Hotel guest';
     }
     if (this.receptionist) this.receptionist.who.role = 'Concierge';
+    // Talking to the concierge: the reception desk and the concierge behind it, reached from in front of the desk.
+    const desk = this.fl.items.find((it) => it.type === 'reception');
+    const rc = this.fl.receptionist;
+    this.conciergeItem = desk && rc && this.receptionist ? { x: desk.x, y: rc.y, w: desk.w, h: desk.y + desk.h - rc.y, top: (rc.y - 1) * TILE } : null;
+    this.conciergeMemo = {};
     this.view.afterFloor = (g) => this.drawWaves(g);
   }
 
@@ -56,18 +62,32 @@ export class HotelScene extends FloorScene {
   }
 
   interactables() {
-    return [...super.interactables(), ...this.fl.activities.map((it) => ({ kind: 'activity', it })), { kind: 'exit', it: this.exitItem }];
+    const list = [...super.interactables(), ...this.fl.activities.map((it) => ({ kind: 'activity', it })), { kind: 'exit', it: this.exitItem }];
+    if (this.conciergeItem) list.push({ kind: 'concierge', it: this.conciergeItem });
+    return list;
   }
 
   interact(t) {
-    if (t.kind !== 'exit' && t.kind !== 'activity') return super.interact(t);
+    if (!['exit', 'activity', 'concierge'].includes(t.kind)) return super.interact(t);
     this.pending = null;
     this.player.path = null;
     if (t.kind === 'exit') return this.finish(true);
+    if (t.kind === 'concierge') return this.talkToConcierge();
     const it = t.it;
     const p = this.player;
     p.faceTowards(it.x + it.w / 2 - p.x, it.y + it.h / 2 - p.y);
     this.openActivity(it.activity);
+  }
+
+  /** The concierge has a tip, a joke or a kind word: every line once before any repeats. */
+  talkToConcierge() {
+    const r = this.receptionist;
+    const p = this.player;
+    p.faceTowards(r.x - p.x, r.y - p.y);
+    r.faceTowards(p.x - r.x, p.y - r.y);
+    const line = pickLine(CONCIERGE_LINES, this.conciergeMemo);
+    r.say(line, 3 + line.length / 25);
+    this.game.sfx('blip');
   }
 
   /** The activity card: what it is and what it pays; a done one can be played again just for fun. */
@@ -137,7 +157,6 @@ export class HotelScene extends FloorScene {
 
   render(g) {
     super.render(g);
-    this.drawExitSign(g);
     this.drawClock(g);
   }
 
@@ -162,6 +181,7 @@ export class HotelScene extends FloorScene {
   /** Activity markers: a coffee cup to win, a tick once enjoyed. */
   drawMarkers(g, s, now) {
     super.drawMarkers(g, s, now);
+    this.drawExitSign(g);
     const bob = Math.round(Math.sin(this.time * 4) * 1.5);
     for (const it of this.fl.activities) {
       const cx = Math.round((it.x + it.w / 2) * TILE);
@@ -176,10 +196,10 @@ export class HotelScene extends FloorScene {
 
   drawPrompt(g, s, now) {
     const t = this.focus;
-    if (t?.kind !== 'activity') return super.drawPrompt(g, s, now);
+    if (t?.kind !== 'activity' && t?.kind !== 'concierge') return super.drawPrompt(g, s, now);
     const a = t.it.activity;
-    const text = a.title;
-    const sub = V.activityDone(s, a.game) ? 'done, play for fun' : `+${E.VACATION_COFFEE} coffee`;
+    const text = a ? a.title : 'Talk';
+    const sub = !a ? `${this.receptionist.who.name} - concierge` : V.activityDone(s, a.game) ? 'done, play for fun' : `+${E.VACATION_COFFEE} coffee`;
     const w = measureText(text) + measureText(sub) + 56;
     const x = 4;
     const y = H - 20;
@@ -190,11 +210,11 @@ export class HotelScene extends FloorScene {
     drawText(g, sub, x + 44 + measureText(text), y + 5, { color: C.dim });
   }
 
-  /** A green EXIT sign over the front doors: check out and back to the office, at any time. */
+  /** A green EXIT sign over the front doors (world space, under the speech bubbles): check out at any time. */
   drawExitSign(g) {
     const e = this.fl.entrance;
-    const x = Math.round((e.x + e.w / 2) * TILE - this.cam.x);
-    const y = Math.round(e.y * TILE - this.cam.y) - 14;
+    const x = Math.round((e.x + e.w / 2) * TILE);
+    const y = e.y * TILE - 14;
     const w = measureText('EXIT') + 6;
     rect(g, x - w / 2, y, w, 10, C.border);
     rect(g, x - w / 2 + 1, y + 1, w - 2, 8, C.goodBtn);

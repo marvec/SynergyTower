@@ -2,10 +2,13 @@
 // Pure and deterministic: everything comes from the floor number and item id, nothing is saved.
 import { createRng, hashString } from './rng.js';
 import * as D from '../data/curios.js';
+import { HOTEL_QUIPS } from '../data/vacation.js';
 
 /** Items that belong to the gameplay (focus brackets, prompt) or are people, never curios. */
-const isGameplay = (it) => it.task || ['elevator', 'coffee', 'hr'].includes(it.interact) || it.terminal;
+const isGameplay = (it) => it.task || it.activity || ['elevator', 'coffee', 'hr'].includes(it.interact) || it.terminal;
 const NOT_FURNITURE = new Set(['hrrep', 'receptionist']);
+/** The hotel's reception desk is the concierge's (HotelScene talks), not a curio. */
+const HOTEL_PEOPLE = new Set(['reception']);
 
 /** The close-up an item opens (even a station with a task, for the task card's Peek button), or null. */
 export function closeUpOf(fl, it) {
@@ -17,13 +20,15 @@ export function closeUpOf(fl, it) {
 }
 
 const quipKey = (fl, it) => (it === fl.myDesk ? 'mydesk' : it.type);
+/** The lines for an item: the vacation hotel has its own (a sofa there is not the meeting-room sofa). */
+const quipsOf = (fl, it) => (fl.hotel ? HOTEL_QUIPS[it.type === 'chairup' ? 'chair' : it.type] : D.QUIPS[quipKey(fl, it)]) || [];
 
 /** What poking a non-gameplay item does: a close-up kind, 'quip', or null (gameplay item, or nothing to say). */
 export function curioOf(fl, it) {
-  if (isGameplay(it) || NOT_FURNITURE.has(it.type)) return null;
+  if (isGameplay(it) || NOT_FURNITURE.has(it.type) || (fl.hotel && HOTEL_PEOPLE.has(it.type))) return null;
   const c = closeUpOf(fl, it);
   if (c) return c;
-  return D.QUIPS[quipKey(fl, it)]?.length ? 'quip' : null;
+  return quipsOf(fl, it).length ? 'quip' : null;
 }
 
 export const itemSeed = (fl, it) => fl.floor * 1009 + it.id * 31 + 7;
@@ -50,7 +55,7 @@ export function pickLine(list, memo = {}, rand = Math.random) {
 }
 
 /** Something the player says about an item, at random (see pickLine; `memo` is per item). */
-export const quipFor = (fl, it, memo, rand) => pickLine(D.QUIPS[quipKey(fl, it)] || [], memo, rand);
+export const quipFor = (fl, it, memo, rand) => pickLine(quipsOf(fl, it), memo, rand);
 
 const LABEL_COLORS = ['#e8d36a', '#f2f2f2', '#9fd3f0', '#f0a8c0', '#b8e09a'];
 const BOX_COLORS = { box: ['#c94a3b', '#3b7bc9', '#e0e0e0', '#4caf50', '#d9902b'], jar: ['#c9a227', '#e8e0c8', '#b6573b'], bottle: ['#2f8f7f', '#a33b3b', '#6aa8d8'], carton: ['#f2f2f2'], cake: ['#f0c8d8'], bag: ['#c94a3b'] };

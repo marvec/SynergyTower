@@ -167,9 +167,19 @@ function generateHotel() {
   fl.walk = buildWalkable(fl);
   fl.dist = bfs(fl, fl.walk, ENTRANCE_X, 1);
 
-  // Guests on holiday, anywhere they can walk to.
+  // The suite is yours: guests keep out of it and its doorways (the lobby door, the terrace). NpcBrain walks fl.npcWalk.
+  const inSuite = (x, y) => roomOf[idx(x, y)] === suite.id;
+  const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  fl.npcWalk = fl.walk.map((w, i) => {
+    const x = i % W;
+    const y = Math.floor(i / W);
+    if (!w || inSuite(x, y)) return 0;
+    return roomOf[i] < 0 && STEPS.some(([dx, dy]) => inSuite(x + dx, y + dy)) ? 0 : 1;
+  });
+
+  // Guests on holiday, anywhere they may walk to.
   const reachable = [];
-  for (let i = 0; i < fl.walk.length; i++) if (fl.dist[i] >= 0) reachable.push(i);
+  for (let i = 0; i < fl.walk.length; i++) if (fl.dist[i] >= 0 && fl.npcWalk[i]) reachable.push(i);
   fl.npcs = [];
   for (let i = 0; i < 12; i++) {
     const t = rng.pick(reachable);

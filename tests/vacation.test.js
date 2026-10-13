@@ -118,3 +118,51 @@ test('holiday games are registered mini-games but never office stations', () => 
     expect(E.GAME_TIER[a.game]).toBeUndefined();
   }
 });
+
+const inSuite = (fl, x, y) => fl.rooms[fl.roomOf[y * fl.w + x]]?.type === 'suite';
+
+test('the suite is private: guests never start in it or walk into it', () => {
+  const fl = buildHotel();
+  const doors = [];
+  for (let y = 0; y < fl.h; y++)
+    for (let x = 0; x < fl.w; x++) {
+      const i = y * fl.w + x;
+      if (inSuite(fl, x, y)) expect(!!fl.npcWalk[i]).toBe(false);
+      // Doorways out of the suite (to the lobby, onto the terrace) are closed to guests too.
+      if (fl.walk[i] && !inSuite(fl, x, y) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => inSuite(fl, x + dx, y + dy)) && fl.roomOf[i] < 0) doors.push(i);
+    }
+  expect(doors.length).toBeGreaterThan(0);
+  for (const i of doors) expect(!!fl.npcWalk[i]).toBe(false);
+  for (const n of fl.npcs) expect(!!fl.npcWalk[Math.floor(n.y) * fl.w + Math.floor(n.x)]).toBe(true);
+  // Everywhere else the guests can still reach is open to them.
+  const open = fl.walk.filter((w, i) => w && !inSuite(fl, i % fl.w, Math.floor(i / fl.w))).length;
+  expect(fl.npcWalk.filter(Boolean).length).toBeGreaterThan(open - 8);
+});
+
+test('hotel decor answers a poke with holiday lines; activities stay gameplay', async () => {
+  const Q = await import('../src/core/curios.js');
+  const { HOTEL_QUIPS } = await import('../src/data/vacation.js');
+  const { measureText } = await import('../src/engine/font.js');
+  const fl = buildHotel();
+  const types = new Set();
+  for (const it of fl.items) {
+    if (it.activity || ['receptionist', 'reception'].includes(it.type)) { // the reception desk is the concierge's
+      expect(Q.curioOf(fl, it), it.type).toBeNull();
+      continue;
+    }
+    expect(Q.curioOf(fl, it), it.type).toBe('quip');
+    types.add(it.type);
+    const line = Q.quipFor(fl, it, {});
+    expect(line.length).toBeGreaterThan(0);
+  }
+  for (const t of ['palm', 'pottedpalm', 'lounger', 'hammock', 'sofa', 'fountain', 'flowers', 'torch']) expect(types.has(t), t).toBe(true);
+  // Hotel lines, not the office's: the hotel sofa is not the meeting-room sofa.
+  const sofa = fl.items.find((it) => it.type === 'sofa');
+  const { QUIPS } = await import('../src/data/curios.js');
+  expect(QUIPS.sofa).not.toContain(Q.quipFor(fl, sofa, {}));
+  for (const [type, lines] of Object.entries(HOTEL_QUIPS)) {
+    expect(lines.length, type).toBeGreaterThanOrEqual(20);
+    expect(new Set(lines).size, type).toBe(lines.length);
+    for (const l of lines) expect(measureText(l), `${type}: ${l}`).toBeLessThanOrEqual(560);
+  }
+});

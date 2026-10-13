@@ -22,7 +22,10 @@ are welcome.
      Space/click, ends the stay at once), your suite (bed), the restaurant (buffet).
    - Through the terrace doors: the garden with palms, the pool and its deck, a tiki pool bar and a spa cabana; below it
      the beach (sun loungers, a sandcastle spot, a lifeguard chair) and a wooden jetty into the sea.
-   - The player wears a holiday shirt; guests in summer clothes wander around and say holiday things.
+   - The player wears a holiday shirt; guests in summer clothes wander around and say holiday things. Guests never
+     enter your suite. The player arrives in the middle of the lobby, clear of the front door.
+   - Palms, loungers, the hammock, torches, flowers, the fountain and the rest of the decor answer a poke with holiday
+     lines of their own (`HOTEL_QUIPS`); the concierge behind the reception desk has tips and jokes (`CONCIERGE_LINES`).
    - A 15-minute wall clock under the HUD. When it runs out, a wrap-up card ("Back to work") and the player is back on
      floor 20.
 3. **Activities** (`MinigameScene` mode `'vacation'`): free (no coffee cost), no paperclips, XP or KPI stars. Finishing one

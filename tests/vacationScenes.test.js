@@ -230,3 +230,32 @@ test('the stand-up favour never lands on your manager or the account manager (th
     }
   }
 });
+
+test('hotel guests stay out of your suite', async () => {
+  const game = career();
+  V.requestVacation(game.state, 20, game.now());
+  const hotel = new HotelScene(game);
+  game.set(hotel);
+  const fl = hotel.fl;
+  game.state.vacation.endsAt = game.now() + 1e9;
+  for (let f = 0; f < 60 * 240; f++) {
+    game.update(1 / 20);
+    for (const n of hotel.npcs) expect(fl.rooms[fl.roomOf[Math.floor(n.a.y) * fl.w + Math.floor(n.a.x)]]?.type).not.toBe('suite');
+  }
+  expect(game.top).toBe(hotel);
+});
+
+test('the concierge at the reception desk has a word for you', async () => {
+  const { CONCIERGE_LINES } = await import('../src/data/vacation.js');
+  const game = career();
+  V.requestVacation(game.state, 20, game.now());
+  const hotel = new HotelScene(game);
+  game.set(hotel);
+  await tick(game);
+  const t = hotel.interactables().find((x) => x.kind === 'concierge');
+  expect(t).toBeTruthy();
+  hotel.interact(t);
+  expect(game.top).toBe(hotel);
+  const said = hotel.receptionist.bubble?.text;
+  expect(CONCIERGE_LINES.some((l) => said?.includes(l.slice(0, 12)))).toBe(true);
+});

@@ -381,7 +381,7 @@ export class NpcBrain {
         return;
       }
       this.exit.routed = true;
-      a.path = findPath(this.fl.walk, this.fl.w, this.fl.h, Math.floor(a.x), Math.floor(a.y), this.exit.x, this.exit.y, 4000) || [];
+      a.path = findPath(this.fl.npcWalk || this.fl.walk, this.fl.w, this.fl.h, Math.floor(a.x), Math.floor(a.y), this.exit.x, this.exit.y, 4000) || [];
       if (!a.path.length) this.gone = true;
       return;
     }
@@ -418,14 +418,15 @@ export class NpcBrain {
   }
   pickTarget() {
     const { fl } = this;
+    const walk = fl.npcWalk || fl.walk; // fl.npcWalk: places NPCs keep out of (the hotel suite)
     const sx = Math.floor(this.a.x);
     const sy = Math.floor(this.a.y);
     for (let tries = 0; tries < 8; tries++) {
       const tx = this.rng.int(1, fl.w - 2);
       const ty = this.rng.int(1, fl.h - 2);
-      if (!fl.walk[ty * fl.w + tx] || fl.dist[ty * fl.w + tx] < 0) continue;
+      if (!walk[ty * fl.w + tx] || fl.dist[ty * fl.w + tx] < 0) continue;
       if (Math.abs(tx - sx) + Math.abs(ty - sy) > 18) continue;
-      const p = findPath(fl.walk, fl.w, fl.h, sx, sy, tx, ty, 1500);
+      const p = findPath(walk, fl.w, fl.h, sx, sy, tx, ty, 1500);
       if (p && p.length) {
         this.a.path = p;
         return;
