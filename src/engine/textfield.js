@@ -34,6 +34,8 @@ export class TextField {
     });
     document.body.appendChild(this.el);
     this.layout();
+    // Follow the canvas when it re-fits: rotation, or iOS shrinking the view for the keyboard (visualViewport only).
+    this.unfit = screen.onFit?.(() => this.layout());
   }
   get value() {
     return this.el.value.trim();
@@ -55,6 +57,7 @@ export class TextField {
     });
   }
   destroy() {
+    this.unfit?.();
     this.el.remove();
   }
 }

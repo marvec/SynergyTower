@@ -27,17 +27,11 @@ export class SetupScene {
     const scr = this.game.screen;
     this.corpField = new TextField(scr, { x: 20, y: 40, w: 180, h: 16, value: CORP_NAMES[Math.floor(Math.random() * CORP_NAMES.length)], maxLength: 22 });
     this.nameField = new TextField(scr, { x: 20, y: 76, w: 180, h: 16, value: '', placeholder: 'Your name', maxLength: 16 });
-    this.resizeHandler = () => {
-      this.corpField.layout();
-      this.nameField.layout();
-    };
-    window.addEventListener('resize', this.resizeHandler);
     this.game.audio.play('title');
   }
   exit() {
     this.corpField?.destroy();
     this.nameField?.destroy();
-    window.removeEventListener('resize', this.resizeHandler);
   }
   build() {
     const b = this.buttons;

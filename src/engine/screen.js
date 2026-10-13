@@ -9,6 +9,7 @@ export function createScreen(canvas) {
   g.imageSmoothingEnabled = false;
   let scale = 1;
   let rect = { left: 0, top: 0 };
+  const fitListeners = new Set(); // DOM overlays that follow the canvas (TextField)
 
   function fit() {
     // The space inside the body's safe-area padding (style.css), so notches never cover the game.
@@ -28,6 +29,7 @@ export function createScreen(canvas) {
     canvas.style.width = `${Math.floor(W * scale)}px`;
     canvas.style.height = `${Math.floor(H * scale)}px`;
     rect = canvas.getBoundingClientRect();
+    for (const fn of fitListeners) fn();
   }
   window.addEventListener('resize', fit);
   // Phones report the new size a moment after turning; fit again once it has settled.
@@ -39,6 +41,11 @@ export function createScreen(canvas) {
     g,
     canvas,
     fit,
+    /** Calls fn after every re-fit (window resize, rotation, a phone keyboard opening); returns an unsubscribe. */
+    onFit(fn) {
+      fitListeners.add(fn);
+      return () => fitListeners.delete(fn);
+    },
     toGame(clientX, clientY) {
       rect = canvas.getBoundingClientRect();
       return { x: ((clientX - rect.left) / rect.width) * W, y: ((clientY - rect.top) / rect.height) * H };
