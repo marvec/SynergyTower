@@ -74,7 +74,7 @@ export function installDebug(game) {
   window.__conduct = async (arg) => {
     const s = game.state;
     if (!s) return 'no career loaded';
-    s.conduct = { strikes: 0, refused: {}, hold: null, trained: false, holds: 0, demotions: 0 };
+    s.conduct = { strikes: 0, refused: {}, reported: {}, hold: null, trained: false, holds: 0, demotions: 0 };
     const { FloorScene } = await import('./scenes/floorScene.js');
     const fs = new FloorScene(game, s.floor);
     game.set(fs);

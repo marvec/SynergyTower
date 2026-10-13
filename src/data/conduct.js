@@ -19,7 +19,7 @@ export const ASK_AGAIN_LINES = [
   'Have you reconsidered? It has been ten minutes.',
 ];
 
-/** The first answer: polite, final, no strike. Asking once is a fair question. */
+/** A colleague's first answer: polite and final (the ask still counts as a strike). */
 export const FIRST_NO = [
   "That's sweet, but no thanks. Let's keep it to work.",
   "I'm flattered. Also: no. Also: did you see the Q3 deck?",
@@ -39,7 +39,7 @@ export const FIRST_NO = [
   'No, thanks. My calendar and my heart are both fully booked.',
 ];
 
-/** Asking again after the no: by strike (1-5), colder and more official every time. */
+/** Every answer after a colleague's first: by the career's strike count (1-5), colder and more official every time. */
 export const REPEAT_NO = [
   [
     'I already said no. That answer has not been updated.',
@@ -81,7 +81,7 @@ export const REPEAT_NO = [
   ],
 ];
 
-/** Small talk with the colleague who said no, once they have had enough (after strike 3, and for good after the hold). */
+/** Small talk with a colleague who has been asked three times or more. */
 export const FROSTY_LINES = [
   'Morning. Work topics only, please.',
   "I'll be at my desk. Far from yours.",
@@ -118,11 +118,14 @@ export const HR_CALL_LINES = [
 export const HR_PASSED_LINES = ['Certificate issued. Let us never meet like this again.', 'Well done. I am framing your certificate. For evidence.'];
 export const HR_FAILED_LINES = ['I am afraid this has consequences.', 'We will be revisiting your career path. Downwards.'];
 
-export const HOLD_INTRO =
+/** The HR desk on hold; floor = the player's highest floor (on floor 1 failing means getting fired). */
+export const HOLD_INTRO = (floor) =>
   'A colleague has reported repeated unwanted invitations. Until you complete the Compliance & Ethics training, ' +
   'your tasks, the elevator and the workstations are on hold.\n' +
-  'The training is free. Pass and the record is cleared. Fail and you are demoted one floor, and HR will want to ' +
-  'review your promotion again.';
+  'The training is free. Pass and the record is cleared. ' +
+  (floor > 1
+    ? 'Fail and you are demoted one floor, and HR will want to review your promotion again.'
+    : 'Fail and you are fired: there is no floor below this one.');
 
 /** The compliance & ethics training: { q, a (right), w: [3 wrong] }. Short options: they fit one line. */
 export const COMPLIANCE = [

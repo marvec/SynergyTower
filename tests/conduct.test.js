@@ -1,5 +1,5 @@
-// Conduct (core/conduct.js): asking a colleague out once is fine, every ask after their no is a strike, the 5th strike
-// puts the career on compliance hold, and the training at HR either clears it or demotes the player one floor.
+// Conduct (core/conduct.js): every ask for a drink is a strike, the 5th puts the career on compliance hold, and the
+// training at HR either clears it or demotes the player one floor; then it can all happen again.
 import { test, expect } from 'bun:test';
 import { installMockDocument, mockCanvas } from './mock-canvas.js';
 import { newGame, deserialize, serialize } from '../src/core/state.js';
@@ -17,25 +17,31 @@ const { createGame } = await import('../src/game.js');
 const { FloorScene } = await import('../src/scenes/floorScene.js');
 const { MinigameScene } = await import('../src/scenes/minigameScene.js');
 const { ElevatorRide } = await import('../src/scenes/elevatorRide.js');
+const { FiredScene } = await import('../src/scenes/fired.js');
+const { TitleScene } = await import('../src/scenes/title.js');
 const { ChatCard, Dialog } = await import('../src/scenes/overlays.js');
 
 const g = mockCanvas().getContext('2d');
 
-test('the first ask is a fair question; every ask after the no is a strike; the 5th starts the hold', () => {
+test('every ask is a strike, the first one too; strikes add up across colleagues; the 5th starts the hold', () => {
   const s = newGame({ playerName: 'Pat' }, 0);
   expect(CD.askState(s, 11)).toBe('ask');
-  expect(CD.askOut(s, 11, 0)).toEqual({ kind: 'first' });
-  expect(s.conduct.strikes).toBe(0);
+  expect(CD.askOut(s, 11, 0)).toEqual({ kind: 'first', strike: 1, hold: false });
   expect(CD.askState(s, 11)).toBe('again');
-  // Another colleague's first answer is free too; strikes add up across colleagues and floors.
-  expect(CD.askOut(s, 22, 0).kind).toBe('first');
-  for (let k = 1; k < E.HOLD_STRIKES; k++) expect(CD.askOut(s, k % 2 ? 11 : 22, 0)).toEqual({ kind: 'repeat', strike: k, hold: false });
+  expect(CD.askOut(s, 22, 0)).toEqual({ kind: 'first', strike: 2, hold: false });
+  expect(CD.askOut(s, 11, 0)).toEqual({ kind: 'repeat', strike: 3, hold: false });
+  expect(CD.askOut(s, 22, 0)).toEqual({ kind: 'repeat', strike: 4, hold: false });
   expect(CD.onHold(s)).toBe(false);
-  expect(CD.askOut(s, 11, 5)).toEqual({ kind: 'repeat', strike: 5, hold: true });
+  expect(CD.askOut(s, 33, 5)).toEqual({ kind: 'first', strike: 5, hold: true });
   expect(CD.onHold(s)).toBe(true);
-  // On hold (and after the training) the question is not on offer any more.
-  expect(CD.askState(s, 33)).toBeNull();
-  expect(CD.askOut(s, 33, 6)).toBeNull();
+  // On hold the question is not on offer.
+  expect(CD.askState(s, 44)).toBeNull();
+  expect(CD.askOut(s, 44, 6)).toBeNull();
+  // After the training it is back, from zero strikes, for everyone but the colleague who reported you.
+  CD.completeTraining(s, 1);
+  expect([CD.askState(s, 11), CD.askState(s, 44), CD.askState(s, 33)]).toEqual(['again', 'ask', null]);
+  expect(CD.askOut(s, 33, 7)).toBeNull();
+  expect(CD.askOut(s, 11, 7)).toEqual({ kind: 'repeat', strike: 1, hold: false });
 });
 
 test('passing the training clears the record; failing demotes one floor and the review there is due again', () => {
@@ -47,12 +53,11 @@ test('passing the training clears the record; failing demotes one floor and the 
     return s;
   };
   const a = hold(12);
-  expect(CD.completeTraining(a, 0.9)).toEqual({ passed: true, demoted: false, from: 12, to: 12 });
+  expect(CD.completeTraining(a, 0.9)).toEqual({ passed: true, demoted: false, fired: false, from: 12, to: 12 });
   expect([a.maxFloor, a.conduct.strikes, CD.onHold(a), a.reviews[12]]).toEqual([12, 0, false, true]);
-  expect(CD.askState(a, 1)).toBeNull(); // lesson learned: no more drinks
 
   const b = hold(12);
-  expect(CD.completeTraining(b, 0.2)).toEqual({ passed: false, demoted: true, from: 12, to: 11 });
+  expect(CD.completeTraining(b, 0.2)).toEqual({ passed: false, demoted: true, fired: false, from: 12, to: 11 });
   expect([b.maxFloor, b.floor, CD.onHold(b), b.reviews[11], b.reviews[12], b.conduct.demotions]).toEqual([11, 11, false, undefined, undefined, 1]);
 
   const c = hold(12, 5); // on a lower floor: stays there
@@ -60,8 +65,8 @@ test('passing the training clears the record; failing demotes one floor and the 
   expect([c.maxFloor, c.floor]).toEqual([11, 5]);
 
   const d = hold(1);
-  expect(CD.completeTraining(d, 0).demoted).toBe(false); // nowhere lower than the ground floor
-  expect([d.maxFloor, d.reviews[1]]).toEqual([1, undefined]);
+  expect(CD.completeTraining(d, 0)).toEqual({ passed: false, demoted: false, fired: true, from: 1, to: 1 }); // nowhere lower
+  expect([d.maxFloor, d.conduct.fired, d.conduct.demotions]).toEqual([1, true, 0]);
 });
 
 test('every tower floor has a chat colleague (not the first: trip and leave offers); old saves get a clean record', () => {
@@ -149,9 +154,9 @@ test('on a floor: the chat card, five strikes, the hold, the training and the de
   await tick(game, 1);
   button(game, 'Small talk').onClick();
   button(game, 'Ask for a drink').onClick();
-  expect(game.state.conduct.strikes).toBe(0);
+  expect(game.state.conduct.strikes).toBe(1);
   await tick(game, 1);
-  for (let k = 1; k <= E.HOLD_STRIKES; k++) {
+  for (let k = 2; k <= E.HOLD_STRIKES; k++) {
     button(game, 'Ask again').onClick();
     await tick(game, 1);
   }
@@ -161,7 +166,7 @@ test('on a floor: the chat card, five strikes, the hold, the training and the de
   fs.interact({ kind: 'task', it: fs.fl.items.find((it) => it.task) });
   fs.interact({ kind: 'elevator', it: fs.fl.items.find((it) => it.interact === 'elevator') });
   expect(game.top).toBe(fs);
-  // The chat colleague has nothing more to say about drinks.
+  // On hold the chat colleague has nothing more to say about drinks.
   fs.interact({ kind: 'npc', n });
   await tick(game, 1);
   expect(button(game, 'Ask')).toBeUndefined();
@@ -179,4 +184,64 @@ test('on a floor: the chat card, five strikes, the hold, the training and the de
   expect(game.top).toBeInstanceOf(ElevatorRide);
   expect(game.top.to).toBe(11);
   expect(CD.onHold(game.state)).toBe(false);
+  // On the new floor the drink question is on offer again.
+  const fs2 = new FloorScene(game, 11);
+  game.set(fs2);
+  fs2.interact({ kind: 'npc', n: fs2.chatNpc });
+  await tick(game, 1);
+  expect(button(game, 'Ask for a drink')).toBeTruthy();
+});
+
+test('failing the training on floor 1 gets you fired: the career is deleted at once, then the walk out and the title', async () => {
+  const game = career(1);
+  const id = game.slot;
+  const fs = new FloorScene(game, 1);
+  game.set(fs);
+  game.state.conduct.hold = { at: 0, floor: 1 };
+  game.state.conduct.strikes = E.HOLD_STRIKES;
+  fs.interact({ kind: 'hr', it: fs.fl.items.find((it) => it.interact === 'hr') });
+  expect(game.top.text).toContain('fired');
+  await tick(game, 1);
+  button(game, 'Start the training').onClick();
+  game.top.complete(0);
+  expect(game.state).toBeNull();
+  expect(game.careers().some((c) => c.id === id)).toBe(false);
+  await tick(game, 2); // the result screen still draws without a career
+  expect(button(game, 'Clear my desk')).toBeTruthy();
+  await game.top.finish();
+  expect(game.top).toBeInstanceOf(FiredScene);
+  for (let i = 0; i < 120; i++) await tick(game, 1);
+  button(game, 'Back to the title').onClick();
+  await tick(game);
+  expect(game.top).toBeInstanceOf(TitleScene);
+});
+
+test('on compliance hold before checking in (no badge, HR out of reach): reception calls security, the career ends', async () => {
+  const game = career(1);
+  game.state.lobby = 'checkin';
+  const id = game.slot;
+  const fs = new FloorScene(game, 1);
+  game.set(fs);
+  fs.interact({ kind: 'npc', n: fs.chatNpc });
+  await tick(game, 1);
+  for (let k = 1; k <= E.HOLD_STRIKES; k++) {
+    button(game, 'Ask').onClick();
+    await tick(game, 1);
+  }
+  expect(CD.lockedOut(game.state)).toBe(true);
+  expect(game.top).toBe(fs);
+  for (let i = 0; i < 4 * 60 && !(game.top instanceof FiredScene); i++) await tick(game, 1);
+  expect(game.top).toBeInstanceOf(FiredScene);
+  expect(game.top.career.reason).toBe('checkin');
+  expect(game.state).toBeNull();
+  expect(game.careers().some((c) => c.id === id)).toBe(false);
+});
+
+test('a career saved in that state (reloaded mid-lockout) is fired on entering the floor', async () => {
+  const game = career(1);
+  Object.assign(game.state, { lobby: 'checkin' });
+  game.state.conduct.hold = { at: 0, floor: 1 };
+  game.set(new FloorScene(game, 1));
+  for (let i = 0; i < 4 * 60 && !(game.top instanceof FiredScene); i++) await tick(game, 1);
+  expect(game.top).toBeInstanceOf(FiredScene);
 });

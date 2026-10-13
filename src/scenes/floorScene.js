@@ -38,6 +38,7 @@ import * as L from '../core/vacation.js'; // leave
 import { BOSS_TEASERS, BOSS_AFTER, VACATION_OFFER } from '../data/vacation.js';
 import { isTouch } from '../engine/platform.js';
 import * as CD from '../core/conduct.js';
+import { fireCareer, FiredScene } from './fired.js';
 import { ASK_LINES, ASK_AGAIN_LINES, FIRST_NO, REPEAT_NO, FROSTY_LINES, GOSSIP_LINES, HR_CALL_LINES, HR_PASSED_LINES, HR_FAILED_LINES, HOLD_INTRO } from '../data/conduct.js';
 
 const SPEED = 4.4;
@@ -149,6 +150,7 @@ export class FloorScene {
       this.standupToast = true;
       this.game.toast(`Daily stand-up: ${this.standupNpc.id.name} is looking for you.`, C.xp);
     }
+    if (CD.lockedOut(s)) this.startLockout(); // a career saved in that state (reloaded): finish the job
     const checkin = s.lobby === 'checkin' && this.receptionist;
     if (checkin) this.receptionist.say(`Welcome, ${s.player.name}! Please check in at the front desk.`, 6);
     if (!s.flags.introSeen) {
@@ -364,7 +366,7 @@ export class FloorScene {
       game.sfx('click');
       if (hold) {
         this.hrRep?.say('Sit down. This will not take long. Well, it might.', 3);
-        game.push(new Dialog(game, { title: 'HR Office · Compliance hold', w: 320, text: HOLD_INTRO, button: 'Later', action: { label: 'Start the training', color: C.goodBtn, onClick: () => this.startCompliance() } }));
+        game.push(new Dialog(game, { title: 'HR Office · Compliance hold', w: 320, text: HOLD_INTRO(s.maxFloor), button: 'Later', action: { label: 'Start the training', color: C.goodBtn, onClick: () => this.startCompliance() } }));
       } else if (['available', 'cooldown', 'coffee'].includes(r.state)) {
         this.hrRep?.say('Have a seat. Let us talk about your growth.', 2.5);
         game.push(new ReviewCard(game, () => this.startReview()));
@@ -573,13 +575,13 @@ export class FloorScene {
     return Q.pickLine(list, this.chatMemos.get(list));
   }
 
-  /** Small talk with the chat colleague: office talk, or frosty once they have said no more than twice. */
+  /** Small talk with the chat colleague: office talk, or frosty once they have said no three times or reported you. */
   chatSmallTalk(n) {
-    const refused = CD.conduct(this.game.state).refused[n.seed] || 0;
-    return refused >= 3 ? this.chatLine(FROSTY_LINES) : this.nextLine();
+    const c = CD.conduct(this.game.state);
+    return (c.refused[n.seed] || 0) >= 3 || c.reported?.[n.seed] ? this.chatLine(FROSTY_LINES) : this.nextLine();
   }
 
-  /** The coffee break chat card: small talk, the drink question (once fine, again after a no = a strike), bye. */
+  /** The coffee break chat card: small talk, the drink question (every ask is a strike), bye. */
   openChat(n) {
     const game = this.game;
     n.brain.talkPause = 8;
@@ -612,18 +614,17 @@ export class FloorScene {
     if (!r) return null;
     n.brain.talkPause = 8;
     this.player.say(this.chatLine(again ? ASK_AGAIN_LINES : ASK_LINES), 1.6);
-    const line = r.kind === 'first' ? this.chatLine(FIRST_NO) : this.chatLine(REPEAT_NO[Math.min(r.strike, REPEAT_NO.length) - 1]);
+    // A colleague asked for the first time says a polite no; after that the answers follow the strike count.
+    const level = r.hold ? REPEAT_NO.length : Math.min(r.strike, REPEAT_NO.length - 1);
+    const line = r.kind === 'first' && !r.hold ? this.chatLine(FIRST_NO) : this.chatLine(REPEAT_NO[level - 1]);
     n.a.say(line, 4.5, 1.2); // the answer, once the question has been asked
-    track('ask_out', { strike: r.strike || 0, floor: s.maxFloor });
+    track('ask_out', { strike: r.strike, floor: s.maxFloor });
     game.markDirty();
     game.saveNow();
-    if (r.kind === 'first') game.sfx('blip');
-    else {
-      game.sfx('bad');
-      if (r.strike >= 3 && !r.hold) this.gossip(n);
-    }
+    game.sfx('bad');
+    if (r.strike >= 3 && !r.hold) this.gossip(n);
     if (r.hold) this.startHold();
-    return { line, strike: r.strike || 0, hold: r.hold };
+    return { line, strike: r.strike, hold: r.hold };
   }
 
   /** Someone else nearby has noticed. */
@@ -637,10 +638,30 @@ export class FloorScene {
 
   startHold() {
     const game = this.game;
+    if (CD.lockedOut(game.state)) return this.startLockout();
     track('compliance_hold', { floor: game.state.maxFloor });
     game.sfx('fail');
     game.toast('Compliance hold! Report to the HR office for training.', C.bad);
     this.hrCallT = 1.5;
+  }
+
+  /** On hold without a badge (CD.lockedOut): reception calls security, and a few seconds later the career is over. */
+  startLockout() {
+    if (this.firingT) return;
+    const game = this.game;
+    game.sfx('fail');
+    game.toast('Reported to HR before you even got your badge. Security!', C.bad);
+    this.receptionist?.say('No badge, no job. Security!', 4);
+    this.firingT = 3;
+  }
+  updateLockout(dt) {
+    this.firingT -= dt;
+    this.player.update(dt);
+    this.receptionist?.update(dt);
+    for (const n of this.npcs) n.a.update(dt);
+    if (this.firingT > 0 || this.fired) return;
+    this.fired = true;
+    this.game.set(new FiredScene(this.game, fireCareer(this.game, 'checkin')));
   }
 
   /** On hold, the HR rep calls you in now and then. */
@@ -665,7 +686,7 @@ export class FloorScene {
         if (!r?.compliance) return;
         this.hrRep?.say(this.chatLine(r.passed ? HR_PASSED_LINES : HR_FAILED_LINES), 4);
         if (r.passed) return game.toast('Training complete. The compliance hold is lifted.', C.good);
-        if (this.floorNo <= s.floor) return game.toast(r.demoted ? `Demoted to ${titleForFloor(r.to)}. Your HR review is due again.` : 'Noted in your file. Your HR review is due again.', C.warn);
+        if (this.floorNo <= s.floor) return game.toast(`Demoted to ${titleForFloor(r.to)}. Your HR review is due again.`, C.warn);
         // You lost the floor you are standing on: the elevator takes you down to your new desk.
         const { ElevatorRide } = await import('./elevatorRide.js');
         game.set(new ElevatorRide(game, this.floorNo, s.floor, { promoted: false }));
@@ -885,6 +906,7 @@ export class FloorScene {
     this.banner -= dt;
     const p = this.player;
 
+    if (this.firingT) return this.updateLockout(dt);
     const hudUsed = this.hud.update(dt, input);
     if (input.back()) {
       game.sfx('click');

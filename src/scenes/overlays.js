@@ -607,7 +607,7 @@ export class FateDialog extends Modal {
 const MOODS = ['', 'polite', 'guarded', 'annoyed', 'icy', 'icy'];
 
 /**
- * The one colleague per floor who can be asked out. onTalk() returns their small-talk line; onAsk() returns
+ * The one colleague per floor who can be asked out (every ask is a strike). onTalk() returns their small-talk line; onAsk() returns
  * { line, strike, hold } (the card closes on hold). The HR notes row shows the career's strikes once there are any.
  */
 export class ChatCard extends Modal {

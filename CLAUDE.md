@@ -129,7 +129,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
   coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, vacation_start, vacation_activity {game, stars}, vacation_end {coffee, activities, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
-  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
+  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
   c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing. The apps send Umami events too, tagged `app-ios`/`app-android`.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
@@ -198,13 +198,17 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   a `peek()` for the attentive/idle player tests in `tests/holiday.test.js`. Text in `src/data/vacation.js`, song `tropical`.
 - **Office conduct** (`src/core/conduct.js`, `state.conduct`, text in `src/data/conduct.js`): on every tower floor one
   colleague (`CD.chatSeed`, never `fl.npcs[0]`; `FloorScene.chatNpc`, kept out of the stand-up pool) opens a `ChatCard`
-  (overlays.js: Small talk / Ask for a drink / Bye, HR notes) instead of a bubble. The first ask per colleague is free (a
-  polite no); every ask after their no is a strike; `HOLD_STRIKES` (5, economy.js) start a compliance hold: tasks, the
+  (overlays.js: Small talk / Ask for a drink / Bye, HR notes) instead of a bubble. Every ask is a strike (a colleague's
+  first answer is a polite no, then colder by strike count); `HOLD_STRIKES` (5, economy.js) start a compliance hold: tasks, the
   elevator, workstations and your desk are taped off (`drawHoldTape`), no events, stand-ups, trips or leave; the HR desk
   offers the `compliance` mini-game (MinigameScene mode `'compliance'`, never on stations, not counted). Passing
   (`COMPLIANCE_PASS_SCORE`) clears the strikes; failing also demotes one floor (`completeTraining`: `maxFloor - 1`, both
-  floors' reviews due again, an elevator ride down if you stood on the lost floor). After a training the drink question
-  is gone for good. Console: `__conduct()` opens the card with a clean record, `__conduct(4)` one ask from the hold,
+  floors' reviews due again, an elevator ride down if you stood on the lost floor). Failing on floor 1 gets you fired:
+  `fired`, the career is deleted at once (`fireCareer()` in `src/scenes/fired.js`) and `FiredScene` (the walk out with a
+  box) leads back to the title. So does a hold before checking in at reception (`CD.lockedOut`: no badge, HR is beyond
+  the turnstiles): reception calls security and 3 s later the career is over (also on loading a career saved like that). Strikes start from zero after the
+  training and the drink question stays, so the cycle can repeat on every floor, except with the colleague whose
+  ask started the hold (`conduct.reported`): their button is gone for good. Console: `__conduct()` opens the card with a clean record, `__conduct(4)` one ask from the hold,
   `__conduct('hold')` straight to the hold.
 - Reminders: opt-in browser notifications ("Reminders" in Menu > Settings (`SettingsMenu`), offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;
