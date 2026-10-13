@@ -12,7 +12,7 @@ import { findPath } from '../core/pathfind.js';
 import { itemNeighbors } from '../core/floorgen.js';
 import * as V from '../core/events.js';
 import * as E from '../core/economy.js';
-import { Actor, NpcBrain, npcLook, npcIdentity } from './floorWorld.js';
+import { Actor, NpcBrain, npcLook, npcIdentity, suit } from './floorWorld.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { HUD_H } from './hud.js';
 
@@ -92,7 +92,7 @@ export class OfficeEvent {
       const tasks = scene.rng.shuffle(fl.tasks.filter((it) => !it.task.checkin));
       this.locked = new Set(tasks.slice(0, 3));
       this.limit = E.AUDIT_LOCK_S;
-      const look = { ...npcLook(AUDITOR_SEED, 'finance'), jacket: '#22242e', tie: '#5a5f70', glasses: true };
+      const look = suit(npcLook(AUDITOR_SEED, 'finance'), '#22242e', { tie: '#5a5f70', glasses: true });
       const a = new Actor(look, fl.spawn.x, fl.spawn.y);
       const id = npcIdentity(AUDITOR_SEED, 'finance');
       a.who = { name: id.name, role: 'External Auditor' };

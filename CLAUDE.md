@@ -43,6 +43,9 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
   The elevator lobby sits at a fixed top-centre position. Tests assert that every station is reachable.
 - Rendering: the floor tiles are baked once, then walls (per row), furniture and actors are depth-sorted by their base y.
   Furniture art lives in `src/engine/art.js` as draw functions (footprint + `lift` = height above the footprint).
+- Colleagues' figures follow their first name (`WOMEN_NAMES`/`MEN_NAMES` in `src/data/people.js`; other names are
+  gender-neutral, either figure by seed): `npcLook` gives a woman a `skirt` (and maybe `tights`), which `bakeCharacter`
+  draws as a woman's figure. Dress uniforms and suits with `suit(look, jacket)` (matching skirt, never a tie on a skirt).
 
 ## Platforms: website, PWA, iOS/Android apps
 

@@ -21,6 +21,7 @@ import { isTouch } from '../engine/platform.js';
 
 const SHIRTS = ['#e85d75', '#f29c38', '#2fa39a', '#f2e14e', '#7fc4ff', '#5fd068', '#f29cd0', '#ffffff'];
 const SHORTS = ['#f2e6c8', '#3b6fb6', '#e2504a', '#2f8a3a', '#d9b25c'];
+const SKIRTS = ['#ffffff', '#f29cd0', '#2fa39a', '#f2e14e', '#7fc4ff', '#e2504a'];
 
 export class HotelScene extends FloorScene {
   constructor(game) {
@@ -33,7 +34,9 @@ export class HotelScene extends FloorScene {
     this.player.setLook({ ...this.player.look, jacket: null, tie: null, badge: false, shirt: '#e85d75', pants: '#f2e6c8', shoes: '#8a5a3a' });
     const rng = createRng(2026);
     for (const n of this.npcs) {
-      n.a.setLook({ ...n.a.look, jacket: null, tie: null, badge: false, shirt: rng.pick(SHIRTS), pants: rng.pick(SHORTS) });
+      const summer = { shirt: rng.pick(SHIRTS), pants: rng.pick(SHORTS) };
+      if (n.a.look.skirt) Object.assign(summer, { skirt: rng.pick(SKIRTS), tights: null }); // a summer skirt, bare legs
+      n.a.setLook({ ...n.a.look, jacket: null, tie: null, badge: false, ...summer });
       n.a.who.role = 'Hotel guest';
     }
     if (this.receptionist) this.receptionist.who.role = 'Concierge';

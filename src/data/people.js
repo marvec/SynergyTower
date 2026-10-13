@@ -8,6 +8,16 @@ export const FIRST_NAMES = [
   'Martina', 'Jakub', 'Tereza', 'Ondrej', 'Klara', 'Vojta', 'Ayumi', 'Chidi', 'Marta', 'Ivo',
 ];
 
+// Whose figure wears a skirt (src/scenes/floorWorld.js npcLook). Names in neither list are gender-neutral: either figure.
+export const WOMEN_NAMES = [
+  'Priya', 'Olga', 'Aisha', 'Mei', 'Fatima', 'Chloe', 'Hana', 'Zara', 'Greta', 'Sofia', 'Linda', 'Brenda', 'Karen',
+  'Pam', 'Wendy', 'Nina', 'Ingrid', 'Elena', 'Lucia', 'Petra', 'Martina', 'Tereza', 'Klara', 'Ayumi', 'Marta',
+];
+export const MEN_NAMES = [
+  'Ken', 'Mateo', 'Lars', 'Tomas', 'Igor', 'Diego', 'Felix', 'Omar', 'Raj', 'Kofi', 'Gary', 'Kevin', 'Doug', 'Stan',
+  'Barry', 'Pavel', 'Yusuf', 'Bjorn', 'Arjun', 'Hugo', 'Jakub', 'Ondrej', 'Vojta', 'Ivo',
+];
+
 export const LAST_NAMES = [
   'Smith', 'Novak', 'Kowalski', 'Nguyen', 'Garcia', 'Okafor', 'Svoboda', 'Tanaka', 'Muller', 'Rossi',
   'Johansson', 'Patel', 'Ivanova', 'Dvorak', 'Kim', 'Haddad', 'Fischer', 'Silva', 'Horvat', 'Larsen',

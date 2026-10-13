@@ -17,7 +17,7 @@ import { FIRED_LINES, KEPT_LINES } from '../data/people.js';
 import { SPONSOR_PITCH, adPitch } from '../data/sponsors.js';
 import { openFeedback } from '../engine/feedback.js';
 import { track } from '../engine/analytics.js';
-import { FloorView, Actor, NpcBrain, npcLook, npcIdentity, posterContent } from './floorWorld.js';
+import { FloorView, Actor, NpcBrain, npcLook, npcIdentity, posterContent, suit } from './floorWorld.js';
 import { Hud, HUD_H } from './hud.js';
 import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, howToDialog, ReviewCard, hrNotice, FateDialog } from './overlays.js';
 import { TerminalScene } from './terminal.js';
@@ -78,11 +78,11 @@ export class FloorScene {
       });
     // The HR rep stands behind the review desk all day.
     const rep = this.fl.hrRep;
-    this.hrRep = rep ? new Actor({ ...npcLook(floor * 91 + 7, this.fl.dept), jacket: '#4a3a6a', tie: null, glasses: true }, rep.x + 0.5, rep.y + 0.75) : null;
+    this.hrRep = rep ? new Actor(suit(npcLook(floor * 91 + 7, this.fl.dept), '#4a3a6a', { glasses: true }), rep.x + 0.5, rep.y + 0.75) : null;
     if (this.hrRep) this.hrRep.who = { name: npcIdentity(floor * 91 + 7, 'legalhr').name, role: 'HR Business Partner' };
     // Ground floor: the receptionist behind the front desk runs the new hire's check-in (see S.passTurnstile).
     const rc = this.fl.receptionist;
-    this.receptionist = rc ? new Actor({ ...npcLook(RECEPTIONIST_SEED, 'lobby'), jacket: game.corpColor().color, tie: null }, rc.x + rc.w / 2, rc.y + 0.75) : null;
+    this.receptionist = rc ? new Actor(suit(npcLook(RECEPTIONIST_SEED, 'lobby'), game.corpColor().color), rc.x + rc.w / 2, rc.y + 0.75) : null;
     if (this.receptionist) this.receptionist.who = { name: npcIdentity(RECEPTIONIST_SEED, 'lobby').name, role: 'Reception' };
     this.nudgeT = 4;
     this.gateNag = 0;

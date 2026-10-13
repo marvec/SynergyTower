@@ -6,7 +6,7 @@ import { findPath } from '../core/pathfind.js';
 import { createRng } from '../core/rng.js';
 import { DEPARTMENTS } from '../data/departments.js';
 import { SKIN_TONES, HAIR_COLORS } from '../data/corpColors.js';
-import { FIRST_NAMES, LAST_NAMES, ROLES, FILE_NOTES } from '../data/people.js';
+import { FIRST_NAMES, LAST_NAMES, ROLES, FILE_NOTES, WOMEN_NAMES, MEN_NAMES } from '../data/people.js';
 import { POSTER_TEXT, FAKE_ADS } from '../data/sponsors.js';
 import { drawText, wrapText, measureText } from '../engine/font.js';
 import { C, rect } from '../engine/ui.js';
@@ -156,7 +156,7 @@ export function npcLook(seed, deptId) {
   const shirts = ['#d8dfe8', '#e8d8d8', '#d8e8dc', '#3b6fb6', '#b6973b', '#7a3bb6', '#555a66', '#b63b5a', '#2f8f7f'];
   const exec = deptId === 'exec';
   const it = deptId === 'it';
-  return {
+  const look = {
     skin: r.pick(SKIN_TONES),
     hair: r.pick(HAIR_COLORS),
     hairStyle: r.int(0, 3),
@@ -167,6 +167,25 @@ export function npcLook(seed, deptId) {
     shoes: '#1a1410',
     glasses: r.chance(0.3),
   };
+  // The figure follows the first name: a woman wears a skirt (a suit skirt with a jacket), mostly longer hair, no tie.
+  // Its own RNG, so everything above (and every man) looks as before.
+  const w = createRng(seed * 389 + 5);
+  const first = npcIdentity(seed, deptId).name.split(' ')[0];
+  const woman = WOMEN_NAMES.includes(first) || (!MEN_NAMES.includes(first) && w.chance(0.5));
+  if (woman) {
+    look.skirt = look.jacket || w.pick(['#7a3b4a', '#2f6f5f', '#8a8f9a', '#3a4f8a', '#b6973b', '#6a4a8a', '#a8483a']);
+    look.tights = w.chance(0.25) ? '#3a3040' : null; // mostly bare legs, so the skirt reads as one
+    look.tie = null;
+    if (w.chance(0.6)) look.hairStyle = 2;
+  }
+  return look;
+}
+
+/** A uniform or suit over a colleague's look: the jacket colour, a matching skirt for a woman, a tie only on a man. */
+export function suit(look, jacket, extra = {}) {
+  const out = { ...look, jacket, tie: null, ...extra };
+  if (look.skirt) Object.assign(out, { skirt: jacket, tie: null });
+  return out;
 }
 
 /** Visual kit: palette for furniture on this floor. */

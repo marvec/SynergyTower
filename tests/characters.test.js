@@ -1,0 +1,99 @@
+// Colleagues' figures follow their first names: women wear skirts, men trousers, gender-neutral names can be either.
+import { test, expect, afterAll } from 'bun:test';
+import { FIRST_NAMES, WOMEN_NAMES, MEN_NAMES } from '../src/data/people.js';
+
+/** A canvas that records the colour of every pixel filled, honouring translate/scale (enough for bakeCharacter). */
+function pixelCanvas(w = 16, h = 16) {
+  const px = new Map();
+  let t = { a: 1, e: 0, f: 0 };
+  const stack = [];
+  const ctx = {
+    fillStyle: '#000',
+    save: () => stack.push({ ...t }),
+    restore: () => (t = stack.pop()),
+    translate: (x, y) => ((t.e += x * t.a), (t.f += y)),
+    scale: (sx) => (t.a *= sx),
+    fillRect(x, y, fw, fh) {
+      for (let j = 0; j < fh; j++)
+        for (let i = 0; i < fw; i++) {
+          const X = t.e + t.a * (x + i) - (t.a < 0 ? 1 : 0);
+          px.set(`${X},${t.f + y + j}`, ctx.fillStyle);
+        }
+    },
+    drawImage() {},
+    clearRect() {},
+  };
+  const c = { width: w, height: h, style: {}, getContext: () => ctx, px };
+  return c;
+}
+const made = [];
+globalThis.document ??= {};
+const realCreate = globalThis.document.createElement;
+afterAll(() => (globalThis.document.createElement = realCreate)); // other test files share this global
+globalThis.document.createElement = () => {
+  const c = pixelCanvas();
+  made.push(c);
+  return c;
+};
+const { bakeCharacter, CHAR_W, CHAR_H } = await import('../src/engine/art.js');
+const { npcLook, npcIdentity, suit } = await import('../src/scenes/floorWorld.js');
+
+const first = (seed) => npcIdentity(seed, 'support').name.split(' ')[0];
+
+test('every first name is a woman\'s, a man\'s or gender-neutral, never two of those', () => {
+  for (const n of WOMEN_NAMES) expect(FIRST_NAMES).toContain(n);
+  for (const n of MEN_NAMES) expect(FIRST_NAMES).toContain(n);
+  expect(WOMEN_NAMES.filter((n) => MEN_NAMES.includes(n))).toEqual([]);
+  expect(WOMEN_NAMES).toContain('Karen');
+  expect(MEN_NAMES).toContain('Gary');
+  const neutral = FIRST_NAMES.filter((n) => !WOMEN_NAMES.includes(n) && !MEN_NAMES.includes(n));
+  expect(neutral).toContain('Alex');
+  expect(neutral.length).toBeLessThan(FIRST_NAMES.length / 4);
+});
+
+test('colleagues with women\'s names wear skirts (no tie), men trousers; neutral names can be either', () => {
+  const neutral = { skirt: 0, trousers: 0 };
+  for (let seed = 1; seed < 600; seed++) {
+    const look = npcLook(seed, 'support');
+    const name = first(seed);
+    if (WOMEN_NAMES.includes(name)) {
+      expect(look.skirt, name).toBeTruthy();
+      expect(look.tie).toBeNull();
+    } else if (MEN_NAMES.includes(name)) expect(look.skirt, name).toBeFalsy();
+    else neutral[look.skirt ? 'skirt' : 'trousers']++;
+    expect(npcLook(seed, 'support')).toEqual(look); // the same person every time
+  }
+  expect(neutral.skirt).toBeGreaterThan(5);
+  expect(neutral.trousers).toBeGreaterThan(5);
+});
+
+test('a woman figure is drawn with a flared skirt and no trousers, in every direction', () => {
+  const look = { skin: '#f1c7a0', hair: '#3a2a1a', hairStyle: 2, shirt: '#d8dfe8', pants: '#123456', skirt: '#a83a5a', tie: null, jacket: null, shoes: '#1a1410' };
+  made.length = 0;
+  bakeCharacter(look);
+  const sheet = made[0].px;
+  for (let row = 0; row < 4; row++) {
+    for (let f = 0; f < 3; f++) {
+      const at = (x, y) => sheet.get(`${f * CHAR_W + x},${row * CHAR_H + y}`);
+      const colours = [];
+      for (let y = 0; y < CHAR_H; y++) for (let x = 0; x < CHAR_W; x++) colours.push(at(x, y));
+      expect(colours).toContain('#a83a5a');
+      expect(colours).not.toContain('#123456');
+      const width = (y) => [...Array(CHAR_W).keys()].filter((x) => at(x, y) === '#a83a5a').length;
+      const rows = [...Array(CHAR_H).keys()].filter((y) => width(y) > 0);
+      expect(width(rows.at(-1)), `row ${row} frame ${f}`).toBeGreaterThan(width(rows[0])); // wider at the hem
+    }
+  }
+  // A man keeps his trousers.
+  made.length = 0;
+  bakeCharacter({ ...look, skirt: null });
+  expect([...made[0].px.values()]).toContain('#123456');
+});
+
+test('a suit or uniform (auditor, HR, reception) gives a woman a matching skirt and never a tie', () => {
+  const her = { ...npcLook(1, 'finance'), skirt: '#7a3b4a', tie: null };
+  const him = { ...npcLook(1, 'finance'), skirt: undefined };
+  expect(suit(her, '#22242e', { tie: '#5a5f70' })).toMatchObject({ jacket: '#22242e', skirt: '#22242e', tie: null });
+  expect(suit(him, '#22242e', { tie: '#5a5f70' })).toMatchObject({ jacket: '#22242e', tie: '#5a5f70' });
+  expect(suit(him, '#22242e').skirt).toBeUndefined();
+});

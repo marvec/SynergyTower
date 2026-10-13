@@ -38,7 +38,9 @@ function P(g) {
 // ---------------------------------------------------------------- characters
 /**
  * Character sheet: 4 directions (down, up, left, right) × 3 frames (stand, stepA, stepB).
- * look: { skin, hair, hairStyle 0-3, shirt, pants, tie|null, jacket|null, shoes }
+ * look: { skin, hair, hairStyle 0-3, shirt, pants, tie|null, jacket|null, shoes, skirt?, tights? }
+ * With `skirt` (a colour) the figure is a woman's: a narrower waist, a knee-length flared skirt, then tights (or bare
+ * legs) and shoes.
  */
 export function bakeCharacter(look) {
   const [c, g] = makeCanvas(CHAR_W * 3, CHAR_H * 4);
@@ -66,19 +68,44 @@ function drawCharFrame(g, L, dir, f) {
   const bob = f === 0 ? 0 : 1;
   const body = L.jacket || L.shirt;
   const y0 = 1 + bob * 0; // head top
+  const S = L.skirt;
+  const legs = L.tights || L.skin;
   if (dir === 'down' || dir === 'up') {
-    // legs
-    r(5, 15 + legA, 3, 6 - legA, O);
-    r(8, 15 + legB, 3, 6 - legB, O);
-    r(6, 15 + legA, 1, 4, L.pants);
-    r(9, 15 + legB, 1, 4, L.pants);
-    r(5, 15, 6, 2, L.pants);
-    r(5, 19 + legA, 3, 2, L.shoes);
-    r(8, 19 + legB, 3, 2, L.shoes);
-    // torso
-    r(3, 8, 10, 9, O);
-    r(4, 9, 8, 7, body);
-    r(4, 9, 8, 1, shade(body, 0.2));
+    if (S) {
+      // legs below the skirt
+      r(5, 17 + legA, 3, 4 - legA, O);
+      r(8, 17 + legB, 3, 4 - legB, O);
+      r(6, 17 + legA, 1, 2, legs);
+      r(9, 17 + legB, 1, 2, legs);
+      r(5, 19 + legA, 3, 2, L.shoes);
+      r(8, 19 + legB, 3, 2, L.shoes);
+      // torso, narrowing to the waist
+      r(3, 8, 10, 5, O);
+      r(4, 13, 8, 1, O);
+      r(4, 9, 8, 4, body);
+      r(5, 13, 6, 1, body);
+      r(4, 9, 8, 1, shade(body, 0.2));
+      // the skirt flares from the waistband to just above the knee, so a strip of leg shows above the shoes
+      r(4, 14, 8, 1, O);
+      r(3, 15, 10, 1, O);
+      r(2, 16, 12, 2, O);
+      r(5, 14, 6, 1, shade(S, -0.2));
+      r(4, 15, 8, 1, S);
+      r(3, 16, 10, 1, S);
+    } else {
+      // legs
+      r(5, 15 + legA, 3, 6 - legA, O);
+      r(8, 15 + legB, 3, 6 - legB, O);
+      r(6, 15 + legA, 1, 4, L.pants);
+      r(9, 15 + legB, 1, 4, L.pants);
+      r(5, 15, 6, 2, L.pants);
+      r(5, 19 + legA, 3, 2, L.shoes);
+      r(8, 19 + legB, 3, 2, L.shoes);
+      // torso
+      r(3, 8, 10, 9, O);
+      r(4, 9, 8, 7, body);
+      r(4, 9, 8, 1, shade(body, 0.2));
+    }
     // arms swing
     const aL = f === 1 ? 1 : f === 2 ? -1 : 0;
     r(2, 9 + aL, 2, 6, O);
@@ -118,16 +145,34 @@ function drawCharFrame(g, L, dir, f) {
     }
   } else {
     // left profile
-    r(6, 15 + legA, 3, 6 - legA, O);
-    r(8, 15 + legB, 3, 6 - legB, O);
-    r(7, 15 + legA, 1, 4, shade(L.pants, -0.15));
-    r(9, 15 + legB, 1, 4, L.pants);
-    r(6, 15, 4, 2, L.pants);
-    r(5, 19 + legA, 4, 2, L.shoes);
-    r(7, 19 + legB, 4, 2, L.shoes);
-    r(5, 8, 7, 9, O);
-    r(6, 9, 5, 7, body);
-    r(6, 9, 5, 1, shade(body, 0.2));
+    if (S) {
+      r(6, 17 + legA, 3, 4 - legA, O);
+      r(8, 17 + legB, 3, 4 - legB, O);
+      r(7, 17 + legA, 1, 2, shade(legs, -0.15));
+      r(9, 17 + legB, 1, 2, legs);
+      r(5, 19 + legA, 4, 2, L.shoes);
+      r(7, 19 + legB, 4, 2, L.shoes);
+      r(5, 8, 7, 6, O);
+      r(6, 9, 5, 5, body);
+      r(6, 9, 5, 1, shade(body, 0.2));
+      r(5, 14, 7, 1, O);
+      r(4, 15, 9, 1, O);
+      r(3, 16, 11, 2, O);
+      r(6, 14, 5, 1, shade(S, -0.2));
+      r(5, 15, 7, 1, S);
+      r(4, 16, 9, 1, S);
+    } else {
+      r(6, 15 + legA, 3, 6 - legA, O);
+      r(8, 15 + legB, 3, 6 - legB, O);
+      r(7, 15 + legA, 1, 4, shade(L.pants, -0.15));
+      r(9, 15 + legB, 1, 4, L.pants);
+      r(6, 15, 4, 2, L.pants);
+      r(5, 19 + legA, 4, 2, L.shoes);
+      r(7, 19 + legB, 4, 2, L.shoes);
+      r(5, 8, 7, 9, O);
+      r(6, 9, 5, 7, body);
+      r(6, 9, 5, 1, shade(body, 0.2));
+    }
     if (L.tie) r(6, 10, 1, 3, L.tie);
     const sw = f === 1 ? -2 : f === 2 ? 2 : 0;
     r(7 + sw, 9, 3, 7, O);
