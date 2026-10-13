@@ -111,7 +111,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - Retention features (spec `docs/superpowers/specs/2026-10-12-retention-features-design.md`), each a pure core module
   plus scene code:
   - **Daily stand-up** (`src/core/daily.js`, `state.daily`): once per local day, after check-in, a colleague on the current
-    floor (picked by day + floor) has a blue bubble; the favour is a free tier-1 game in `MinigameScene` `mode: 'standup'`
+    floor (picked by day + floor, never the trip or vacation colleague) has a blue bubble; the favour is a free tier-1 game in `MinigameScene` `mode: 'standup'`
     (no KPI stars, no cooldown) paying double paperclips, +1 coffee and a Stock Option chance (sure on every 7th day in a row).
   - **Office events** (`src/core/events.js` rules, `src/scenes/officeEvent.js` run by the FloorScene like a quest): fire
     drill, printer meltdown, cake, surprise audit. `state.events.nextAt` spaces them 6-10 min apart, 40 s on a floor
@@ -180,7 +180,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - `__step(frames)`: advance the loop manually (rAF pauses in background tabs).
 - `__mg('spreadsheet', 0.7)`: launch any mini-game at a given difficulty (needs a loaded career). Dev server only.
 - `__trip()` / `__trip(30)` / `__trip('client')`: the business trip again (resets it), or straight into the client's office.
-- `__vacation()`: floor 20 with enough paperclips and the leave request open; `__vacation('hotel')` goes straight to the hotel.
+- `__vacation()`: floor 20 with the leave request open, free (no paperclips) and repeatable (resets today's holiday);
+  `__vacation('hotel')` goes straight to the hotel, also free.
   Dev server only: it lives in `src/debug.js`, which `main.js` imports unless `__DEV__` is false; the production build
   defines it so (`scripts/buildConfig.js`, checked by `tests/devOnly.test.js`). Put new cheat-like helpers there too.
 - In game: the `>_` desk on every floor opens the terminal; `systemctl isolate levelXX.target` jumps to floor XX.

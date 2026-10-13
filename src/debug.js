@@ -41,8 +41,8 @@ export function installDebug(game) {
   };
 
   /**
-   * Debug: the vacation again. __vacation() rides to floor 20 with enough paperclips and opens your manager's leave
-   * request; __vacation('hotel') goes straight to the hotel (free).
+   * Debug: the vacation again, as often as you like and always free (no paperclips). __vacation() goes to floor 20 and
+   * opens your manager's leave request; __vacation('hotel') goes straight to the hotel. A stay under way is dropped.
    */
   window.__vacation = async (mode) => {
     const s = game.state;
@@ -51,19 +51,17 @@ export function installDebug(game) {
     s.maxFloor = Math.max(s.maxFloor, E.VACATION_FLOOR);
     s.floor = E.VACATION_FLOOR;
     if (mode === 'hotel') {
-      s.sp += E.VACATION_COST;
-      V.requestVacation(s, E.VACATION_FLOOR, game.now());
+      V.requestVacation(s, E.VACATION_FLOOR, game.now(), 0);
       game.saveNow();
       const { HotelScene } = await import('./scenes/hotel.js');
       game.set(new HotelScene(game));
       return 'hotel';
     }
-    s.sp = Math.max(s.sp, E.VACATION_COST);
     game.saveNow();
     const { FloorScene } = await import('./scenes/floorScene.js');
     const fs = new FloorScene(game, E.VACATION_FLOOR);
     game.set(fs);
-    if (fs.bossNpc) fs.askVacation(fs.bossNpc);
+    if (fs.bossNpc) fs.askVacation(fs.bossNpc, 0);
     return 'floor 20: leave request';
   };
 }

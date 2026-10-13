@@ -10,12 +10,15 @@ export function vacationStatus(s, floor, now) {
   return s.vacations?.day === dayKey(now) ? 'today' : 'available';
 }
 
-/** Pays and starts the stay. { ok } or { ok: false, reason: 'sp', missing } / { ok: false, reason: <status> }. */
-export function requestVacation(s, floor, now) {
+/**
+ * Pays and starts the stay. { ok } or { ok: false, reason: 'sp', missing } / { ok: false, reason: <status> }.
+ * `cost` is only ever 0 for the dev console's __vacation().
+ */
+export function requestVacation(s, floor, now, cost = E.VACATION_COST) {
   const st = vacationStatus(s, floor, now);
   if (st !== 'available') return { ok: false, reason: st };
-  if (s.sp < E.VACATION_COST) return { ok: false, reason: 'sp', missing: E.VACATION_COST - s.sp };
-  s.sp -= E.VACATION_COST;
+  if (s.sp < cost) return { ok: false, reason: 'sp', missing: cost - s.sp };
+  s.sp -= cost;
   s.vacations = { day: dayKey(now), count: (s.vacations?.count || 0) + 1 };
   s.vacation = { endsAt: now + E.VACATION_S * 1000, done: {}, coffee: 0 };
   return { ok: true };

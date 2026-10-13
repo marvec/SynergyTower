@@ -170,3 +170,55 @@ test('the hotel is a foreign floor: no stand-up, events, firing or boss offers t
   hotel.interact({ kind: 'npc', n: hotel.npcs[0] });
   expect(game.top).toBe(hotel); // no Fire/Keep dialog for hotel guests
 });
+
+test('__vacation() works again and again and never costs paperclips', async () => {
+  globalThis.window ??= globalThis;
+  const { installDebug } = await import('../src/debug.js');
+  const game = career(1234, 5);
+  installDebug(game);
+  for (let i = 0; i < 3; i++) {
+    expect(await window.__vacation()).toContain('leave request');
+    expect(game.state.floor).toBe(20);
+    expect(game.top).toBeInstanceOf(Dialog);
+    await tick(game, 1);
+    const go = game.top.buttons.items[0];
+    expect(go.label).toContain('free');
+    expect(go.disabled).toBe(false);
+    go.onClick();
+    await tick(game);
+    expect(game.top).toBeInstanceOf(HotelScene);
+    expect(game.state.sp).toBe(1234);
+    V.completeActivity(game.state, 'swim', 1);
+  }
+  for (let i = 0; i < 2; i++) {
+    expect(await window.__vacation('hotel')).toBe('hotel');
+    await tick(game);
+    expect(game.top).toBeInstanceOf(HotelScene);
+    expect(game.state.vacation.done).toEqual({}); // a fresh stay
+    expect(game.state.sp).toBe(1234);
+  }
+  // Even broke, the debug leave request is on the house; "Not now" leaves the paperclips alone too.
+  game.state.sp = 0;
+  await window.__vacation();
+  await tick(game, 1);
+  expect(game.top.buttons.items[0].disabled).toBe(false);
+  game.pop();
+  expect(game.state.sp).toBe(0);
+});
+
+test('the stand-up favour never lands on your manager or the account manager (their offers would hide it)', () => {
+  const game = career(0);
+  const base = Date.now();
+  for (const floor of [10, 20, 30]) {
+    const fs = new FloorScene(game, floor);
+    const special = fs.bossNpc || fs.tripNpc;
+    expect(special).toBeTruthy();
+    for (let d = 0; d < 60; d++) {
+      game.now = () => base + d * 86400000;
+      fs.standupNpc = null;
+      fs.refreshStandup();
+      expect(fs.standupNpc).toBeTruthy();
+      expect(fs.standupNpc).not.toBe(special);
+    }
+  }
+});

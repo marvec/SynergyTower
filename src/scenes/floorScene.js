@@ -408,13 +408,13 @@ export class FloorScene {
     game.set(new DriveScene(game, this.floorNo));
   }
 
-  /** Your manager on floor 20 signs a leave request: a stay at the hotel for paperclips, once a day. */
-  askVacation(n) {
+  /** Your manager on floor 20 signs a leave request: a stay at the hotel for paperclips, once a day. `cost` 0 is __vacation(). */
+  askVacation(n, cost = E.VACATION_COST) {
     const game = this.game;
     const s = game.state;
     n.brain.talkPause = 6;
     game.sfx('blip');
-    const missing = E.VACATION_COST - s.sp;
+    const missing = cost - s.sp;
     const text = VACATION_OFFER(formatNum(E.VACATION_COST)) + (missing > 0 ? `\nYou are ${formatNum(missing)} paperclips short.` : '');
     game.push(
       new Dialog(game, {
@@ -422,15 +422,15 @@ export class FloorScene {
         w: 330,
         text,
         button: 'Not now',
-        action: { label: `Go on vacation (${formatNum(E.VACATION_COST)})`, disabled: missing > 0, onClick: () => this.startVacation() },
+        action: { label: `Go on vacation (${cost ? formatNum(cost) : 'free'})`, disabled: missing > 0, onClick: () => this.startVacation(cost) },
       }),
     );
   }
 
-  async startVacation() {
+  async startVacation(cost = E.VACATION_COST) {
     const game = this.game;
     if (this.quest || this.event) return game.toast('Finish what you are doing first.', C.warn);
-    if (!L.requestVacation(game.state, this.floorNo, game.now()).ok) return;
+    if (!L.requestVacation(game.state, this.floorNo, game.now(), cost).ok) return;
     track('vacation_start', { floor: this.floorNo });
     game.sfx('cash');
     game.saveNow();
@@ -504,7 +504,8 @@ export class FloorScene {
     }
     const day = D.dayKey(now);
     if (this.standupNpc && this.standupDay === day && !this.standupNpc.brain.exit) return;
-    const pool = this.npcs.filter((n) => !n.brain.exit);
+    // Not the account manager or your manager: their trip / leave offer would hide the favour.
+    const pool = this.npcs.filter((n) => !n.brain.exit && n !== this.tripNpc && n !== this.bossNpc);
     let h = this.floorNo;
     for (const ch of day) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     this.standupNpc = pool.length ? createRng(h).pick(pool) : null;
