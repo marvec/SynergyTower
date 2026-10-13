@@ -51,7 +51,7 @@ export const TRIP_AFTER = {
 };
 
 /** The drive. */
-export const DRIVE_HELP = 'Up or Space: accelerate. Down: brake. Left/Right: steer. Mouse or touch: hold to drive, the car steers towards the pointer.';
+export const DRIVE_HELP = 'Up or Space: accelerate. Down: brake. Left/Right: steer. Mouse or touch: hold to drive, the car steers towards the pointer. Radio: T or click it for the next station, M switches it off.';
 /** Called out after a crash the car survives (the damage gauge goes up a notch). */
 export const DENT_LINES = [
   'THAT WILL BUFF OUT',

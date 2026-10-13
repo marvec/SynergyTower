@@ -19,31 +19,50 @@ const chordTone = (ch, i, baseOct) => {
   return 12 * (baseOct + 1) + ch.root + ch.intervals[i % n] + 12 * Math.floor(i / n);
 };
 
+/** A bar of note tokens ('C5', '-' hold, '.' rest) as events on channel `ch`, `shift` semitones up. */
+function lineEvents(events, line, o, ch, vol, shift = 0) {
+  const toks = (line || '').split(/\s+/).filter(Boolean);
+  toks.forEach((tok, s) => {
+    const midi = noteToMidi(tok);
+    if (midi == null) return;
+    let len = 1;
+    while (toks[s + len] === '-') len++;
+    events.push({ step: o + s, ch, midi: midi + shift, len, vol });
+  });
+}
+const perBar = (v, bar) => (Array.isArray(v) ? v[bar % v.length] : v);
+
 /** Compiles a song definition into step events. Pure; exported for tests. */
 export function compileSong(song) {
   const events = [];
   const bars = song.chords.length;
   song.chords.forEach((name, bar) => {
-    const ch = parseChord(name);
+    const ch = name === 'N' ? null : parseChord(name); // 'N': no harmony this bar
     const o = bar * 16;
-    if (song.bass) song.bass.steps.forEach((s, i) => events.push({ step: o + s, ch: 'bass', midi: chordTone(ch, song.bass.tones[i], 2), len: song.bass.len, vol: 0.16 }));
-    if (song.arp) song.arp.steps.forEach((s, i) => events.push({ step: o + s, ch: 'arp', midi: chordTone(ch, song.arp.tones[i], 4), len: 1, vol: song.arp.vol }));
-    if (song.comp)
-      song.comp.steps.forEach((s) =>
-        ch.intervals.forEach((_, i) => events.push({ step: o + s, ch: 'comp', midi: chordTone(ch, i, 4), len: song.comp.len, vol: song.comp.vol })),
-      );
-    if (song.drums)
-      [...song.drums].forEach((d, s) => {
+    if (song.bassLine) lineEvents(events, song.bassLine[bar], o, 'bass', song.bassVol ?? 0.16);
+    else if (song.bass && ch) song.bass.steps.forEach((s, i) => events.push({ step: o + s, ch: 'bass', midi: chordTone(ch, song.bass.tones[i], 2), len: song.bass.len, vol: song.bassVol ?? 0.16 }));
+    if (song.arp && ch) song.arp.steps.forEach((s, i) => events.push({ step: o + s, ch: 'arp', midi: chordTone(ch, song.arp.tones[i], 4), len: 1, vol: song.arp.vol }));
+    if (song.comp && ch) {
+      const hit = (s, len) => ch.intervals.forEach((_, i) => events.push({ step: o + s, ch: 'comp', midi: chordTone(ch, i, 4), len, vol: song.comp.vol }));
+      if (song.comp.pattern) {
+        // The chord's rhythm for this bar: 'x' strikes, '-' holds, '.' rests.
+        const p = perBar(song.comp.pattern, bar);
+        [...p].forEach((c, s) => {
+          if (c !== 'x') return;
+          let len = 1;
+          while (p[s + len] === '-') len++;
+          hit(s, len);
+        });
+      } else song.comp.steps.forEach((s) => hit(s, song.comp.len));
+    }
+    const drums = perBar(song.drums, bar);
+    if (drums)
+      [...drums].forEach((d, s) => {
         if (d !== '.') events.push({ step: o + s, ch: 'drum', drum: d });
       });
-    const mel = (song.melody[bar] || '').split(/\s+/).filter(Boolean);
-    mel.forEach((tok, s) => {
-      const midi = noteToMidi(tok);
-      if (midi == null) return;
-      let len = 1;
-      while (mel[s + len] === '-') len++;
-      events.push({ step: o + s, ch: 'lead', midi, len, vol: song.leadVol });
-    });
+    lineEvents(events, song.melody[bar], o, 'lead', song.leadVol);
+    // An octave-doubled lead: the same line `leadDouble` semitones away, softer.
+    if (song.leadDouble) lineEvents(events, song.melody[bar], o, 'lead', song.leadVol * 0.5, song.leadDouble);
   });
   events.sort((a, b) => a.step - b.step);
   return { events, steps: bars * 16 };
@@ -128,7 +147,7 @@ export function createAudio() {
     if (ev.ch === 'drum') return drum(ev.drum, t);
     const f = midiToFreq(ev.midi);
     const dur = ev.len * stepDur * 0.95;
-    if (ev.ch === 'bass') osc('triangle', f, t, dur, ev.vol, musicGain, { release: 0.04 });
+    if (ev.ch === 'bass') osc(song.bassWave || 'triangle', f, t, dur, ev.vol, musicGain, { release: 0.04 });
     else if (ev.ch === 'lead') osc(song.lead, f, t, dur, ev.vol, musicGain, { attack: 0.01, release: Math.min(0.12, dur / 2) });
     else if (ev.ch === 'arp') osc('pulse25', f, t, dur, ev.vol, musicGain, { release: 0.03 });
     else if (ev.ch === 'comp') osc('triangle', f, t, dur, ev.vol * 1.4, musicGain, { attack: 0.01, release: 0.08 });
@@ -159,8 +178,68 @@ export function createAudio() {
     }
   }
 
+  // The business-trip car is electric: a soft motor tone, a faint inverter whine that rises with speed and a little tyre
+  // noise. Continuous nodes on the SFX bus (so the sound setting mutes it), retuned by hum(level).
+  let hum = null;
+  function startHum() {
+    const out = ctx.createGain();
+    out.gain.value = 0;
+    out.connect(sfxGain);
+    const tone = (type, freq, vol) => {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.value = freq;
+      const gn = ctx.createGain();
+      gn.gain.value = vol;
+      o.connect(gn).connect(out);
+      o.start();
+      return { o, gn };
+    };
+    const motor = tone('sine', 70, 0.05);
+    const motor2 = tone('sine', 141, 0.012); // a slightly sharp octave beats gently against the motor
+    const whine = tone('sine', 300, 0);
+    const road = ctx.createBufferSource();
+    road.buffer = noiseBuf;
+    road.loop = true;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 420;
+    const roadGain = ctx.createGain();
+    roadGain.gain.value = 0;
+    road.connect(lp).connect(roadGain).connect(out);
+    road.start();
+    out.gain.setTargetAtTime(1, ctx.currentTime, 0.15);
+    return {
+      out, motor, motor2, whine, roadGain,
+      stop() {
+        for (const n of [motor.o, motor2.o, whine.o, road]) n.stop();
+        out.disconnect();
+      },
+    };
+  }
+
   const compiledCache = {};
   const api = {
+    /** The electric car's hum at `level` 0 (standing) .. 1 (top speed); null stops it. */
+    hum(level) {
+      if (!ctx) return;
+      const t = ctx.currentTime;
+      if (level == null) {
+        if (!hum) return;
+        const h = hum;
+        hum = null;
+        h.out.gain.setTargetAtTime(0, t, 0.08);
+        setTimeout(() => h.stop(), 600);
+        return;
+      }
+      hum ||= startHum();
+      const k = Math.max(0, Math.min(1, level));
+      hum.motor.o.frequency.setTargetAtTime(70 + 45 * k, t, 0.12);
+      hum.motor2.o.frequency.setTargetAtTime(141 + 92 * k, t, 0.12);
+      hum.whine.o.frequency.setTargetAtTime(280 + 820 * k, t, 0.12);
+      hum.whine.gn.gain.setTargetAtTime(0.003 + 0.012 * k, t, 0.12);
+      hum.roadGain.gain.setTargetAtTime(0.02 * k + 0.05 * k * k, t, 0.12);
+    },
     unlock() {
       if (!ensure()) return;
       if (ctx.state === 'suspended') ctx.resume();

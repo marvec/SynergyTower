@@ -10,6 +10,7 @@ import { buildTrack, createDrive, SEG, MAX_SPEED, KMH, STAGES, SPRITES, CHECKPOI
 import * as T from '../core/trip.js';
 import { CLIENTS, DRIVE_HELP, CRASH_LINES, DENT_LINES, LAST_DENT, LATE_LINES, ARRIVE_LINES, ROAD_SIGNS } from '../data/trip.js';
 import { STAGE_LOOK, RAIL, playerCar, trafficCar, roadside, bannerText, backdrop } from './driveArt.js';
+import { RADIO } from '../data/radio.js';
 
 const ROAD_W = 2000; // world units from the centre line to the road edge (core x = 1)
 const PLAYER_Z = 6 * SEG; // the camera sits this far behind the car
@@ -25,7 +26,7 @@ const RAIL_POST_W = 60;
 const BILLBOARDS = ['SYNERGY', 'KPI COLA', 'LEVERAGE', 'BUY BONDS', 'PIVOT NOW'];
 
 export class DriveScene {
-  capturesKeys = true; // no global hotkeys (M) while driving
+  capturesKeys = true; // the scene handles M itself: it switches the car radio off (the music setting)
 
   /** floor: the trip floor (10 or 30); the client and the track come from it. */
   constructor(game, floor) {
@@ -46,17 +47,70 @@ export class DriveScene {
     this.particles = [];
     this.result = null; // 'crashed' | 'late' | 'quit' | 'arrived'
     this.line = '';
+    this.radioT = 0; // seconds since the last station change (the station name scrolls in)
+    this.humLevel = undefined;
     this.buildBrief();
   }
 
   enter() {
-    this.game.audio.play('drive');
+    this.game.audio.play(this.station.song);
+  }
+  exit() {
+    this.game.audio.hum?.(null);
+  }
+
+  // ------------------------------------------------------------------ radio
+  get station() {
+    return RADIO[(this.game.state.settings.radio ?? 0) % RADIO.length];
+  }
+  /** The radio is the music setting: off means no music at all (M), here and back in the office. */
+  get radioOn() {
+    return this.game.state.settings.music !== false;
+  }
+  radioRect() {
+    return { x: 4, y: H - 30, w: 118, h: 26 };
+  }
+  onRadio(p) {
+    const r = this.radioRect();
+    return p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
+  }
+  setRadio(on) {
+    const s = this.game.state.settings;
+    s.music = on;
+    this.game.audio.setMusic(on);
+    this.game.markDirty();
+  }
+  /** T or a click: the next station, or just switch it back on when it is off. */
+  tune() {
+    const s = this.game.state.settings;
+    if (!this.radioOn) return this.setRadio(true);
+    s.radio = ((s.radio ?? 0) + 1) % RADIO.length;
+    this.radioT = 0;
+    this.game.markDirty();
+    this.game.audio.play(this.station.song);
+  }
+  updateRadio(input) {
+    if (input.pressedExact('m')) this.setRadio(!this.radioOn);
+    if (input.pressedExact('t')) this.tune();
+    if (input.pointer.clicked && this.onRadio(input.pointer)) {
+      input.consumeClick();
+      this.game.sfx('click');
+      this.tune();
+    }
+  }
+  /** The electric motor: a gentle hum that rises with the speed, from the start lights until the car is parked or wrecked. */
+  updateHum() {
+    const running = this.phase !== 'brief' && this.result !== 'crashed';
+    const level = running ? Math.round((this.drive.speed / MAX_SPEED) * 100) / 100 : null;
+    if (level === this.humLevel) return;
+    this.humLevel = level;
+    this.game.audio.hum?.(level);
   }
 
   // ------------------------------------------------------------------ flow
   buildBrief() {
     this.buttons.clear();
-    this.buttons.add({ x: W / 2 - 70, y: H / 2 + 34, w: 140, h: 20, label: 'Start the engine', color: C.goodBtn, onClick: () => this.startLights() });
+    this.buttons.add({ x: W / 2 - 70, y: H / 2 + 46, w: 140, h: 20, label: 'Start the engine', color: C.goodBtn, onClick: () => this.startLights() });
   }
   startLights() {
     this.buttons.clear();
@@ -88,7 +142,7 @@ export class DriveScene {
       game.saveNow();
       this.line = pick(ARRIVE_LINES);
       game.sfx('levelup');
-      game.audio.play('fanfare', 'drive');
+      game.audio.play('fanfare', this.station.song);
     } else {
       this.line = pick(result === 'crashed' ? CRASH_LINES : result === 'late' ? LATE_LINES : ['You turn the car around. The client will not be told why.']);
       game.sfx(result === 'crashed' ? 'crash' : 'fail');
@@ -133,8 +187,8 @@ export class DriveScene {
     let steer = (input.down('ArrowRight') ? 1 : 0) - (input.down('ArrowLeft') ? 1 : 0);
     let accel = input.down('ArrowUp') || input.down('Space');
     const brake = input.down('ArrowDown');
-    // Mouse / touch: hold to drive, the car steers towards the pointer.
-    if (p.down && p.y > 24) {
+    // Mouse / touch: hold to drive, the car steers towards the pointer (not when pressing the radio).
+    if (p.down && p.y > 24 && !this.onRadio(p)) {
       accel = true;
       steer = Math.max(-1, Math.min(1, (p.x - W / 2) / 70));
     }
@@ -152,6 +206,9 @@ export class DriveScene {
       if (this.message.t <= 0) this.message = null;
     }
     this.updateParticles(dt);
+    this.updateRadio(input);
+    this.radioT += dt;
+    this.updateHum();
 
     if (this.phase === 'brief' || this.phase === 'result') {
       this.buttons.update(input, (n) => this.game.sfx(n));
@@ -491,6 +548,39 @@ export class DriveScene {
     rect(g, bx + Math.round(bw * d.progress) - 2, by - 1, 4, 6, '#c8242c');
     drawText(g, this.client.short.toUpperCase(), bx + bw + 4, by - 1, { color: C.dim, shadow: C.border });
     if (this.phase === 'drive' && this.time < 8) drawText(g, 'Esc: pause', W - 4, H - 10, { align: 'right', color: 'rgba(255,255,255,0.5)' });
+    this.drawRadio(g);
+  }
+
+  /** The car radio, bottom left: power knob, the station display with a level meter, tuning knob. */
+  drawRadio(g) {
+    const r = this.radioRect();
+    const on = this.radioOn;
+    const lcd = on ? '#9cf06a' : '#4a4e5a';
+    rect(g, r.x, r.y, r.w, r.h, '#0d0f18');
+    rect(g, r.x + 1, r.y + 1, r.w - 2, r.h - 2, '#262a36');
+    rect(g, r.x + 1, r.y + 1, r.w - 2, 1, '#3c4152');
+    for (const kx of [r.x + 5, r.x + r.w - 15]) {
+      rect(g, kx, r.y + 8, 10, 10, '#0d0f18');
+      rect(g, kx + 1, r.y + 9, 8, 8, '#4a4f60');
+      rect(g, kx + 4, r.y + 9, 2, 4, '#c8ccd4');
+    }
+    rect(g, r.x + 9, r.y + 4, 2, 2, on ? C.good : C.bad); // power light
+    const lx = r.x + 19;
+    const lw = r.w - 38;
+    rect(g, lx, r.y + 4, lw, r.h - 8, on ? '#16240f' : '#12141a');
+    if (!on) drawText(g, 'RADIO OFF', lx + lw / 2, r.y + 10, { align: 'center', color: lcd });
+    else if (this.radioT < 0.35) {
+      for (let k = 0; k < 14; k++) rect(g, lx + 2 + ((k * 37 + Math.floor(this.time * 60) * 11) % (lw - 4)), r.y + 6 + ((k * 7) % 13), 2, 1, lcd);
+    } else {
+      const st = this.station;
+      drawText(g, `FM ${st.freq}`, lx + 3, r.y + 6, { color: lcd });
+      drawText(g, st.title.toUpperCase(), lx + 3, r.y + 13, { color: lcd });
+      for (let k = 0; k < 3; k++) {
+        const h = 2 + Math.floor((Math.sin(this.time * (7 + k * 3) + k * 2) * 0.5 + 0.5) * 9);
+        rect(g, lx + lw - 12 + k * 4, r.y + r.h - 6 - h, 3, h, lcd);
+      }
+    }
+    if (this.phase === 'drive' && this.time < 8) drawText(g, 'T: next station  M: radio off', r.x, r.y - 9, { color: 'rgba(255,255,255,0.5)' });
   }
 
   drawMessage(g) {
@@ -503,8 +593,8 @@ export class DriveScene {
   drawBrief(g) {
     dim(g, 0.55);
     const x = W / 2 - 150;
-    const y = H / 2 - 70;
-    panel(g, x, y, 300, 132, { title: `Business trip · ${this.client.name}` });
+    const y = H / 2 - 78;
+    panel(g, x, y, 300, 152, { title: `Business trip · ${this.client.name}` });
     const warn = wrapText(`Crashes at speed dent the car (DMG). The ${ordinal(WRECK_AT)} one wrecks it, and the deal with it.`, 276);
     const lines = [
       ...wrapText('Drive to the client before the clock runs out: each checkpoint adds time. Overtake the traffic and keep off the verge.', 276),

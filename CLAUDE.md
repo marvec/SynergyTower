@@ -72,7 +72,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 ## Conventions & gotchas
 
 - **No external assets.** Art is drawn in code, music and SFX are synthesized with WebAudio (`src/data/music.js` tracker
-  format). This is what makes the game offline-friendly and easy to port.
+  format; covers can use per-bar `bassLine`/`drums`/`comp.pattern`, `leadDouble`, chord `N`, see the header there). This is what makes the game offline-friendly and easy to port.
 - **Text uses the bitmap font** (`src/engine/font.js`). Any new non-ASCII character in a string needs a glyph;
   `tests/font.test.js` fails otherwise. Text is ~5 px per char at scale 1, so check that strings fit.
 - `input.down/pressed('ArrowUp')` also match WASD. Use `pressedExact` for letter hotkeys.
@@ -144,7 +144,10 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   30 the first colleague (`fl.npcs[0]`, `FloorScene.tripNpc`, "Account Manager") teases and offers a one-time trip
   (`state.trips[floor]`: `'missed'` as soon as the car leaves, `'done'` on arrival). `DriveScene` is a Lotus III-style
   pseudo-3D drive (~3 min, checkpoint clock; a crash dents the car and spins it out, the 5th (`WRECK_AT`) wrecks it; wreck or time-out = missed) over the pure sim in `src/core/drive.js`
-  (`buildTrack`, `createDrive`, plus an `autopilot` the tests use for timing). Arriving starts `state.trip` (15-minute
+  (`buildTrack`, `createDrive`, plus an `autopilot` the tests use for timing). The car has a radio (bottom left) playing six
+  cover versions (`RADIO`/`RADIO_SONGS` in `src/data/radio.js`, transcribed from Martin's `tunes.mp3`, which is not shipped):
+  T or a click tunes to the next (`settings.radio`), M switches it off (the music setting); an electric hum (`audio.hum(level)`,
+  on the SFX bus) follows the speed. Arriving starts `state.trip` (15-minute
   wall clock) in `ClientOfficeScene` (a FloorScene subclass, `foreign`: no events, stand-up, firing) on the 64×46
   `buildClientFloor` (`src/core/clientFloor.js`, built with floorgen's `createPlanner`, which tower floors share
   byte-for-byte). Its tasks run MinigameScene mode `'trip'` (`completeTripTask`: double paperclips, no KPI stars), its

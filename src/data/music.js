@@ -1,6 +1,12 @@
 // Songs for the WebAudio tracker. 16 steps per bar. Melody tokens: note ('C5', 'F#4'), '-' = hold, '.' = rest.
 // Bass/comp/arp are generated from the chord list using the per-song templates (indexes into chord tones).
 // Drum strings: k kick, s snare, h hat, o open hat, r rim, '.' rest (one char per step, per bar).
+// Optional, for transcribed covers (the car radio, radio.js): `drums` as an array of per-bar strings (cycled),
+// `bassLine` (per-bar note tokens replacing the bass template), `comp.pattern` (per-bar chord rhythm: 'x' strike,
+// '-' hold, '.' rest), the chord 'N' (no harmony that bar), `bassWave`/`bassVol`, and `leadDouble` (the lead again
+// that many semitones away, softer).
+import { RADIO_SONGS } from './radio.js';
+
 export const SONGS = {
   title: {
     bpm: 128, swing: 0, lead: 'pulse25', leadVol: 0.16,
@@ -78,20 +84,6 @@ export const SONGS = {
       'D5 - . D5 - . F#5 - . . A5 - F#5 - . .', 'D#5 - . F#5 - . B5 - . . A5 - F#5 - D#5 -',
     ],
   },
-  // The business-trip drive: a driving minor-key tune in the spirit of 90s Amiga racers.
-  drive: {
-    bpm: 150, swing: 0, lead: 'square', leadVol: 0.11,
-    chords: ['Am', 'F', 'G', 'Em', 'Am', 'F', 'G', 'E7'],
-    bass: { steps: [0, 2, 4, 6, 8, 10, 12, 14], tones: [0, 3, 0, 3, 0, 3, 0, 3], len: 1 },
-    arp: { steps: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], tones: [0, 1, 2, 3, 2, 1, 0, 1, 0, 1, 2, 3, 2, 1, 2, 1], vol: 0.022 },
-    drums: 'k.h.s.hkk.hks.hh',
-    melody: [
-      'A4 - C5 - E5 - A5 - G5 - E5 - C5 - D5 -', 'C5 - - - A4 - C5 - F5 - - - E5 - D5 -',
-      'B4 - D5 - G5 - - - F5 - E5 - D5 - B4 -', 'E5 - - - - - G5 - B5 - - - A5 - G5 -',
-      'A5 - - - E5 - A5 - C6 - B5 - A5 - G5 -', 'F5 - - - C5 - F5 - A5 - G5 - F5 - E5 -',
-      'D5 - G5 - B5 - D6 - - - C6 - B5 - A5 -', 'G#5 - - - E5 - - - B4 - - - G#4 - . .',
-    ],
-  },
   // The vacation hotel: a lazy calypso with a steel-drum-ish lead.
   tropical: {
     bpm: 112, swing: 0.12, lead: 'triangle', leadVol: 0.2,
@@ -114,6 +106,7 @@ export const SONGS = {
     drums: 'k...s...k.k.s.s.',
     melody: ['G4 - C5 - E5 - G5 - - - E5 - G5 - - -', 'B4 - D5 - G5 - B5 - - - A5 - B5 - - -', 'C6 - - - - - - - - - - - - - - -'],
   },
+  ...RADIO_SONGS,
 };
 
 export const CHORD_QUALITIES = {

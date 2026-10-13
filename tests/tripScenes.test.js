@@ -272,3 +272,106 @@ test('the motorway crash barrier is one unbroken rail on each side, not loose pi
     for (let i = 1; i < ys.length; i++) expect(ys[i] - ys[i - 1], `${side} gap at row ${ys[i - 1]}`).toBe(1);
   }
 });
+
+// The car radio and the electric motor's hum, with an audio stub that records what the scene asks for.
+function radioCareer() {
+  const calls = [];
+  const spy = { ...audio, play: (n, after) => calls.push(['play', n, after]), setMusic: (on) => calls.push(['music', on]), hum: (l) => calls.push(['hum', l]) };
+  const game = createGame({ screen: {}, input: createInput(), audio: spy });
+  const s = newGame({ corpName: 'Acme', playerName: 'Pat' }, 0);
+  Object.assign(s, { lobby: 'done', floor: 10, maxFloor: 10, level: 10 });
+  s.flags.introSeen = true;
+  game.newCareer(s);
+  T.departTrip(game.state, 10);
+  return { game, calls, plays: () => calls.filter((c) => c[0] === 'play').map((c) => c[1]) };
+}
+const press = async (game, key) => {
+  game.input.keyDown(key);
+  await tick(game, 1);
+  game.input.keyUp(key);
+};
+const clickAt = async (game, x, y) => {
+  game.input.pointerDown(x, y);
+  await tick(game, 1);
+  game.input.pointerUp(x, y);
+  await tick(game, 1);
+};
+
+test('the car radio plays the six covers: T or a click tunes to the next one, round and round, and it is remembered', async () => {
+  const { RADIO } = await import('../src/data/radio.js');
+  const { game, plays } = radioCareer();
+  const ds = new DriveScene(game, 10);
+  game.set(ds);
+  await tick(game);
+  expect(plays().at(-1)).toBe('radio1');
+  await press(game, 't');
+  expect(plays().at(-1)).toBe('radio2');
+  const r = ds.radioRect();
+  expect(r.x).toBeLessThan(20); // bottom-left corner
+  expect(r.y + r.h).toBeGreaterThan(250);
+  await clickAt(game, r.x + r.w / 2, r.y + r.h / 2);
+  expect(plays().at(-1)).toBe('radio3');
+  for (let i = 0; i < 4; i++) await press(game, 't');
+  expect(plays().at(-1)).toBe('radio1'); // after Track 6 comes Track 1 again
+  expect(plays().filter((p) => p.startsWith('radio')).length).toBe(7);
+  await press(game, 't');
+  expect(game.state.settings.radio).toBe(1);
+  // The next drive starts on the same station.
+  const again = new DriveScene(game, 10);
+  game.set(again);
+  await tick(game);
+  expect(plays().at(-1)).toBe(RADIO[1].song);
+});
+
+test('M switches the radio off (no music at all) and on again; T or a click while it is off switches it back on', async () => {
+  const { game, calls, plays } = radioCareer();
+  const ds = new DriveScene(game, 10);
+  game.set(ds);
+  await tick(game);
+  ds.startLights();
+  await tick(game, 160);
+  await press(game, 'm');
+  expect(game.state.settings.music).toBe(false);
+  expect(calls.filter((c) => c[0] === 'music').at(-1)).toEqual(['music', false]);
+  expect(ds.radioOn).toBe(false);
+  await press(game, 'M');
+  expect(game.state.settings.music).toBe(true);
+  expect(calls.filter((c) => c[0] === 'music').at(-1)).toEqual(['music', true]);
+  await press(game, 'm');
+  const n = plays().length;
+  await press(game, 't'); // off: T only switches it back on, on the same station
+  expect(game.state.settings.music).toBe(true);
+  expect(plays().length).toBe(n);
+  await press(game, 'm');
+  const r = ds.radioRect();
+  await clickAt(game, r.x + 4, r.y + 4);
+  expect(ds.radioOn).toBe(true);
+});
+
+test('pressing on the radio tunes it without driving off; the electric hum follows the speed and stops on the way out', async () => {
+  const { game, calls } = radioCareer();
+  const ds = new DriveScene(game, 10);
+  game.set(ds);
+  await tick(game);
+  expect(calls.some((c) => c[0] === 'hum' && c[1] != null)).toBe(false); // engine off during the brief
+  ds.startLights();
+  await tick(game, 160);
+  expect(ds.phase).toBe('drive');
+  const r = ds.radioRect();
+  game.input.pointerDown(r.x + r.w / 2, r.y + r.h / 2);
+  await tick(game, 30);
+  game.input.pointerUp(r.x + r.w / 2, r.y + r.h / 2);
+  expect(ds.drive.speed).toBe(0);
+  const hums = () => calls.filter((c) => c[0] === 'hum').map((c) => c[1]);
+  expect(hums().at(-1)).toBe(0); // idling: a quiet hum
+  game.input.keyDown('ArrowUp');
+  await tick(game, 120);
+  const fast = hums().at(-1);
+  expect(fast).toBeGreaterThan(0.2);
+  expect(fast).toBeLessThanOrEqual(1);
+  game.input.keyUp('ArrowUp');
+  ds.goHome();
+  await tick(game);
+  expect(game.top).not.toBe(ds);
+  expect(hums().at(-1)).toBeNull();
+});

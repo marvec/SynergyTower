@@ -28,6 +28,15 @@ indicator.
      Balance: each crash costs ~4 s, so a good driver who crashes four times still arrives (`tests/drive.test.js`).
    - The checkpoint clock running out (Lotus-style) also misses the trip ("the client has left for lunch").
    - Esc pauses: Keep driving / Turn back (turning back misses the trip as well).
+   - **Car radio** (added at Martin's request, 2026-10-13): a small radio in the bottom-left corner plays six cover
+     versions of Martin's tunes (`tunes.mp3`, transcribed into the tracker format in `src/data/radio.js`: tempo, key,
+     chords, bass lines, drum grooves and the main riffs and melodies, cut to their best sections and looped). T or a
+     click on the radio tunes to the next one (Track 6 wraps to Track 1); the station is remembered (`settings.radio`).
+     M switches the radio off, which is the music setting, so the music stays off afterwards until M again; T or a
+     click while it is off switches it back on. Pressing on the radio never drives the car.
+   - **Electric hum:** the car is electric, so the engine sound is a gentle hum (a soft motor tone, a faint inverter
+     whine rising with speed, a little tyre noise) from the start lights until the car is parked, wrecked or left. It is
+     on the sound-effects bus, so the sound setting mutes it, not the radio.
 3. **Client office** (`ClientOfficeScene`, a FloorScene subclass). 64×46 tiles (the tower floors are 40×28): two corridors
    joined by a marble atrium, 19 rooms (open plan, meeting rooms, two kitchens, managers, copy rooms, a boardroom, the
    client's speciality room and a reception lobby with the entrance), 20 task stations and more colleagues.
