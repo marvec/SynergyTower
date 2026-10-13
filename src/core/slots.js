@@ -20,6 +20,7 @@ export function summarize(s) {
     skin: s.player.skin ?? 0,
     hair: s.player.hair ?? 0,
     hairStyle: s.player.hairStyle ?? 0,
+    skirt: !!s.player.skirt,
     floor: s.floor,
     maxFloor: s.maxFloor,
     level: s.level,

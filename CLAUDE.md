@@ -46,6 +46,8 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 - Colleagues' figures follow their first name (`WOMEN_NAMES`/`MEN_NAMES` in `src/data/people.js`; other names are
   gender-neutral, either figure by seed): `npcLook` gives a woman a `skirt` (and maybe `tights`), which `bakeCharacter`
   draws as a woman's figure. Dress uniforms and suits with `suit(look, jacket)` (matching skirt, never a tie on a skirt).
+  The player picks trousers or a skirt in setup (`state.player.skirt`, kept in the slot summary); `careerLook` gives the
+  skirt the corporate colour, matching the jacket from floor 21.
 
 ## Platforms: website, PWA, iOS/Android apps
 

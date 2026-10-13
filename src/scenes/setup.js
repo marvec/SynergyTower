@@ -1,4 +1,4 @@
-// New career: name your corporation, pick its colour, name and style your employee.
+// New career: name your corporation, pick its colour, name and style your employee (hair, trousers or a skirt).
 import { track } from '../engine/analytics.js';
 import { W, H } from '../engine/screen.js';
 import { C, ButtonSet, panel, rect, frame, setAccent } from '../engine/ui.js';
@@ -6,6 +6,7 @@ import { drawText } from '../engine/font.js';
 import { TextField } from '../engine/textfield.js';
 import { CORP_COLORS, SKIN_TONES, HAIR_COLORS } from '../data/corpColors.js';
 import { characterSheet } from './floorWorld.js';
+import { careerLook } from '../game.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
 import * as S from '../core/state.js';
 import { isTouch } from '../engine/platform.js';
@@ -20,6 +21,7 @@ export class SetupScene {
     this.skin = 0;
     this.hair = 0;
     this.hairStyle = 0;
+    this.skirt = false;
     this.buttons = new ButtonSet({ columns: 0 });
     this.error = '';
   }
@@ -43,12 +45,13 @@ export class SetupScene {
     SKIN_TONES.forEach((s, i) => b.add({ x: 20 + i * 22, y: 176, w: 18, h: 14, label: '', color: s, onClick: () => (this.skin = i) }));
     HAIR_COLORS.forEach((h, i) => b.add({ x: 120 + i * 18, y: 176, w: 14, h: 14, label: '', color: h, onClick: () => (this.hair = i) }));
     ['A', 'B', 'C', 'D'].forEach((l, i) => b.add({ x: 20 + i * 24, y: 206, w: 20, h: 14, label: l, color: C.panelLight, onClick: () => (this.hairStyle = i) }));
+    ['Trousers', 'Skirt'].forEach((l, i) => b.add({ x: 20 + i * 54, y: 236, w: 50, h: 14, label: l, color: C.panelLight, onClick: () => (this.skirt = i === 1) }));
     b.add({ x: 270, y: 224, w: 180, h: 22, label: 'Start my career  →', color: C.goodBtn, onClick: () => this.start() });
     b.focus = Math.min(f, b.items.length - 1);
   }
   look() {
     const c = CORP_COLORS[this.color];
-    return { skin: SKIN_TONES[this.skin], hair: HAIR_COLORS[this.hair], hairStyle: this.hairStyle, shirt: '#dfe6ee', jacket: null, pants: '#3a3f55', tie: null, shoes: '#2a1d14', badge: true, glasses: false, _c: c.id };
+    return { ...careerLook({ skin: this.skin, hair: this.hair, hairStyle: this.hairStyle, skirt: this.skirt, colorId: c.id, maxFloor: 1 }), _c: c.id };
   }
   async start() {
     const corpName = this.corpField.value;
@@ -66,6 +69,7 @@ export class SetupScene {
     track('career_start');
     const s = S.newGame({ corpName, colorId: CORP_COLORS[this.color].id, playerName, skin: this.skin, hair: this.hair }, this.game.now());
     s.player.hairStyle = this.hairStyle;
+    s.player.skirt = this.skirt;
     if (!this.game.newCareer(s)) {
       this.error = 'Delete a character to create a new one.';
       this.game.sfx('bad');
@@ -103,6 +107,7 @@ export class SetupScene {
     drawText(g, 'Skin', 20, 166, { color: C.dim });
     drawText(g, 'Hair', 120, 166, { color: C.dim });
     drawText(g, 'Hair style', 20, 196, { color: C.dim });
+    drawText(g, 'Outfit', 20, 226, { color: C.dim });
     // field frames
     frame(g, 19, 39, 182, 18, C.gold);
     frame(g, 19, 75, 182, 18, C.gold);
@@ -113,6 +118,7 @@ export class SetupScene {
     sel(0, 20 + this.skin * 22, 176, 18, 14);
     sel(0, 120 + this.hair * 18, 176, 14, 14);
     sel(0, 20 + this.hairStyle * 24, 206, 20, 14);
+    sel(0, 20 + (this.skirt ? 54 : 0), 236, 50, 14);
 
     // Preview: badge card.
     panel(g, 240, 20, 220, 196, { fill: '#f4f1e8', light: '#ffffff', dark: '#c8c0aa' });

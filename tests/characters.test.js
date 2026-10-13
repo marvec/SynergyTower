@@ -97,3 +97,39 @@ test('a suit or uniform (auditor, HR, reception) gives a woman a matching skirt 
   expect(suit(him, '#22242e', { tie: '#5a5f70' })).toMatchObject({ jacket: '#22242e', tie: '#5a5f70' });
   expect(suit(him, '#22242e').skirt).toBeUndefined();
 });
+
+test('the player can wear a skirt: in the corporate colour, then matching the jacket, never with a tie', async () => {
+  const { careerLook } = await import('../src/game.js');
+  const { CORP_COLORS } = await import('../src/data/corpColors.js');
+  const col = CORP_COLORS[2];
+  const her = (maxFloor) => careerLook({ skin: 0, hair: 0, hairStyle: 1, skirt: true, colorId: col.id, maxFloor });
+  expect(her(1)).toMatchObject({ skirt: col.color, tie: null, jacket: null });
+  expect(her(12)).toMatchObject({ skirt: col.color, tie: null });
+  expect(her(25)).toMatchObject({ skirt: col.dark, jacket: col.dark, tie: null });
+  // Trousers, as before (and for saves from before the choice).
+  const him = careerLook({ skin: 0, hair: 0, colorId: col.id, maxFloor: 12 });
+  expect(him.skirt).toBeFalsy();
+  expect(him.tie).toBe(col.color);
+});
+
+test('the setup screen offers trousers or a skirt and the new career keeps the choice', async () => {
+  const { SetupScene } = await import('../src/scenes/setup.js');
+  let made = null;
+  const game = { now: () => 0, sfx: () => {}, newCareer: (s) => ((made = s), false) };
+  const setup = new SetupScene(game);
+  setup.corpField = { value: 'Corp', focus() {} };
+  setup.nameField = { value: 'Ann', focus() {} };
+  setup.build();
+  const labels = setup.buttons.items.map((b) => b.label);
+  expect(labels).toContain('Trousers');
+  expect(labels).toContain('Skirt');
+  expect(setup.look().skirt).toBeFalsy();
+  setup.buttons.items.find((b) => b.label === 'Skirt').onClick();
+  expect(setup.look()).toMatchObject({ skirt: expect.any(String), tie: null });
+  await setup.start();
+  expect(made.player.skirt).toBe(true);
+  setup.buttons.items.find((b) => b.label === 'Trousers').onClick();
+  expect(setup.look().skirt).toBeFalsy();
+  await setup.start();
+  expect(made.player.skirt).toBe(false);
+});

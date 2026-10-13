@@ -108,6 +108,7 @@ test('the summary has what the picker shows', () => {
   s.starsByFloor = { 1: 3, 2: 2 };
   s.badges = { first: 1, second: 2 };
   s.player.hairStyle = 2;
+  s.player.skirt = true;
   const id = st.create(s);
-  expect(st.list()[0]).toMatchObject({ id, level: 8, sp: 1234, stars: 5, badges: 2, hairStyle: 2, floor: 12 });
+  expect(st.list()[0]).toMatchObject({ id, level: 8, sp: 1234, stars: 5, badges: 2, hairStyle: 2, skirt: true, floor: 12 });
 });

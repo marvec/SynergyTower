@@ -10,11 +10,11 @@ import { drawText } from './engine/font.js';
 import { W } from './engine/screen.js';
 
 
-/** How a career's employee looks: chosen skin/hair, clothes by the highest floor reached ({ skin, hair, hairStyle, colorId, maxFloor }). */
+/** How a career's employee looks: chosen skin/hair, clothes by the highest floor reached ({ skin, hair, hairStyle, skirt, colorId, maxFloor }). */
 export function careerLook(p) {
   const col = CORP_COLORS.find((c) => c.id === p.colorId) || CORP_COLORS[0];
   const f = p.maxFloor;
-  return {
+  const look = {
     skin: SKIN_TONES[p.skin] || SKIN_TONES[0],
     hair: HAIR_COLORS[p.hair] || HAIR_COLORS[0],
     hairStyle: p.hairStyle ?? 0,
@@ -26,6 +26,9 @@ export function careerLook(p) {
     badge: true,
     glasses: false,
   };
+  // A skirt takes the tie's corporate colour, and matches the jacket once there is one.
+  if (p.skirt) Object.assign(look, { skirt: look.jacket || col.color, tie: null });
+  return look;
 }
 
 const HAPTICS = { bad: 'light', fail: 'medium', crash: 'heavy', levelup: 'medium', cash: 'light' };
