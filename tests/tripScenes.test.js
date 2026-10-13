@@ -245,3 +245,30 @@ test('the client office is a foreign floor: no stand-up, office events or firing
   expect(game.top).toBe(co); // no Fire/Keep dialog
   expect(SEG).toBeGreaterThan(0);
 });
+
+test('the motorway crash barrier is one unbroken rail on each side, not loose pieces', () => {
+  const { RAIL } = require('../src/scenes/driveArt.js');
+  const game = career();
+  const ds = new DriveScene(game, 10);
+  const mw = ds.track.stages.find((st) => st.id === 'motorway');
+  ds.drive.d = (mw.start + 40) * SEG;
+  ds.drive.stage = ds.track.stages.indexOf(mw);
+  ds.drive.x = 0;
+  ds.phase = 'drive';
+  // A context that remembers which rows got barrier paint, left and right of the centre.
+  const rows = { left: new Set(), right: new Set() };
+  let fill = '';
+  const ctx = new Proxy(
+    { fillRect(x, y, w, h) {
+      if (fill !== RAIL.beam) return;
+      for (let r = Math.max(0, y); r < Math.min(270, y + h); r++) (x + w / 2 < 240 ? rows.left : rows.right).add(r);
+    } },
+    { get: (t, k) => (k in t ? t[k] : k === 'fillStyle' ? fill : k === 'measureText' ? (s) => ({ width: String(s).length * 5 }) : () => {}), set: (t, k, v) => (k === 'fillStyle' ? (fill = v) : (t[k] = v), true) },
+  );
+  ds.render(ctx);
+  for (const side of ['left', 'right']) {
+    const ys = [...rows[side]].sort((a, b) => a - b).filter((y) => y > 130);
+    expect(ys.length, side).toBeGreaterThan(40);
+    for (let i = 1; i < ys.length; i++) expect(ys[i] - ys[i - 1], `${side} gap at row ${ys[i - 1]}`).toBe(1);
+  }
+});

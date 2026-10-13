@@ -9,7 +9,7 @@ import { track } from '../engine/analytics.js';
 import { buildTrack, createDrive, SEG, MAX_SPEED, KMH, STAGES, SPRITES, CHECKPOINT_TIME, WRECK_AT } from '../core/drive.js';
 import * as T from '../core/trip.js';
 import { CLIENTS, DRIVE_HELP, CRASH_LINES, DENT_LINES, LAST_DENT, LATE_LINES, ARRIVE_LINES, ROAD_SIGNS } from '../data/trip.js';
-import { STAGE_LOOK, playerCar, trafficCar, roadside, bannerText, backdrop } from './driveArt.js';
+import { STAGE_LOOK, RAIL, playerCar, trafficCar, roadside, bannerText, backdrop } from './driveArt.js';
 
 const ROAD_W = 2000; // world units from the centre line to the road edge (core x = 1)
 const PLAYER_Z = 6 * SEG; // the camera sits this far behind the car
@@ -17,6 +17,11 @@ const CAM_H = 1940;
 const K = 84; // projection scale: the road is ~280 px wide under the car
 const HZ = 116; // horizon row on a flat road
 const DRAW = 240; // segments drawn ahead
+// The motorway crash barrier, in world units: across from the centre line (road half-widths), beam height, post width.
+const RAIL_X = 1.2;
+const RAIL_LO = 170;
+const RAIL_HI = 290;
+const RAIL_POST_W = 60;
 const BILLBOARDS = ['SYNERGY', 'KPI COLA', 'LEVERAGE', 'BUY BONDS', 'PIVOT NOW'];
 
 export class DriveScene {
@@ -346,6 +351,7 @@ export class DriveScene {
       const { seg, p1, p2, clip } = segs[k];
       if (seg.i * SEG - (d.d - PLAYER_Z) < 100) continue; // at or behind the camera
       if (seg.checkpoint || seg.finish || seg.i === 4) this.drawGantry(g, seg, p1, clip);
+      if (seg.barrier) this.drawBarrier(g, seg, p1, p2, clip);
       for (const sp of seg.sprites) {
         const opts = sp.kind === 'billboard' ? { text: BILLBOARDS[seg.i % BILLBOARDS.length] } : sp.kind === 'sign' ? { text: ROAD_SIGNS[Math.floor(seg.i / 240) % ROAD_SIGNS.length] } : sp.kind === 'client' ? { text: this.client.short } : {};
         const art = roadside(sp.kind, opts);
@@ -367,6 +373,26 @@ export class DriveScene {
         const h = (w * art.height) / art.width;
         blit(g, art, cx + car.x * cw - w / 2, cy - h, w, h, clip);
       }
+    }
+  }
+
+  /**
+   * The motorway crash barrier along this segment, both sides: a steel beam from this segment's near edge to its far
+   * edge, so neighbouring segments join up into one rail, and a post every other segment.
+   */
+  drawBarrier(g, seg, p1, p2, clip) {
+    for (const side of [-1, 1]) {
+      const a = p1.x + side * RAIL_X * p1.w;
+      const b = p2.x + side * RAIL_X * p2.w;
+      const band = (lo, hi, color) =>
+        fillQuad(g, [{ x: a, y: p1.y - hi * p1.s }, { x: b, y: p2.y - hi * p2.s }, { x: b, y: p2.y - lo * p2.s }, { x: a, y: p1.y - lo * p1.s }], color, clip);
+      if (seg.i % 2 === 0) {
+        const pw = Math.max(1, RAIL_POST_W * p1.s);
+        const top = p1.y - RAIL_LO * p1.s;
+        if (top < clip) rect(g, a - pw / 2, top, pw, Math.min(clip, p1.y) - top, RAIL.post);
+      }
+      band(RAIL_LO, RAIL_HI, RAIL.beam);
+      band(RAIL_LO, RAIL_LO + (RAIL_HI - RAIL_LO) * 0.3, RAIL.edge);
     }
   }
 
@@ -513,6 +539,37 @@ export class DriveScene {
 }
 
 /** Draws a scaled sprite, cropping the rows below `clip` (hidden behind a hill crest). */
+/**
+ * Fills a convex polygon (screen points) row by row with whole pixels, rows from `clip` down left out (hidden behind a
+ * nearer hill crest). A sliver thinner than a row still gets its row, so a far rail stays unbroken.
+ */
+function fillQuad(g, pts, color, clip) {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const p of pts) (lo = Math.min(lo, p.y)), (hi = Math.max(hi, p.y));
+  const y0 = Math.max(0, Math.floor(lo));
+  const y1 = Math.min(clip, H, Math.max(y0 + 1, Math.ceil(hi)));
+  g.fillStyle = color;
+  for (let y = y0; y < y1; y++) {
+    const yc = Math.min(Math.max(y + 0.5, lo), hi);
+    let xa = Infinity;
+    let xb = -Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const q = pts[(i + 1) % pts.length];
+      if ((p.y <= yc && q.y >= yc) || (q.y <= yc && p.y >= yc)) {
+        const x = p.y === q.y ? Math.min(p.x, q.x) : p.x + ((yc - p.y) / (q.y - p.y)) * (q.x - p.x);
+        const x2 = p.y === q.y ? Math.max(p.x, q.x) : x;
+        xa = Math.min(xa, x);
+        xb = Math.max(xb, x2);
+      }
+    }
+    if (xa > xb) continue;
+    const l = Math.floor(xa);
+    g.fillRect(l, y, Math.max(1, Math.ceil(xb) - l), 1);
+  }
+}
+
 function blit(g, canvas, x, y, w, h, clip) {
   if (w < 1 || h < 1 || y >= clip) return;
   const vis = Math.min(h, clip - y);

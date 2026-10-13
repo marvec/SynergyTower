@@ -17,6 +17,9 @@ const baked = (key, w, h, draw) => {
   return c;
 };
 
+/** The motorway crash barrier (drawn as a continuous rail by driveScene, not as sprites): steel beam, its lower edge, posts. */
+export const RAIL = { beam: '#c8ccd4', edge: '#8a909c', post: '#5a5f6a' };
+
 /** Per-stage colours: sky bands (top → horizon), backdrop silhouettes, verge, road, rumble strips, lane marks. */
 export const STAGE_LOOK = {
   downtown: { sky: ['#2f5f9e', '#3b6dad', '#4a7fbe', '#5d93cc', '#77a9da', '#93bfe4'], far: '#55688c', near: '#3a465e', verge: ['#76767e', '#6c6c74'], road: '#4b4b53', rumble: ['#e0e0e0', '#c43030'], lane: '#e8e8e8', sun: null },
@@ -207,15 +210,6 @@ const SIDE = {
     draw(g) {
       for (let r = 0; r < 8; r++) rect(g, 3 - Math.floor(r / 3), r, 2 + Math.floor(r / 3) * 2, 1, r === 3 || r === 4 ? '#f4f1e8' : '#f2742a');
       rect(g, 0, 8, 8, 2, '#f2742a');
-    },
-  },
-  rail: {
-    w: 24, h: 8, worldW: 900,
-    draw(g) {
-      rect(g, 2, 2, 2, 6, '#5a5f6a');
-      rect(g, 20, 2, 2, 6, '#5a5f6a');
-      rect(g, 0, 1, 24, 3, '#c8ccd4');
-      rect(g, 0, 3, 24, 1, '#8a909c');
     },
   },
   client: {

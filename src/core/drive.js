@@ -55,7 +55,6 @@ export const SPRITES = {
   chevronR: { w: 0.1, solid: true },
   palm: { w: 0.1, solid: true },
   cone: { w: 0.06, solid: false },
-  rail: { w: 0.05, solid: false }, // the motorway barrier itself is segment.barrier
   client: { w: 0.9, solid: false },
 };
 
@@ -150,8 +149,7 @@ function scenery(rng, segments, st) {
       if (rng.chance(0.04)) put(i, 'bush', side * rng.float(1.3, 2.2));
       if (rng.chance(0.004)) put(i, 'house', side * rng.float(2.8, 3.6));
     } else if (st.id === 'motorway') {
-      seg.barrier = true;
-      put(i, 'rail', -1.2), put(i, 'rail', 1.2);
+      seg.barrier = true; // drawn as one continuous rail each side (driveScene drawBarrier)
       if (i % 20 === 0) put(i, 'lamp', -1.45), put(i, 'lamp', 1.45);
       if (i % 240 === 120) put(i, 'sign', 1.7);
     } else {
