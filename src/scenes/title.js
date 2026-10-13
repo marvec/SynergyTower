@@ -6,8 +6,10 @@ import { openFeedback } from '../engine/feedback.js';
 import { drawText, measureText } from '../engine/font.js';
 import { CORP_COLORS } from '../data/corpColors.js';
 import { drawSky, drawSkyline, drawTower, towerHeight, TOWER_W } from './cityscape.js';
-import { howToDialog } from './overlays.js';
+import { howToDialog, Dialog } from './overlays.js';
 import { titleForFloor } from '../data/departments.js';
+import { features, openExternal, isTouch } from '../engine/platform.js';
+import { installOffer, promptInstall, IOS_INSTALL_STEPS } from '../engine/install.js';
 import { COUNTED_GAMES } from '../core/tasks.js';
 
 // Every kind of mini-game the games-played counter counts: office stations and holiday activities (not the HR review).
@@ -49,17 +51,25 @@ export class TitleScene {
     b.add({ x, y, w: 150, h: 20, label: 'How to play', color: C.panelLight, onClick: () => this.game.push(howToDialog(this.game)) });
     y += 28;
     // Other platforms: the C64 version's download page; the phone apps aren't out yet. Centred under the menu.
-    const widths = STORES.map((s) => 17 + Math.max(measureText(s.top), measureText(s.name)));
-    let bx = Math.max(4, Math.round(x + 75 - (widths.reduce((a, w) => a + w, 0) + 3 * (STORES.length - 1)) / 2));
-    STORES.forEach((s, i) => {
+    // The app shows only the C64 badge: it is the App Store / Google Play version already.
+    const stores = STORES.filter((s) => features.storeBadges || s.id === 'c64');
+    const widths = stores.map((s) => 17 + Math.max(measureText(s.top), measureText(s.name)));
+    let bx = Math.max(4, Math.round(x + 75 - (widths.reduce((a, w) => a + w, 0) + 3 * (stores.length - 1)) / 2));
+    stores.forEach((s, i) => {
       b.add({ x: bx, y, w: widths[i], h: 22, store: s, draw: drawStoreBadge, onClick: () => this.openStore(s) });
       bx += widths[i] + 3;
     });
   }
   openStore(s) {
     track('store_click', { store: s.id });
-    if (s.url) window.open(s.url, '_blank', 'noopener');
+    if (s.url) openExternal(s.url);
     else this.game.toast(`Coming soon to ${s.name}!`, C.gold);
+  }
+  /** The website as an installed app (engine/install.js): the browser's prompt, or the steps on iPhone/iPad. */
+  install(offer) {
+    track('install_click', { how: offer });
+    if (offer === 'ios') return this.game.push(new Dialog(this.game, { title: 'Install SynergyTower', w: 300, text: IOS_INSTALL_STEPS, button: 'Got it' }));
+    promptInstall().then((r) => r === 'accepted' && this.game.toast('Installing... find SynergyTower on your home screen.', C.gold));
   }
   enter() {
     this.game.audio.play('title');
@@ -148,9 +158,18 @@ export class TitleScene {
     drawText(g, `Prove your skills in ${GAME_COUNT} challenging tasks!`, 42, 110, { color: C.gold, shadow: '#000' });
     if (this.savedInfo && s) drawText(g, this.savedInfo, 42, 124, { color: C.so, shadow: '#000' });
     this.buttons.render(g);
-    drawText(g, 'v1.0 · works offline · no cookies · M toggles music', 4, H - 11, { color: '#8890b0' });
-    drawLink(g, this.game.input, 'Buy author a coffee', W - 4, H - 11, openCoffee);
-    drawLink(g, this.game.input, 'Feedback', W - 4 - measureText('Buy author a coffee') - 14, H - 11, sendFeedback);
+    // Bottom line: the facts on the left, links on the right (Install app only where the website can be installed).
+    const offer = installOffer();
+    const keys = !isTouch() && !offer ? ' · M toggles music' : '';
+    drawText(g, `v1.0 · works offline · no cookies${keys}`, 4, H - 11, { color: '#8890b0' });
+    let lx = W - 4;
+    const link = (text, fn) => {
+      drawLink(g, this.game.input, text, lx, H - 11, fn);
+      lx -= measureText(text) + 14;
+    };
+    if (features.tips) link('Buy author a coffee', openCoffee);
+    link('Feedback', sendFeedback);
+    if (offer) link('Install app', () => this.install(offer));
   }
 }
 

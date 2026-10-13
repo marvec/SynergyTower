@@ -1,5 +1,6 @@
 // Unified input: keyboard state, per-frame presses, typed characters and a pointer in game coordinates.
 import { linkUnder } from './ui.js';
+import { openExternal } from './platform.js';
 // Key names follow KeyboardEvent.key, normalised: 'ArrowUp', ' ' → 'Space', letters lowercase.
 const KEY_ALIASES = { w: 'ArrowUp', a: 'ArrowLeft', s: 'ArrowDown', d: 'ArrowRight' };
 
@@ -8,7 +9,8 @@ export function createInput() {
   let pressed = new Set();
   let typed = [];
   let seq = []; // every key press this frame, in order (raw KeyboardEvent.key, repeats included)
-  const pointer = { x: -1, y: -1, down: false, clicked: false, released: false, moved: false, inside: false };
+  // touch: the last pointer was a finger (buttons then forgive near misses, see ButtonSet)
+  const pointer = { x: -1, y: -1, down: false, clicked: false, released: false, moved: false, inside: false, touch: false };
   let nextClick = false;
   let nextRelease = false;
   let wheel = 0;
@@ -35,6 +37,11 @@ export function createInput() {
     /** Marks the current click as handled so lower layers ignore it. */
     consumeClick() {
       pointer.clicked = false;
+    },
+    /** Drops a click that hasn't reached the game yet (it was handled outside the loop, e.g. by a link). */
+    cancelClick() {
+      pointer.clicked = false;
+      nextClick = false;
     },
     consumeKeys() {
       pressed = new Set();
@@ -116,6 +123,7 @@ export function attachInput(input, canvas, toGame) {
   window.addEventListener('blur', () => input.clearAll());
   const pos = (e) => toGame(e.clientX, e.clientY);
   canvas.addEventListener('pointerdown', (e) => {
+    input.pointer.touch = e.pointerType === 'touch';
     canvas.setPointerCapture?.(e.pointerId);
     const p = pos(e);
     input.pointerDown(p.x, p.y);
@@ -129,8 +137,9 @@ export function attachInput(input, canvas, toGame) {
     const p = pos(e);
     input.pointerUp(p.x, p.y);
     const url = linkUnder(p.x, p.y);
+    if (url) input.cancelClick(); // the link is the click: a dialog it opens must not receive it too
     if (typeof url === 'function') url();
-    else if (url) window.open(url, '_blank', 'noopener');
+    else if (url) openExternal(url);
   });
   canvas.addEventListener('pointerleave', () => (input.pointer.inside = false));
   canvas.addEventListener('wheel', (e) => input.addWheel(Math.sign(e.deltaY)), { passive: true });

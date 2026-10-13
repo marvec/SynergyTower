@@ -3,6 +3,7 @@ import * as S from './core/state.js';
 import { createSlotStore } from './core/slots.js';
 import { checkBadges } from './core/achievements.js';
 import { track } from './engine/analytics.js';
+import { gameStorage, haptic } from './engine/platform.js';
 import { CORP_COLORS, SKIN_TONES, HAIR_COLORS } from './data/corpColors.js';
 import { setAccent, C, panel } from './engine/ui.js';
 import { drawText } from './engine/font.js';
@@ -27,6 +28,8 @@ export function careerLook(p) {
   };
 }
 
+const HAPTICS = { bad: 'light', fail: 'medium', crash: 'heavy', levelup: 'medium', cash: 'light' };
+
 export function createGame({ screen, input, audio }) {
   const stack = [];
   let toasts = [];
@@ -35,7 +38,8 @@ export function createGame({ screen, input, audio }) {
   let badgeT = 0;
   let store = null;
   // localStorage can throw (blocked site data), so the store is made on first use inside each try.
-  const slots = () => (store ??= createSlotStore(localStorage, { now: () => game.now() }));
+  // In the app, gameStorage() also mirrors the saves to native storage (engine/platform.js).
+  const slots = () => (store ??= createSlotStore(gameStorage(), { now: () => game.now() }));
 
   const game = {
     screen,
@@ -153,6 +157,9 @@ export function createGame({ screen, input, audio }) {
     },
     sfx(name) {
       audio.sfx(name);
+      // The app adds a buzz to the big moments (a no-op in the browser), with the sound effects setting.
+      const buzz = HAPTICS[name];
+      if (buzz && game.state?.settings.sfx !== false) haptic(buzz);
     },
     toast(text, color = C.text) {
       toasts.push({ text, color, t: 0 });
@@ -162,6 +169,10 @@ export function createGame({ screen, input, audio }) {
     // ---- scene stack
     get top() {
       return stack[stack.length - 1];
+    },
+    /** The scenes from the bottom up (a copy). */
+    scenes() {
+      return [...stack];
     },
     push(scene) {
       stack.push(scene);

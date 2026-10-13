@@ -240,9 +240,16 @@ export function createAudio() {
       hum.whine.gn.gain.setTargetAtTime(0.003 + 0.012 * k, t, 0.12);
       hum.roadGain.gain.setTargetAtTime(0.02 * k + 0.05 * k * k, t, 0.12);
     },
+    /** The page/app went to the background (true) or came back: the music pauses meanwhile. iOS also leaves the
+     *  context 'interrupted' after a phone call or the app switcher, which resume() fixes. */
+    background(hidden) {
+      if (!ctx) return;
+      if (hidden) ctx.suspend?.().catch(() => {});
+      else if (ctx.state !== 'running') ctx.resume?.().catch(() => {});
+    },
     unlock() {
       if (!ensure()) return;
-      if (ctx.state === 'suspended') ctx.resume();
+      if (ctx.state !== 'running') ctx.resume();
       if (!timer) timer = setInterval(pump, 25);
       if (wanted && !current) api.play(wanted.name, wanted.after);
     },

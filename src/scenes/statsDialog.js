@@ -1,5 +1,6 @@
 // "What do these numbers mean?": opened by clicking a HUD stat. One tab per stat (←/→ or click the tabs), each with
 // the live numbers and what they are for.
+import { features } from '../engine/platform.js';
 import { C, rect, frame, icon, bar, formatNum, formatTime, coffeeColor } from '../engine/ui.js';
 import { drawText, drawWrapped, measureText } from '../engine/font.js';
 import * as S from '../core/state.js';
@@ -56,7 +57,7 @@ function statInfo(key, s, now) {
       title: 'Stock Options',
       value: formatNum(s.so),
       color: C.so,
-      text: 'The rare currency. You get one for every Seniority level-up and, with luck, for a perfect 3-star task. The Shop sells more (demo payments only, nothing is charged).',
+      text: `The rare currency. You get one for every Seniority level-up and, with luck, for a perfect 3-star task.${features.shop ? ' The Shop sells more (demo payments only, nothing is charged).' : ''}`,
       rows: [
         ['Skip a station cooldown', s.so >= E.SKIP_COOLDOWN_SO, `${E.SKIP_COOLDOWN_SO} option`],
         ['Refill all coffee', s.so >= E.REFILL_COFFEE_SO, `${E.REFILL_COFFEE_SO} options`],

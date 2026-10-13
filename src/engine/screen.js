@@ -11,8 +11,18 @@ export function createScreen(canvas) {
   let rect = { left: 0, top: 0 };
 
   function fit() {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    // The space inside the body's safe-area padding (style.css), so notches never cover the game.
+    // The visual viewport shrinks when a phone's keyboard opens (the terminal): the game then fits above it.
+    const vv = window.visualViewport;
+    const fullH = Math.round(vv ? Math.min(vv.height, window.innerHeight) : window.innerHeight);
+    document.body.style.height = fullH < window.innerHeight ? `${fullH}px` : '';
+    const cs = getComputedStyle(document.body);
+    const px = (k) => parseFloat(cs[k]) || 0;
+    const vw = window.innerWidth - px('paddingLeft') - px('paddingRight');
+    // The portrait dock (scenes/portraitDock.js) takes the space under the game.
+    const dock = document.getElementById('dock');
+    const dockH = dock && dock.offsetParent !== null ? dock.offsetHeight : 0;
+    const vh = fullH - px('paddingTop') - px('paddingBottom') - dockH;
     const s = Math.min(vw / W, vh / H);
     scale = s >= 2 ? Math.floor(s) : s;
     canvas.style.width = `${Math.floor(W * scale)}px`;
@@ -20,6 +30,9 @@ export function createScreen(canvas) {
     rect = canvas.getBoundingClientRect();
   }
   window.addEventListener('resize', fit);
+  // Phones report the new size a moment after turning; fit again once it has settled.
+  window.addEventListener('orientationchange', () => setTimeout(fit, 250));
+  window.visualViewport?.addEventListener('resize', fit);
   fit();
 
   return {

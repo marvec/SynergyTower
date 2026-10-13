@@ -9,6 +9,7 @@ import { CHAR_W, CHAR_H } from '../engine/art.js';
 import { MAX_SLOTS } from '../core/slots.js';
 import { characterSheet } from './floorWorld.js';
 import { careerLook } from '../game.js';
+import { isTouch } from '../engine/platform.js';
 
 const CW = 104;
 const CH = 148;
@@ -164,7 +165,7 @@ export class CareerPicker {
     const y = Y0 + CH + 10;
     const count = `${this.careers.length} of ${MAX_SLOTS} careers`;
     drawText(g, this.careers.length ? `${count} · ${this.sel + 1}/${this.careers.length}` : count, X0, y, { color: C.dim });
-    drawText(g, '<- -> pick · Enter play · Del delete · N new · Esc back', W - X0, y, { color: C.dim, align: 'right' });
+    drawText(g, isTouch() ? 'Tap a badge to pick a career' : '<- -> pick · Enter play · Del delete · N new · Esc back', W - X0, y, { color: C.dim, align: 'right' });
     if (this.note) drawText(g, this.note, W / 2, H - 48, { align: 'center', color: C.warn });
     else if (this.confirmDelete && this.current)
       drawText(g, `${this.current.name}'s career will be gone for good.`, W / 2, H - 48, { align: 'center', color: C.bad });

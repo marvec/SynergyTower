@@ -1,0 +1,30 @@
+{
+  "appId": "uk.co.synergytower.app",
+  "appName": "SynergyTower",
+  "webDir": "www",
+  "backgroundColor": "#0d0f18",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK",
+      "hidden": true
+    },
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "launchAutoHide": true,
+      "backgroundColor": "#0d0f18",
+      "showSpinner": false
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_tower",
+      "iconColor": "#f2c14e"
+    }
+  }
+}

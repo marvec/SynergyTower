@@ -9,7 +9,8 @@ import { titleForFloor, floorName, departmentForFloor } from '../data/department
 import { CHAR_W, CHAR_H } from '../engine/art.js';
 import { openFeedback } from '../engine/feedback.js';
 import { track } from '../engine/analytics.js';
-import { remindersSupported, remindersOn, enableReminders, disableReminders } from '../engine/reminders.js';
+import { remindersSupported, remindersOn, remindersBlocked, enableReminders, disableReminders } from '../engine/reminders.js';
+import { isNative, isTouch, features, openExternal } from '../engine/platform.js';
 
 export class Modal {
   constructor(game, { w = 260, h = 160, title = '' } = {}) {
@@ -321,7 +322,7 @@ export class ShopOverlay extends Modal {
     const f = b.focus;
     b.clear();
     const cw = 76;
-    E.SO_PACKS.forEach((p, i) => {
+    if (features.shop) E.SO_PACKS.forEach((p, i) => {
       b.add({
         x: this.x + 10 + i * (cw + 4), y: this.y + 104, w: cw, h: 28, label: p.price, sub: null, color: '#2f7f6f',
         onClick: () => {
@@ -344,6 +345,13 @@ export class ShopOverlay extends Modal {
   }
   renderBody(g, x, y) {
     drawWrapped(g, 'Stock Options are the premium currency: skip task cooldowns, refill coffee and buy executive perks.', x + 10, y + 6, this.w - 20, { color: C.text });
+    // The app has no checkout (the stores only allow their own billing): Stock Options are earned in the tower.
+    if (!features.shop) {
+      icon(g, 'so', x + 18, y + 40, 2);
+      drawText(g, `You have ${this.game.state.so} Stock Options.`, x + 44, y + 40, { color: C.so });
+      drawWrapped(g, 'Earn more with every Seniority level-up and promotion, the odd perfect 3-star task and daily stand-up streaks.', x + 44, y + 54, this.w - 60, { color: C.dim });
+      return;
+    }
     const cw = 76;
     E.SO_PACKS.forEach((p, i) => {
       const px = x + 10 + i * (cw + 4);
@@ -551,7 +559,7 @@ export class Dialog extends Modal {
 
 /** The in-game help, with a link to the full guide (public/how-to-play/). */
 export const howToDialog = (game) =>
-  new Dialog(game, { title: 'How to play', w: 320, text: HOW_TO, link: { text: 'Read more...', url: 'how-to-play/' } });
+  new Dialog(game, { title: 'How to play', w: 320, text: isTouch() ? HOW_TO_TOUCH : HOW_TO, link: { text: 'Read more...', url: 'how-to-play/' } });
 
 // ------------------------------------------------------------------ CEO: personnel decision
 /** The CEO talks to a colleague and decides their fate. npc: { a (Actor), id: { name, role, years, note } }. */
@@ -603,7 +611,7 @@ const stacker = (m) => (label, onClick, color) =>
 
 export class PauseMenu extends Modal {
   constructor(game, { onQuit }) {
-    super(game, { w: 200, h: menuH(7), title: 'Menu' });
+    super(game, { w: 200, h: menuH(features.tips ? 7 : 6), title: 'Menu' });
     this.onQuit = onQuit;
     this.confirmReset = false;
   }
@@ -617,7 +625,7 @@ export class PauseMenu extends Modal {
     add('Settings', () => this.game.push(new SettingsMenu(this.game)));
     add('How to play', () => this.game.push(howToDialog(this.game)));
     add('Send feedback', () => openFeedback(`floor ${s.floor}, level ${s.level}, ${s.player.name} @ ${s.corp.name}`));
-    add('Buy author a coffee', openCoffee, C.goodBtn);
+    if (features.tips) add('Buy author a coffee', openCoffee, C.goodBtn);
     add('Save & quit to title', () => {
       this.game.saveNow();
       this.onQuit();
@@ -634,10 +642,10 @@ export class PauseMenu extends Modal {
   }
 }
 
-/** Menu > Settings: music, sound effects and (where the browser has notifications) reminders. */
+/** Menu > Settings: music, sound effects, reminders (where notifications exist) and the privacy policy. */
 export class SettingsMenu extends Modal {
   constructor(game) {
-    super(game, { w: 200, h: menuH(remindersSupported() ? 4 : 3), title: 'Settings' });
+    super(game, { w: 200, h: menuH(remindersSupported() ? 5 : 4), title: 'Settings' });
   }
   build() {
     const s = this.game.state;
@@ -656,6 +664,7 @@ export class SettingsMenu extends Modal {
       this.game.markDirty();
     });
     if (remindersSupported()) add(`Reminders: ${remindersOn(s) ? 'ON' : 'OFF'}`, () => toggleReminders(this.game));
+    add('Privacy policy', () => openExternal('/privacy/'), C.panelLight);
     add('Back', () => this.close(), C.panelLight);
     b.focus = Math.min(f, b.items.length - 1);
   }
@@ -667,19 +676,19 @@ function toggleReminders(game) {
     return game.toast('Reminders off');
   }
   enableReminders(game).then((r) =>
-    game.toast(r === 'on' ? 'Reminders on: at most 3 a day, never at night' : 'Notifications are blocked by the browser', r === 'on' ? C.text : C.bad),
+    game.toast(r === 'on' ? 'Reminders on: at most 3 a day, never at night' : isNative() ? 'Notifications are off in the phone settings' : 'Notifications are blocked by the browser', r === 'on' ? C.text : C.bad),
   );
 }
 
 /** Offered once per career, the first time the player runs out of coffee. */
 function offerReminders(game) {
   const s = game.state;
-  if (s.flags.reminderOffered || !remindersSupported() || Notification.permission === 'denied' || remindersOn(s)) return;
+  if (s.flags.reminderOffered || !remindersSupported() || remindersBlocked() || remindersOn(s)) return;
   s.flags.reminderOffered = true;
   game.markDirty();
   game.push(new Dialog(game, {
     title: 'Not enough coffee',
-    text: 'Coffee refills by itself, even while you are away. Want a browser reminder when the pot is full again? At most 3 a day, never at night. You can switch it off in the Menu.',
+    text: 'Coffee refills by itself, even while you are away. Want a reminder when the pot is full again? At most 3 a day, never at night. You can switch it off in the Menu.',
     button: 'No thanks',
     action: { label: 'Remind me', onClick: () => toggleReminders(game) },
   }));
@@ -694,6 +703,16 @@ export const HOW_TO =
   'Daily: a colleague with a blue bubble has a stand-up favour. Decorate your desk (MY DESK): each floor sells new items. Collect badges (medal button or B).\n' +
   'Esc: menu/back   M: music   H: this help\n' +
   'O: shop   P: perks   T: training   B: badges';
+
+/** The same help for phones and tablets: taps instead of keys. */
+export const HOW_TO_TOUCH =
+  'Move: tap the floor where you want to go.\n' +
+  'Interact: tap a desk, printer, meeting room... Curious? Most other things react too.\n' +
+  'Each task is a mini-game that costs coffee and earns paperclips (the office currency), XP and 0-3 KPI stars.\n' +
+  'Collect enough stars on a floor, reach the seniority level and the keycard fee, then pass the HR performance review. Only then does the elevator take you up (going down is always fine).\n' +
+  'Coffee refills over time (also offline). Tasks have cooldowns. Stock Options skip the waiting.\n' +
+  'Daily: a colleague with a blue bubble has a stand-up favour. Decorate your desk (MY DESK): each floor sells new items. Collect badges (the medal button).\n' +
+  'Tap the numbers at the top to see what they mean. The menu button (bottom right) has settings and help.';
 
 /** Three big result stars centred on cx (74 px wide, 22 px tall). */
 export function drawStarsLarge(g, n, cx, y) {

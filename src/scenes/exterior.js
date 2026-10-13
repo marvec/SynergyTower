@@ -5,6 +5,7 @@ import { drawText } from '../engine/font.js';
 import { createRng } from '../core/rng.js';
 import { drawSky, drawSkyline, drawTower, towerHeight, TOWER_W } from './cityscape.js';
 import { Actor, npcLook } from './floorWorld.js';
+import { isTouch } from '../engine/platform.js';
 
 const WORLD_W = 900;
 const GROUND = 0; // world y of the sidewalk line (characters stand here)
@@ -147,7 +148,8 @@ export class ExteriorScene {
     } else if (!this.entering) {
       const near = Math.abs(this.player.x * 16 - this.doorX) < 24;
       panel(g, 4, 4, near ? 170 : 220, 18, { fill: C.panelDark });
-      drawText(g, near ? 'SPACE / ↑  Enter the tower' : '→ Walk to the entrance (or click)', 10, 9, { color: near ? C.gold : C.text });
+      const hint = isTouch() ? (near ? 'Tap to enter the tower' : '→ Tap to walk to the entrance') : near ? 'SPACE / ↑  Enter the tower' : '→ Walk to the entrance (or click)';
+      drawText(g, hint, 10, 9, { color: near ? C.gold : C.text });
     }
   }
   drawCar(g, c, y) {

@@ -8,6 +8,7 @@ import { CORP_COLORS, SKIN_TONES, HAIR_COLORS } from '../data/corpColors.js';
 import { characterSheet } from './floorWorld.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
 import * as S from '../core/state.js';
+import { isTouch } from '../engine/platform.js';
 
 const CORP_NAMES = ['Synergex', 'Globodyne', 'MegaCorp Holdings', 'Initech Prime', 'Paradigm Dynamics', 'Leverage Unlimited', 'Omnicorp Solutions', 'Bluesky Ventures', 'Strategix', 'Consolidated Widgets'];
 
@@ -138,6 +139,6 @@ export class SetupScene {
     drawText(g, 'Valid until promoted', 350, 176, { align: 'center', color: '#8a8070' });
     rect(g, 330, 190, 40, 6, c.color);
     if (this.error) drawText(g, this.error, 270, 254, { color: C.bad });
-    else drawText(g, 'Enter/Tab: next field. Arrows + Space pick. Esc back.', 242, 254, { color: C.dim });
+    else drawText(g, isTouch() ? 'Tap a field to type, tap a swatch to pick.' : 'Enter/Tab: next field. Arrows + Space pick. Esc back.', 242, 254, { color: C.dim });
   }
 }

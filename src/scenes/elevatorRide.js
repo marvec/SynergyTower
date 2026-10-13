@@ -6,6 +6,7 @@ import { CHAR_W, CHAR_H } from '../engine/art.js';
 import { characterSheet } from './floorWorld.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
 import * as E from '../core/economy.js';
+import { isTouch } from '../engine/platform.js';
 
 export class ElevatorRide {
   /** warp: arrived through the terminal's `systemctl isolate` (no fee, no signing bonus). */
@@ -98,7 +99,7 @@ export class ElevatorRide {
     if (this.phase === 'moving') {
       const shake = Math.round(Math.sin(this.t * 40));
       rect(g, 0, H - 18 + shake, W, 1, '#1a1a22');
-      drawText(g, 'Click / Esc to skip', W / 2, H - 12, { align: 'center', color: '#8a7a60' });
+      drawText(g, isTouch() ? 'Tap to skip' : 'Click / Esc to skip', W / 2, H - 12, { align: 'center', color: '#8a7a60' });
     }
     if (this.phase === 'card') this.renderCard(g);
   }

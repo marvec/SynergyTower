@@ -9,6 +9,7 @@
     "dev": "bun --hot server.js",
     "build": "bun scripts/build.js",
     "preview": "bun scripts/preview.js",
-    "test": "bun test"
+    "test": "bun test",
+    "build:app": "bun scripts/build-app.js"
   }
 }

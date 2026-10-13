@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification icon (Android draws it white): the tower from public/icon.svg, windows cut out. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M9,2h14v2h-1v26h-12v-26h-1z M12,6h3v2h-3z M17,6h3v2h-3z M12,10h3v2h-3z M17,10h3v2h-3z M12,14h3v2h-3z M17,14h3v2h-3z M12,18h3v2h-3z M17,18h3v2h-3z M12,22h3v2h-3z M17,22h3v2h-3z M14,26h4v4h-4z" />
+</vector>

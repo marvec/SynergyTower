@@ -67,6 +67,12 @@
       <p><a href="https://github.com/marvec/SynergyTower">Source code on GitHub</a></p>
     </main>
     <noscript><p style="color:#fff;font-family:sans-serif;padding:16px">SynergyTower is a browser game and needs JavaScript to run.</p></noscript>
+    <div id="rotate" role="dialog" aria-label="Turn your phone sideways">
+      <div class="phone" aria-hidden="true"></div>
+      <p>SynergyTower is a widescreen game.<br />Turn your phone sideways for the full view,<br />or play upright with big controls below the game.</p>
+      <button type="button" id="rotate-dismiss">Play upright</button>
+    </div>
+    <div id="dock" aria-label="Career stats and controls"></div>
     <input id="text-input" type="text" maxlength="22" autocomplete="off" spellcheck="false" />
     <script type="module" src="./main.js"></script>
   </body>

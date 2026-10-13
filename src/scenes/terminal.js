@@ -5,6 +5,8 @@ import { C, rect, dim, frame, inRect } from '../engine/ui.js';
 import { drawText, charWidth } from '../engine/font.js';
 import { createShell, loginName } from '../core/terminal.js';
 import { departmentForFloor } from '../data/departments.js';
+import { isTouch } from '../engine/platform.js';
+import { SoftKeyboard } from '../engine/softKeyboard.js';
 
 const X = 12;
 const Y = 14;
@@ -77,6 +79,15 @@ export class TerminalScene {
     if (this.lines.length > 600) this.lines.splice(0, this.lines.length - 600);
   }
 
+  // Phones and tablets: tapping the screen area opens the on-screen keyboard (engine/softKeyboard.js).
+  enter() {
+    if (isTouch()) this.kb = new SoftKeyboard(this.game.screen, this.game.input, { x: X + 1, y: BODY_Y, w: WW - 2, h: HH - 14 });
+  }
+  exit() {
+    this.kb?.destroy();
+    this.kb = null;
+  }
+
   close() {
     if (this.game.top === this) this.game.pop();
   }
@@ -143,6 +154,7 @@ export class TerminalScene {
       } else if (k === 'PageUp') this.scroll += ROWS - 2;
       else if (k === 'PageDown') this.scroll -= ROWS - 2;
     }
+    this.kb?.layout();
     const maxScroll = Math.max(0, this.lines.length + 1 - ROWS);
     this.scroll = Math.max(0, Math.min(maxScroll, this.scroll + input.wheel() * -3));
   }
@@ -181,7 +193,8 @@ export class TerminalScene {
       const row = Math.min(ROWS, all.length - start) - 1;
       rect(g, X + PAD + cw, BODY_Y + PAD + row * LINE, 4, 8, GREEN);
     }
-    if (this.scroll > 0) drawText(g, `-- scrolled ${this.scroll} lines --`, X + WW - PAD, Y + HH - 11, { align: 'right', color: C.warn });
+    if (this.kb && !this.kb.focused && !this.closing) drawText(g, 'Tap here to type', X + WW - PAD, Y + HH - 11, { align: 'right', color: C.gold });
+    else if (this.scroll > 0) drawText(g, `-- scrolled ${this.scroll} lines --`, X + WW - PAD, Y + HH - 11, { align: 'right', color: C.warn });
     frame(g, X, Y, WW, HH, C.border);
   }
 }

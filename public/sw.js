@@ -1,10 +1,10 @@
 // Offline support for same-origin GETs.
 // Page navigations are network-first (cache only when offline), so another app later served on the same
 // localhost port is never hijacked by a stale copy of this game. Hashed assets use stale-while-revalidate.
-const CACHE = 'synergytower-v4';
+const CACHE = 'synergytower-v5';
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])).catch(() => {}));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'])).catch(() => {}));
   self.skipWaiting();
 });
 

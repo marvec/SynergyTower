@@ -6,6 +6,9 @@ import { createGame } from './game.js';
 import { TitleScene } from './scenes/title.js';
 import { initAnalytics } from './engine/analytics.js';
 import { initReminders } from './engine/reminders.js';
+import { initPlatform, restoreStorage, onAppState, features, isNative, isTouch, isStandalone, isIosBrowser } from './engine/platform.js';
+import { initInstall } from './engine/install.js';
+import { initPortraitDock } from './scenes/portraitDock.js';
 
 // Static public files (served from public/, not bundled).
 for (const [rel, href, type] of [['manifest', './manifest.webmanifest'], ['icon', './icon.svg', 'image/svg+xml']]) {
@@ -17,6 +20,7 @@ for (const [rel, href, type] of [['manifest', './manifest.webmanifest'], ['icon'
 }
 
 initAnalytics();
+initInstall();
 
 const canvas = document.getElementById('game');
 const screen = createScreen(canvas);
@@ -30,6 +34,36 @@ const unlock = () => audio.unlock();
 window.addEventListener('pointerdown', unlock);
 window.addEventListener('keydown', unlock);
 
+// Phones in a browser tab: the first tap goes full screen in landscape (no address bar eating the small screen).
+// Once per page load, so leaving full screen sticks. iPhone Safari has no full-screen API: Install app is the way there.
+if (isTouch() && !isNative() && !isStandalone() && !isIosBrowser() && document.documentElement.requestFullscreen) {
+  canvas.addEventListener(
+    'pointerdown',
+    () => {
+      document.documentElement
+        .requestFullscreen({ navigationUI: 'hide' })
+        .then(() => screen.fit())
+        .then(() => window.screen.orientation?.lock?.('landscape'))
+        .catch(() => {});
+    },
+    { once: true },
+  );
+}
+
+// Portrait phones get a "turn sideways" card over the game (style.css shows it). "Play upright" keeps portrait: the
+// game goes to the top and the HUD's stats and buttons move into a dock below it (scenes/portraitDock.js).
+document.getElementById('rotate-dismiss')?.addEventListener('click', () => {
+  document.documentElement.classList.add('portrait-ok');
+  screen.fit();
+});
+initPortraitDock(game, {
+  onBack: () => {
+    input.keyDown('Escape');
+    setTimeout(() => input.keyUp('Escape'), 50);
+  },
+  onLayout: () => requestAnimationFrame(() => screen.fit()),
+});
+
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement) return;
   // Global hotkeys are off while a scene needs raw keys (mini-games: typing uses every letter).
@@ -42,12 +76,22 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') game.saveNow();
+// Android's back button acts as Escape (close a dialog, open the menu), like the keyboard.
+initPlatform({
+  onBack: () => {
+    input.keyDown('Escape');
+    setTimeout(() => input.keyUp('Escape'), 50);
+  },
+});
+onAppState((active) => {
+  if (!active) game.saveNow();
+  audio.background(!active);
 });
 window.addEventListener('pagehide', () => game.saveNow());
 
 initReminders(game);
+// The app first copies saves back from native storage in case iOS cleared the WebView's (instant in the browser).
+await restoreStorage();
 game.set(new TitleScene(game));
 
 let last = performance.now();
@@ -63,7 +107,8 @@ function frame(t) {
 }
 requestAnimationFrame(frame);
 
-if ('serviceWorker' in navigator && location.port !== '5317') {
+// The app ships its files inside the package, so only the website registers the offline service worker.
+if (features.serviceWorker && location.port !== '5317') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 

@@ -2,6 +2,7 @@
 // Protected by reCAPTCHA v3, whose script is only loaded when the form is first opened.
 import { FEEDBACK_URL, RECAPTCHA_SITE_KEY } from '../config.js';
 import { track } from './analytics.js';
+import { isNative, os, openExternal } from './platform.js';
 
 let recaptcha = null;
 function loadRecaptcha() {
@@ -33,6 +34,12 @@ export const feedbackOpen = () => open;
 /** Opens the form. `context` is a short string (career progress etc.) attached to the email; `topic` preselects a TOPICS id. */
 export function openFeedback(context = '', topic = 'task') {
   if (open) return;
+  // The app: reCAPTCHA only runs on the website's domain, so the form opens there (synergytower.co.uk/feedback/).
+  if (isNative()) {
+    track('feedback_open', { topic });
+    const from = `${os()} app, ${context}`;
+    return openExternal(`https://synergytower.co.uk/feedback/?topic=${encodeURIComponent(topic)}&from=${encodeURIComponent(from)}`);
+  }
   open = true;
   track('feedback_open', { topic });
   if (RECAPTCHA_SITE_KEY) loadRecaptcha().catch(() => {});

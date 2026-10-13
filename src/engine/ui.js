@@ -1,5 +1,6 @@
 // UI kit: palette, panels, pixel icons and a keyboard+mouse button set.
 import { track } from './analytics.js';
+import { openExternal } from './platform.js';
 import { drawText, measureText } from './font.js';
 
 export const C = {
@@ -184,6 +185,8 @@ export class ButtonSet {
     for (const b of this.items) {
       if (b.hotkey && !b.disabled && input.pressedExact(b.hotkey)) return this.fire(b, input, sfx);
     }
+    // A fingertip is wider than a 16 px button: a tap just beside one still counts.
+    if (p.clicked && this.hover < 0 && p.touch) this.hover = nearestWithin(this.items, p, TOUCH_SLOP);
     if (p.clicked && this.hover >= 0) {
       const b = this.items[this.hover];
       input.consumeClick();
@@ -220,6 +223,24 @@ export class ButtonSet {
   }
 }
 
+const TOUCH_SLOP = 6; // game px around a button that a tap may miss by
+
+/** Index of the item closest to p within `slop` px of its rect, or -1. */
+export function nearestWithin(items, p, slop) {
+  let best = -1;
+  let bestD = slop + 0.001;
+  items.forEach((b, i) => {
+    const dx = Math.max(b.x - p.x, 0, p.x - (b.x + b.w));
+    const dy = Math.max(b.y - p.y, 0, p.y - (b.y + b.h));
+    const d = Math.max(dx, dy);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
 export function drawButton(g, b, focused, hovered) {
   if (b.draw) return b.draw(g, b, focused, hovered); // a button with art of its own (the title screen's store badges)
   const base = b.disabled ? '#3a3d4d' : b.color || C.accent;
@@ -250,7 +271,7 @@ export const COFFEE_URL = 'https://buymeacoffee.com/marvec';
 /** Opens the tip page. Called from button handlers, which run within the browser's user-activation window after a click or key press. */
 export const openCoffee = () => {
   track('coffee_click');
-  window.open(COFFEE_URL, '_blank', 'noopener');
+  openExternal(COFFEE_URL);
 };
 
 /** Right-aligned link text ending at x. `url` may also be a function, called on click. */

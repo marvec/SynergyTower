@@ -36,6 +36,7 @@ import * as T from '../core/trip.js';
 import { CLIENTS, TRIP_TEASERS, TRIP_OFFER, TRIP_AFTER } from '../data/trip.js';
 import * as L from '../core/vacation.js'; // leave
 import { BOSS_TEASERS, BOSS_AFTER, VACATION_OFFER } from '../data/vacation.js';
+import { isTouch } from '../engine/platform.js';
 
 const SPEED = 4.4;
 const R = 0.3;
@@ -1063,7 +1064,7 @@ export class FloorScene {
     const y = H - 20;
     panel(g, x, y, w, 17, { fill: C.panelDark });
     rect(g, x + 4, y + 4, 30, 10, C.text);
-    drawText(g, 'SPACE', x + 19, y + 5, { align: 'center', color: C.ink });
+    drawText(g, isTouch() ? 'TAP' : 'SPACE', x + 19, y + 5, { align: 'center', color: C.ink });
     drawText(g, text, x + 39, y + 5);
     if (sub) drawText(g, sub, x + 44 + measureText(text), y + 5, { color: C.dim });
     if (t.kind === 'task') {

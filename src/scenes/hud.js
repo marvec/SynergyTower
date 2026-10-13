@@ -6,18 +6,20 @@ import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import { titleForFloor } from '../data/departments.js';
 import { StatsDialog } from './statsDialog.js';
+import { features } from '../engine/platform.js';
 
 export const HUD_H = 22;
 
 export class Hud {
   constructor(game, actions) {
     this.game = game;
+    this.actions = actions; // also used by the portrait dock (portraitDock.js)
     this.buttons = new ButtonSet({ keyboard: false });
     const defs = [
       { icon: 'cart', label: 'Shop', key: 'shop', hotkey: 'o' },
       { icon: 'up', label: 'Perks', key: 'perks', hotkey: 'p' },
       { icon: 'book', label: 'Train', key: 'train', hotkey: 't' },
-      { icon: 'coffee', label: 'Tip', key: 'coffee' },
+      ...(features.tips ? [{ icon: 'coffee', label: 'Tip', key: 'coffee' }] : []),
       { icon: 'medal', label: '', key: 'badges', hotkey: 'b' },
       { icon: 'note', label: '', key: 'music' },
       { icon: 'menu', label: '', key: 'menu' },

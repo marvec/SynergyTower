@@ -2,7 +2,7 @@
 
 A pixel-art, 2.5D (C-Dogs-style oblique top-down) browser game in the spirit of FarmVille / Simpsons: Tapped Out.
 You are a new hire climbing a 40-floor corporate tower: walk each floor, do office chores as mini-games, earn
-currencies and get promoted floor by floor until you become CEO. Browser-first; a Flutter port may follow.
+currencies and get promoted floor by floor until you become CEO. Browser-first, also shipped as iOS/Android apps (Capacitor, `mobile/`) from the same code.
 
 Design spec: `docs/superpowers/specs/2026-10-09-synergy-tower-design.md` (economy formulas, floors, mini-game list).
 
@@ -13,6 +13,7 @@ bun run dev      # dev server with hot reload → http://localhost:5317 (service
 bun run build    # static offline-capable build → dist/
 bun run preview  # serve dist/ → http://localhost:4317 (service worker active)
 bun test         # unit + headless smoke tests (MG=inbox,quiz bun test tests/minigames.test.js for a subset)
+bun run build:app  # the store apps' bundle → mobile/www (then `cd mobile && npm run sync`, see mobile/README.md)
 ```
 
 Port 3000 is taken on Martin's machine by another project (`~/SynologyDrive/work/corporate`). Don't use it, and
@@ -42,6 +43,28 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
   The elevator lobby sits at a fixed top-centre position. Tests assert that every station is reachable.
 - Rendering: the floor tiles are baked once, then walls (per row), furniture and actors are depth-sorted by their base y.
   Furniture art lives in `src/engine/art.js` as draw functions (footprint + `lift` = height above the footprint).
+
+## Platforms: website, PWA, iOS/Android apps
+
+One bundle everywhere; `src/engine/platform.js` decides at runtime (`isNative()`, `os()`, `isTouch()`, `isStandalone()`,
+`features.tips/shop/storeBadges/serviceWorker`). Never branch on build flags for platform behaviour.
+- The apps (`mobile/`, Capacitor 8, see `mobile/README.md`) reach native plugins through `plugin(name)` (the injected
+  `window.Capacitor` bridge, so the web bundle stays dependency-free); their npm packages live in `mobile/package.json`
+  only. Native projects `mobile/ios`, `mobile/android` are committed; `mobile/www` is built by `scripts/build-app.js`.
+- In the app: saves are mirrored to Preferences (`gameStorage()`, restored by `restoreStorage()` at start); reminders are
+  local notifications scheduled on going to the background (`engine/reminders.js`, `isExactNotification: false`); the
+  tip jar, demo checkout and store badges are hidden (store payment rules); feedback opens the website's /feedback/ page;
+  links go through `openExternal()`; Android back = Escape. Use `openExternal`, not `window.open`.
+- Phones: `isTouch()` swaps keyboard hints for tap hints (keep both when adding a hint); buttons forgive taps that miss
+  by `TOUCH_SLOP` px (`ButtonSet`); the terminal opens the on-screen keyboard via `SoftKeyboard` (an invisible input over
+  the canvas, edits diffed into key presses); the body pads for safe areas and `screen.fit` follows the visual viewport;
+  portrait phones get a "turn sideways" card (`#rotate`) whose "Play upright" keeps portrait: the game sits at the top
+  and `scenes/portraitDock.js` shows the HUD below it as DOM (stats via `dockStats`, the Hud's `actions`, Back = Escape).
+  The store apps are landscape-only.
+- Privacy policy: `public/privacy/index.html` (static, like the guide; linked from Menu > Settings and the store
+  listings). Keep it in step when analytics, the feedback form or anything that leaves the device changes.
+- PWA install (`engine/install.js`): the title's "Install app" link runs the browser's saved `beforeinstallprompt`, or on
+  iPhone/iPad Safari shows the Add to Home Screen steps; hidden when installed or in the app.
 
 ## Mini-game contract
 
@@ -101,8 +124,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
   coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, vacation_start, vacation_activity {game, stars}, vacation_end {coffee, activities, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
-  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges),
-  c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing.
+  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
+  c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing. The apps send Umami events too, tagged `app-ios`/`app-android`.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
   completing it fills the pot and starts the refill. The `turnstile` item fills the lobby door: walkable in `fl.walk` so floor
@@ -173,7 +196,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   `src/engine/reminders.js` schedules the soonest one when the tab is hidden and fires only if the tab is still hidden.
   Kept sparse on purpose: ≥5 min away, max 3/day (`localStorage['synergytower.reminders']`), quiet 22:00–08:00, each kind
   once per absence. Closed tabs get nothing (that would need Web Push and a server).
-- Payments are **fake** (`FakeCheckout` in `src/scenes/overlays.js`, labelled DEMO). There is no real payment code.
+- Payments are **fake** (`FakeCheckout` in `src/scenes/overlays.js`, labelled DEMO), website only (`features.shop`). There is no real payment code.
 - Service worker (`public/sw.js`): page navigations are network-first (cache only when offline), so another app later
   run on the same localhost port isn't hijacked. Bump `CACHE` when changing caching behaviour.
 - `bun --hot` sometimes misses a change to a shared module (seen with `mgkit.js` on SynologyDrive), so the served bundle

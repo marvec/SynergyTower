@@ -6,7 +6,7 @@ import { initAnalytics } from '../engine/analytics.js';
 
 const params = new URLSearchParams(location.search);
 const topic = TOPICS.some((t) => t.id === params.get('topic')) ? params.get('topic') : 'task';
-const from = (params.get('from') || '').replace(/[^\w .,@-]/g, '').slice(0, 60);
+const from = (params.get('from') || '').replace(/[^\w .,@-]/g, '').slice(0, 120);
 const context = from ? `feedback page (from ${from})` : 'feedback page';
 
 initAnalytics();

@@ -17,6 +17,7 @@ import { FloorScene } from './floorScene.js';
 import { MinigameScene } from './minigameScene.js';
 import { Dialog } from './overlays.js';
 import { HUD_H } from './hud.js';
+import { isTouch } from '../engine/platform.js';
 
 const SHIRTS = ['#e85d75', '#f29c38', '#2fa39a', '#f2e14e', '#7fc4ff', '#5fd068', '#f29cd0', '#ffffff'];
 const SHORTS = ['#f2e6c8', '#3b6fb6', '#e2504a', '#2f8a3a', '#d9b25c'];
@@ -205,7 +206,7 @@ export class HotelScene extends FloorScene {
     const y = H - 20;
     panel(g, x, y, w, 17, { fill: C.panelDark });
     rect(g, x + 4, y + 4, 30, 10, C.text);
-    drawText(g, 'SPACE', x + 19, y + 5, { align: 'center', color: C.ink });
+    drawText(g, isTouch() ? 'TAP' : 'SPACE', x + 19, y + 5, { align: 'center', color: C.ink });
     drawText(g, text, x + 39, y + 5);
     drawText(g, sub, x + 44 + measureText(text), y + 5, { color: C.dim });
   }

@@ -6,6 +6,7 @@ import { C, rect, panel, dim, stars, inRect } from '../engine/ui.js';
 import { drawText, drawWrapped, measureText, wrapText } from '../engine/font.js';
 import * as Q from '../core/curios.js';
 import { PLANT_LOOKS, PLASTIC_LINE, VENDING_LINES as VL, VENDING_DISPLAY, VENDING_RETURN } from '../data/curios.js';
+import { isTouch } from '../engine/platform.js';
 
 /** Gold corner brackets around a rect (the selection inside a close-up). */
 function brackets(g, x, y, w, h, t) {
@@ -91,7 +92,8 @@ class CloseUp {
     dim(g, 0.6);
     panel(g, this.x, this.y, this.w, this.h, { title: this.title });
     this.renderBody(g);
-    drawText(g, this.hint, this.x + this.w / 2, this.y + this.h - 11, { align: 'center', color: C.dim });
+    const hint = isTouch() ? 'Tap things for a closer look. Tap outside to close.' : this.hint;
+    drawText(g, hint, this.x + this.w / 2, this.y + this.h - 11, { align: 'center', color: C.dim });
   }
   renderBody() {}
 }
