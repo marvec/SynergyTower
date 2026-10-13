@@ -84,7 +84,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   `floorWorld.js`). Interacting shows `SPONSOR_PITCH` / `adPitch` from `src/data/sponsors.js`, with an "Advertise here"
   button that opens the feedback form on the `sponsor` topic.
 - HUD stats are clickable: `Hud.hits` (rebuilt every render) opens `StatsDialog` (`src/scenes/statsDialog.js`) on the matching
-  tab. "Games played" = distinct mini-games in `state.played` out of `COUNTED_GAMES` (tasks.js: the 33 station games plus the 8 holiday activities, which the title's count and the Generalist badge use too; any result counts; `S.gamesPlayed`).
+  tab. "Games played" = distinct mini-games in `state.played` out of `COUNTED_GAMES` (tasks.js: the 33 station games plus the 8 holiday activities, ordinary games for the title's count of 41, the Generalist badge, the player guide, `llms.txt` and the page metadata; any result counts; `S.gamesPlayed`).
 - Feedback form: `openFeedback(context)` in `src/engine/feedback.js` is a DOM overlay (title link, ☰ menu, posters) with
   topics (task idea, bug, sponsorship, other; email required for sponsorship). It lazy-loads
   reCAPTCHA v3 (the only external script) and POSTs to `api/feedback.js`, a Vercel Function (project `well-be/synergy-tower`,

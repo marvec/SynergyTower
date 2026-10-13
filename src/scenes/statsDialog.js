@@ -113,8 +113,8 @@ function statInfo(key, s, now) {
     color: g.played === g.total ? C.good : C.text,
     text:
       g.played === g.total
-        ? 'You have played every kind of mini-game with this character, at work and on holiday. Certified generalist!'
-        : 'How many different kinds of mini-games you have tried with this character, out of all of them, holiday ones included.',
+        ? 'You have played every kind of mini-game with this character. Certified generalist!'
+        : 'How many different kinds of mini-games you have tried with this character, out of all of them.',
     bar: g.played / g.total,
     rows: fresh.length ? [['Not tried yet on this floor:', null, fresh.join(', ')]] : [['This floor', true, 'all tried']],
   };

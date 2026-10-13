@@ -1,6 +1,6 @@
 # SynergyTower
 
-> SynergyTower is a free pixel-art browser game about climbing the corporate ladder. You start as a new hire at the bottom of a 40-floor office tower, walk each floor, do office chores as 33 short mini-games, earn paperclips (the office currency) and KPI stars, pass an HR performance review and get promoted floor by floor until you become CEO. It runs in any modern browser on desktop and mobile, needs no sign-up and works offline.
+> SynergyTower is a free pixel-art browser game about climbing the corporate ladder. You start as a new hire at the bottom of a 40-floor office tower, walk each floor, do office chores as 41 short mini-games, earn paperclips (the office currency) and KPI stars, pass an HR performance review and get promoted floor by floor until you become CEO. It runs in any modern browser on desktop and mobile, needs no sign-up and works offline.
 
 Play it at https://synergytower.co.uk/ . The game is drawn on an HTML canvas, so this file describes what the page itself cannot show as text.
 
@@ -24,7 +24,7 @@ The full illustrated guide, with a screenshot and description of every mini-game
 
 ## Mini-games
 
-Meeting Buzzword Bingo, Cable Spaghetti, Schedule the Meeting, Coffee Run, Write the Email, Calendar Defender, Expense Fraud Detective, 360 Feedback (find a colleague across the floor), Fridge Tetris, Coffee Crossing, Magic Chart, Inbox Triage, Jargon Decoder, PowerPoint Karaoke, Lost Password (search the floor's whiteboards), Expense Report, Meeting Survival, Name Badge Memory, Slide Deck Order, Org Chart Shuffle, Password Policy, Elevator Pitch, Desk Plant Survival, Corporate Quiz, Reply-All Apocalypse, Server Rack Sequence, Fix the Spreadsheet, Boss Alert, Quarterly Ticker, Badge Tailgate, Perfect Timing and more. Every game supports keyboard and mouse.
+Meeting Buzzword Bingo, Cable Spaghetti, Schedule the Meeting, Coffee Run, Write the Email, Calendar Defender, Expense Fraud Detective, 360 Feedback (find a colleague across the floor), Fridge Tetris, Coffee Crossing, Magic Chart, Inbox Triage, Jargon Decoder, PowerPoint Karaoke, Lost Password (search the floor's whiteboards), Expense Report, Meeting Survival, Name Badge Memory, Slide Deck Order, Org Chart Shuffle, Password Policy, Elevator Pitch, Desk Plant Survival, Corporate Quiz, Reply-All Apocalypse, Server Rack Sequence, Fix the Spreadsheet, Boss Alert, Quarterly Ticker, Badge Tailgate, Perfect Timing and more, plus 8 holiday activities for players to find (Counting Sheep, All You Can Eat, Pool Ball, Swim to the Buoy, Golden Brown, Pina Colada, Deep Tissue and Sandcastle): 41 mini-games in all. Every game supports keyboard and mouse.
 
 ## Commodore 64 version
 
@@ -44,7 +44,7 @@ SynergyTower also runs on a real or emulated Commodore 64: https://synergytower.
 ## Links
 
 - [Play SynergyTower](https://synergytower.co.uk/): the game
-- [How to play](https://synergytower.co.uk/how-to-play/): the complete guide: lobby check-in, coffee, KPI stars, promotions, bonuses, events, badges and all 33 mini-games with screenshots
+- [How to play](https://synergytower.co.uk/how-to-play/): the complete guide: lobby check-in, coffee, KPI stars, promotions, bonuses, events, badges and all 41 mini-games with screenshots
 - [Commodore 64 version](https://synergytower.co.uk/c64/): download page for the C64 port (D64 disk images)
 - [Source code](https://github.com/marvec/SynergyTower): GitHub repository with README
 - [Support the author](https://buymeacoffee.com/marvec): Buy Me a Coffee
