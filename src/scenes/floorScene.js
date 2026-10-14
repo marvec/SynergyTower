@@ -39,6 +39,7 @@ import { BOSS_TEASERS, BOSS_AFTER, VACATION_OFFER } from '../data/vacation.js';
 import { isTouch } from '../engine/platform.js';
 import * as CD from '../core/conduct.js';
 import { fireCareer, FiredScene } from './fired.js';
+import { nightLamps, drawNight } from './nightLights.js';
 import * as N from '../core/nightShift.js';
 import { NIGHT_TEASERS, NIGHT_OFFER, NIGHT_AFTER, NIGHT_GOODBYE, NIGHT_REFUSALS, NIGHT_GO_HOME, NIGHT_SUMMARY, NIGHT_SUMMARY_TITLE, NIGHT_SUMMARY_LINES } from '../data/nightShift.js';
 import { ASK_LINES, ASK_AGAIN_LINES, FIRST_NO, REPEAT_NO, FROSTY_LINES, GOSSIP_LINES, HR_CALL_LINES, HR_PASSED_LINES, HR_FAILED_LINES, HOLD_INTRO } from '../data/conduct.js';
@@ -1236,6 +1237,10 @@ export class FloorScene {
     this.view.desk = this.hasDesk ? K.myDesk(s) : null;
     const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : []), ...(this.receptionist ? [this.receptionist] : []), ...(this.event?.actors || [])];
     this.view.render(g, this.cam, [...actors, ...(this.quest?.props || [])]);
+    if (this.night) {
+      this.lamps ||= nightLamps(this.fl, this.floorNo);
+      drawNight(g, { lamps: this.lamps, fade: this.nightFade, cam: { x: Math.round(this.cam.x), y: Math.round(this.cam.y) }, player: this.player, t: this.time });
+    }
 
     g.save();
     g.translate(-Math.round(this.cam.x), -Math.round(this.cam.y));
@@ -1251,6 +1256,7 @@ export class FloorScene {
     this.drawPrompt(g, s, now);
     this.hud.render(g);
     if (CD.onHold(s)) this.drawHoldStrip(g);
+    if (this.night) this.drawNightClock(g, s, now);
     this.quest?.renderHud(g);
     this.event?.renderHud(g);
     if (this.banner > 0) this.drawBanner(g);
@@ -1279,6 +1285,10 @@ export class FloorScene {
         if (this.event?.hidesMarker(it)) continue;
         if (hold) {
           this.drawHoldTape(g, cx, top);
+          continue;
+        }
+        if (night && MINIGAMES[it.task.game].quest) {
+          this.drawHoldTape(g, cx, top, 'CLOSED');
           continue;
         }
         const left = S.cooldownLeft(s, it.task.id, now);
@@ -1360,8 +1370,8 @@ export class FloorScene {
   }
 
   /** Compliance hold: black and yellow "ON HOLD" tape over a station or the elevator. */
-  drawHoldTape(g, cx, top) {
-    const text = 'ON HOLD';
+  /** Black-and-yellow tape over a station: 'ON HOLD' (compliance hold) or 'CLOSED' (a floor quest at night). */
+  drawHoldTape(g, cx, top, text = 'ON HOLD') {
     const w = measureText(text) + 16;
     const x = Math.round(cx - w / 2);
     const y = top - 12;
@@ -1369,6 +1379,27 @@ export class FloorScene {
     rect(g, x, y, w, 9, '#1a1a1a');
     for (const ex of [x, x + w - 5]) for (let i = 0; i < 5; i += 2) rect(g, ex + i, y, 1, 9, '#f2c230');
     drawText(g, text, cx, y + 1, { align: 'center', color: '#f2c230' });
+  }
+
+  /** The night shift's clock under the HUD (top right): time left, tasks done, a bar running down. */
+  drawNightClock(g, s, now) {
+    const left = N.nightLeft(s, now);
+    const t = formatTime(left);
+    const done = `${s.nightShift?.tasks || 0} done`;
+    const name = 'NIGHT SHIFT';
+    const w = measureText(name) + measureText(t) + measureText(done) + 36;
+    const x = W - w - 4; // right-aligned: toasts take the middle
+    const y = HUD_H + 3;
+    const low = left < 60000;
+    panel(g, x, y, w, 15, { fill: C.panelDark });
+    drawText(g, name, x + 6, y + 4, { color: '#9fb4ff' });
+    let cx = x + 10 + measureText(name);
+    icon(g, 'clock', cx, y + 4);
+    cx += 10;
+    if (!low || Math.floor(this.time * 3) % 2) drawText(g, t, cx, y + 4, { color: low ? C.bad : C.text });
+    cx += measureText(t) + 6;
+    drawText(g, done, cx, y + 4, { color: C.dim });
+    rect(g, x + 1, y + 13, Math.round((w - 2) * Math.min(1, left / (E.NIGHT_SHIFT_S * 1000))), 1, low ? C.bad : '#9fb4ff');
   }
 
   /** A blue speech bubble over the colleague with today's stand-up favour. */
