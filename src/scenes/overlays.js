@@ -5,6 +5,7 @@ import { drawText, drawWrapped, measureText, wrapText } from '../engine/font.js'
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import * as C_ from '../core/conduct.js';
+import { taskCooldownMs } from '../core/nightShift.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
@@ -158,7 +159,10 @@ export class TaskCard extends Modal {
       drawText(g, '0-3 KPI', x + 210, y + 86);
     }
     if (t.checkin && s.lobby === 'checkin') drawText(g, `Check-in: any result loads your coffee card`, x + 10, y + 100, { color: C.coffee });
-    else drawText(g, `Cooldown after play: ${formatTime(E.stationCooldownMs(s.floor, s.perks, t.game))}`, x + 10, y + 100, { color: C.dim });
+    else {
+      const half = s.nightShift?.floor === s.floor;
+      drawText(g, `Cooldown after play: ${formatTime(taskCooldownMs(s, t.game))}${half ? ' (half, night shift)' : ''}`, x + 10, y + 100, { color: half ? C.good : C.dim });
+    }
   }
 }
 

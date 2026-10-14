@@ -78,6 +78,19 @@ test('a night task has half the cooldown, pays as usual and counts in the tally'
   expect(s.nightShift).toMatchObject({ tasks: 1, sp: r.sp, stars: r.stars });
 });
 
+test('the task card shows the halved cooldown on the night shift\'s floor only', () => {
+  const s = game();
+  const task = stations(15)[0];
+  const day = E.stationCooldownMs(15, s.perks, task.game);
+  expect(N.taskCooldownMs(s, task.game)).toBe(day);
+  N.startNightShift(s, 15, NOON);
+  expect(N.taskCooldownMs(s, task.game)).toBe(Math.round(day * 0.5));
+  N.completeNightTask(s, task, 0.9, NOON + MIN, () => 1);
+  expect(s.cooldowns[task.id] - (NOON + MIN)).toBe(N.taskCooldownMs(s, task.game));
+  s.floor = 14;
+  expect(N.taskCooldownMs(s, stations(14)[0].game)).toBe(E.stationCooldownMs(14, s.perks, stations(14)[0].game));
+});
+
 test('the night brewer is ready at once and every 2 minutes after', () => {
   const s = game();
   s.cooldowns['coffee-machine-15'] = NOON + 10 * MIN;

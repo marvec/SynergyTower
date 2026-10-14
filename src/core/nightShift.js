@@ -45,6 +45,12 @@ export function startNightShift(s, floor, now) {
   return { ok: true };
 }
 
+/** A station's cooldown after a game, as the task card shows it: half on the night shift's floor. */
+export function taskCooldownMs(s, game) {
+  const mult = s.nightShift && s.nightShift.floor === s.floor ? E.NIGHT_COOLDOWN_MULT : 1;
+  return Math.round(E.stationCooldownMs(s.floor, s.perks, game) * mult);
+}
+
 export const nightLeft = (s, now) => (s.nightShift ? Math.max(0, s.nightShift.endsAt - now) : 0);
 export const nightActive = (s, now) => nightLeft(s, now) > 0;
 
