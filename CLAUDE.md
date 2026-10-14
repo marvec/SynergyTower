@@ -206,8 +206,12 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   coffee }` while it runs; text in `src/data/nightShift.js`). It is a mode of the ordinary `FloorScene`, not a subclass:
   the live getter `night` (`state.nightShift.floor === floorNo`) makes any path onto that floor (reload, elevator ride,
   warp) the dark, empty floor. Accepting walks everyone (the HR rep too) to the elevator, one ding, the lights out after
-  8 s at most (`nightFade`); `src/scenes/nightLights.js` draws the darkness (lamp pools from `fl.rooms` and the corridor,
-  a few flickering at most twice a second, a light around the player) and the song is `nightshift`. Station cooldowns
+  8 s at most (`nightFade`); `src/scenes/nightLights.js` lights it (lamps from `fl.rooms` and the corridor, a light
+  around the player; of the ~third that flicker, 1-2 blink (`lampLevel`, at most twice a second) and the rest waver
+  (`flickerLevel`: three sines plus rare dips, applied to a baked patch, more towards the edge; `LIGHTING.flicker`)) and the song is `nightshift`. The lighting is
+  `src/engine/lighting.js`, DOS-style: the world is drawn unlit, then multiplied by a light buffer quantized to
+  `LIGHTING.levels` shades with a 4x4 Bayer dither; static lights are baked once, walls and furniture with `lift` >= 24
+  block light on the tile grid (a wall's front face is lit only from the south). Settings in the `LIGHTING` object. Station cooldowns
   are halved (`completeTask` option `cooldownMult`, MinigameScene mode `'night'` → `completeNightTask`; running ones are
   halved at the start) and the floor's machine brews every 2 minutes under its own key (`N.BREWER_KEY`). Closed at
   night: HR, the terminal, floor quests ("CLOSED" tape), stand-ups, events, the coffee break chat. The elevator offers
@@ -248,6 +252,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - `__trip()` / `__trip(30)` / `__trip('client')`: the business trip again (resets it), or straight into the client's office.
 - `__night()` / `__night(15)` / `__night('dark')` / `__night(15, 'dark')`: the night shift again (resets today's), the manager's
   offer on the nearest night floor at or below your highest one, or straight into the dark office.
+- `__light()` / `__light('levels', 6)` / `__light('mode', 'tile')` / `__light('fog', true)` / `__light('flash')`: the night
+  lighting's settings; the backslash key cycles its view (final, unlit, the light buffer alone).
 - `__conduct()` / `__conduct(4)` / `__conduct('hold')`: the coffee break chat on this floor with a clean record, one ask away
   from the hold, or straight into the compliance hold.
 - `__vacation()`: floor 20 with the leave request open, free (no paperclips) and repeatable (resets today's holiday);

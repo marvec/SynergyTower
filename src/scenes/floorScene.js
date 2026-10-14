@@ -39,7 +39,7 @@ import { BOSS_TEASERS, BOSS_AFTER, VACATION_OFFER } from '../data/vacation.js';
 import { isTouch } from '../engine/platform.js';
 import * as CD from '../core/conduct.js';
 import { fireCareer, FiredScene } from './fired.js';
-import { nightLamps, drawNight } from './nightLights.js';
+import { nightLighting, drawNight } from './nightLights.js';
 import * as N from '../core/nightShift.js';
 import { NIGHT_TEASERS, NIGHT_OFFER, NIGHT_AFTER, NIGHT_GOODBYE, NIGHT_REFUSALS, NIGHT_GO_HOME, NIGHT_SUMMARY, NIGHT_SUMMARY_TITLE, NIGHT_SUMMARY_LINES } from '../data/nightShift.js';
 import { ASK_LINES, ASK_AGAIN_LINES, FIRST_NO, REPEAT_NO, FROSTY_LINES, GOSSIP_LINES, HR_CALL_LINES, HR_PASSED_LINES, HR_FAILED_LINES, HOLD_INTRO } from '../data/conduct.js';
@@ -1094,6 +1094,7 @@ export class FloorScene {
     if (this.firingT) return this.updateLockout(dt);
     // The night shift's time is up: it ends once the floor is on top again (a mini-game or card is never cut short).
     if (this.night && game.top === this && !N.nightActive(game.state, game.now())) return this.finishNight();
+    this.lighting?.update(dt);
     const hudUsed = this.hud.update(dt, input);
     if (input.back()) {
       game.sfx('click');
@@ -1238,8 +1239,8 @@ export class FloorScene {
     const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : []), ...(this.receptionist ? [this.receptionist] : []), ...(this.event?.actors || [])];
     this.view.render(g, this.cam, [...actors, ...(this.quest?.props || [])]);
     if (this.night) {
-      this.lamps ||= nightLamps(this.fl, this.floorNo);
-      drawNight(g, { lamps: this.lamps, fade: this.nightFade, cam: { x: Math.round(this.cam.x), y: Math.round(this.cam.y) }, player: this.player, t: this.time });
+      this.lighting ||= nightLighting(this.fl, this.floorNo);
+      drawNight(g, this.lighting, { fade: this.nightFade, cam: { x: Math.round(this.cam.x), y: Math.round(this.cam.y) }, player: this.player, t: this.time });
     }
 
     g.save();

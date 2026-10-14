@@ -268,7 +268,7 @@ test('the dark floor plays the night track, draws the clock and tapes off the qu
   fs.render(g2);
   expect(clock).toBe(1);
   if (station(fs, true)) expect(texts).toContain('CLOSED');
-  expect(fs.lamps.length).toBeGreaterThanOrEqual(4);
+  expect(fs.lighting.lights.length).toBeGreaterThanOrEqual(5); // the lamps and the player's light
 });
 
 test('continuing a career mid-shift goes back to the dark floor; an expired shift ends with a toast', async () => {

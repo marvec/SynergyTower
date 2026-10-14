@@ -5,6 +5,7 @@ import * as E from './core/economy.js';
 import * as CD from './core/conduct.js';
 import * as N from './core/nightShift.js';
 import { MinigameScene } from './scenes/minigameScene.js';
+import { LIGHTING, VIEWS } from './engine/lighting.js';
 
 export function installDebug(game) {
   /** Launch any mini-game, e.g. __mg('spreadsheet', 0.5). Needs a loaded career. It pays real rewards, hence dev only. */
@@ -123,4 +124,25 @@ export function installDebug(game) {
     fs.openChat(n);
     return `${n.id.name}, ${CD.askState(s, n.seed) || 'no drinks'}`;
   };
+
+  /**
+   * Debug: the night lighting (engine/lighting.js). __light() shows the settings; __light('levels', 6), __light('mode',
+   * 'tile'), __light('dither', false), __light('fog', true), __light('ambient', 0.05) change them; __light('flash') flashes.
+   * The backslash key cycles the view: final, unlit, the light buffer alone.
+   */
+  window.__light = (key, value) => {
+    const lighting = game.top?.lighting;
+    if (key === 'flash') return lighting ? (lighting.flash(0.6), 'flash') : 'no lighting on this scene';
+    if (key != null) {
+      LIGHTING[key] = value;
+      if (key === 'ambient' && lighting) lighting.setAmbient(value);
+      if (key === 'fog' && lighting) lighting.seen = null;
+    }
+    return { ...LIGHTING };
+  };
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Backslash') return;
+    LIGHTING.view = VIEWS[(VIEWS.indexOf(LIGHTING.view) + 1) % VIEWS.length];
+    game.toast(`Lighting view: ${LIGHTING.view}`);
+  });
 }
