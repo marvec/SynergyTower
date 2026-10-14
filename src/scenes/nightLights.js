@@ -66,12 +66,18 @@ export function drawNight(g, { lamps, fade, cam, player, t }) {
   d.clearRect(0, 0, W, H);
   d.fillStyle = NIGHT;
   d.fillRect(0, 0, W, H);
+  // The lamps on screen, with their level this frame (a flickering one hashes its slot once, not per pass).
+  const lit = [];
+  for (const l of lamps) {
+    const x = l.x * TILE - cam.x;
+    const y = l.y * TILE - cam.y;
+    if (x + l.r < 0 || x - l.r > W || y + l.r < 0 || y - l.r > H) continue;
+    const level = lampLevel(l, t);
+    if (level > 0) lit.push({ x, y, r: l.r, level });
+  }
   d.globalCompositeOperation = 'destination-out';
   d.fillStyle = '#000';
-  for (const l of lamps) {
-    const level = lampLevel(l, t);
-    if (level > 0) pool(d, l.x * TILE - cam.x, l.y * TILE - cam.y, l.r, level);
-  }
+  for (const l of lit) pool(d, l.x, l.y, l.r, l.level);
   if (player) pool(d, player.x * TILE - cam.x, player.y * TILE - 6 - cam.y, 26, 1.2);
   d.globalCompositeOperation = 'source-over';
   g.globalAlpha = fade;
@@ -79,10 +85,10 @@ export function drawNight(g, { lamps, fade, cam, player, t }) {
   // A faint warm glow under the lamps that are on.
   g.globalAlpha = 0.06 * fade;
   g.fillStyle = '#ffd88a';
-  for (const l of lamps) {
-    if (lampLevel(l, t) < 1) continue;
+  for (const l of lit) {
+    if (l.level < 1) continue;
     g.beginPath();
-    g.arc(Math.round(l.x * TILE - cam.x), Math.round(l.y * TILE - cam.y), l.r * 0.7, 0, Math.PI * 2);
+    g.arc(Math.round(l.x), Math.round(l.y), l.r * 0.7, 0, Math.PI * 2);
     g.fill();
   }
   g.globalAlpha = 1;

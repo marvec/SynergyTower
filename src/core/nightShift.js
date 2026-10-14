@@ -12,6 +12,14 @@ export const isNightFloor = (floor) => E.NIGHT_FLOORS.includes(floor);
 /** The night machine's cooldown key: separate from the day machine's, so a 15-minute day cooldown never blocks it. */
 export const BREWER_KEY = 'coffee-machine-night';
 
+/** Why no shift can start: 'hold' (compliance hold), 'badge' (not checked in), 'away' (trip or holiday), or null. */
+export function nightBlock(s) {
+  if (onHold(s)) return 'hold';
+  if (s.lobby !== 'done') return 'badge';
+  if (s.trip || s.vacation) return 'away';
+  return null;
+}
+
 /**
  * 'none' (not a night floor) | 'on' (a shift is under way) | 'blocked' (hold, trip, holiday, no badge yet) |
  * 'today' (today's shift is used up) | 'available'.
@@ -19,7 +27,7 @@ export const BREWER_KEY = 'coffee-machine-night';
 export function nightStatus(s, floor, now) {
   if (!isNightFloor(floor)) return 'none';
   if (s.nightShift) return 'on';
-  if (onHold(s) || s.trip || s.vacation || s.lobby !== 'done') return 'blocked';
+  if (nightBlock(s)) return 'blocked';
   return s.nightShifts?.day === dayKey(now) ? 'today' : 'available';
 }
 

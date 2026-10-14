@@ -50,6 +50,7 @@ const REACH = 1.05;
 const TOP_MARGIN = 36;
 const RECEPTIONIST_SEED = 4242;
 const WALK_OUT_S = 8; // the night shift's walk-out: the lights go out after this at the latest
+const NIGHT_QUEST_CLOSED = 'Closed for the night: that one needs your colleagues.';
 // The receptionist's nudges while the new hire has not checked in yet.
 const CHECKIN_NUDGES = [
   'Over here! New starters check in at the front desk.',
@@ -354,7 +355,7 @@ export class FloorScene {
     const night = this.night;
     if (night && (t.kind === 'terminal' || (t.kind === 'task' && MINIGAMES[t.it.task.game].quest))) {
       game.sfx('bad');
-      game.toast(t.kind === 'terminal' ? 'The workstations are locked for the night.' : 'Closed for the night: that one needs your colleagues.', C.warn);
+      game.toast(t.kind === 'terminal' ? 'The workstations are locked for the night.' : NIGHT_QUEST_CLOSED, C.warn);
       return;
     }
     if (t.kind === 'npc') {
@@ -369,7 +370,7 @@ export class FloorScene {
       if (leave === 'available' && !q && !ev && !hold) return this.askVacation(t.n);
       const shift = t.n === this.nightBoss ? N.nightStatus(s, this.floorNo, game.now()) : null;
       if (shift === 'available' && !q && !ev && !hold) return this.askNight(t.n);
-      if (shift === 'blocked' || shift === 'available') return this.refuseNight(t.n);
+      if (shift === 'blocked' || shift === 'available') return this.refuseNight(t.n); // available but a quest or event runs
       if (t.n === this.standupNpc && !q && !hold) return this.askStandup(t.n);
       if (t.n === this.chatNpc && !q && !ev) return this.openChat(t.n);
       const tripAfter = trip && trip !== 'available' && this.rng.chance(0.5) ? this.rng.pick(TRIP_AFTER[trip]) : null;
@@ -535,9 +536,7 @@ export class FloorScene {
 
   /** No shift right now: your manager says why (a compliance hold, no badge yet, or something else going on). */
   refuseNight(n) {
-    const s = this.game.state;
-    const why = CD.onHold(s) ? 'hold' : s.lobby !== 'done' ? 'badge' : s.trip || s.vacation ? 'away' : 'busy';
-    n.a.say(NIGHT_REFUSALS[why], 3.5);
+    n.a.say(NIGHT_REFUSALS[N.nightBlock(this.game.state) || 'busy'], 3.5);
     this.game.sfx('blip');
   }
 
@@ -601,11 +600,11 @@ export class FloorScene {
   updateNightTease(dt) {
     const n = this.nightBoss;
     if (!n || n.brain.exit || n.a.bubble || this.quest || this.event) return;
-    if (N.nightStatus(this.game.state, this.floorNo, this.game.now()) !== 'available') return;
     if (Math.hypot(n.a.x - this.player.x, n.a.y - this.player.y) > 8) return;
     this.teaseT -= dt;
     if (this.teaseT > 0) return;
     this.teaseT = 16;
+    if (N.nightStatus(this.game.state, this.floorNo, this.game.now()) !== 'available') return;
     n.a.say(Q.pickLine(NIGHT_TEASERS, (this.teaseMemo ||= {})), 4);
   }
 
@@ -885,7 +884,7 @@ export class FloorScene {
     // The night shift's clock ran out while a card was open: end it instead (the floor is back on top).
     if (this.night && !N.nightActive(this.game.state, this.game.now())) return this.finishNight();
     if (MINIGAMES[task.game].quest) {
-      if (this.night) return this.game.toast('Closed for the night: that one needs your colleagues.', C.warn);
+      if (this.night) return this.game.toast(NIGHT_QUEST_CLOSED, C.warn);
       if (this.event) {
         this.game.toast('Better wait until the office event is over.', C.warn);
         return;
@@ -1369,8 +1368,7 @@ export class FloorScene {
     drawText(g, text, W / 2, y + 3, { align: 'center', color: '#ffe8a0' });
   }
 
-  /** Compliance hold: black and yellow "ON HOLD" tape over a station or the elevator. */
-  /** Black-and-yellow tape over a station: 'ON HOLD' (compliance hold) or 'CLOSED' (a floor quest at night). */
+  /** Black-and-yellow tape over a station or the elevator: 'ON HOLD' (compliance hold) or 'CLOSED' (a floor quest at night). */
   drawHoldTape(g, cx, top, text = 'ON HOLD') {
     const w = measureText(text) + 16;
     const x = Math.round(cx - w / 2);
