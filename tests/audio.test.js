@@ -27,6 +27,14 @@ test('every song compiles to in-range events with a melody', () => {
   }
 });
 
+test('the night shift has its own darker track: minor and slower than the office', () => {
+  const n = SONGS.nightshift;
+  expect(n).toBeTruthy();
+  expect(n.chords[0]).toMatch(/m$/);
+  expect(n.bpm).toBeLessThan(SONGS.office.bpm);
+  expect(n.bpm).toBeLessThan(SONGS.tech.bpm);
+});
+
 test('every department music track exists', () => {
   for (const d of DEPARTMENTS) expect(SONGS[d.music]).toBeTruthy();
 });

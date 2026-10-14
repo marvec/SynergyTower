@@ -60,6 +60,23 @@ export const SONGS = {
       'B5 - - - G5 - D5 - B4 - - - D5 - . .', 'E5 - - - G#5 - - - B5 - - - . . . .',
     ],
   },
+  // The night shift (core/nightShift.js): the office empty and dark. D minor, slow, a heartbeat kick under a pulsing bass.
+  nightshift: {
+    bpm: 92, swing: 0, lead: 'square', leadVol: 0.09,
+    chords: ['Dm', 'Dm', 'Bb', 'A7', 'Dm', 'Gm', 'Bb', 'A7'],
+    bass: { steps: [0, 2, 4, 6, 8, 10, 12, 14], tones: [0, 0, 0, 0, 0, 0, 2, 0], len: 1 },
+    arp: { steps: [0, 3, 6, 8, 11, 14], tones: [0, 2, 1, 4, 2, 1], vol: 0.025 },
+    drums: [
+      'k..k......k.r...', 'k..k......k.r..h', 'k..k......k.r...', 'k..k....s.k.r.ss',
+      'k..k......k.r...', 'k..k......k.r..h', 'k..k......k.r...', 'k..k..s.s.k.s.ss',
+    ],
+    melody: [
+      'D5 - - - - - - - . . . . F5 - E5 -', 'D5 - - - A4 - - - - - - - . . . .',
+      'D5 - - - F5 - - - Bb5 - - - A5 - F5 -', 'E5 - - - - - - - C#5 - - - . . . .',
+      'A5 - - - - - - - G5 - F5 - E5 - D5 -', 'G5 - - - Bb4 - - - D5 - - - G5 - - -',
+      'F5 - - - D5 - - - Bb4 - - - D5 - F5 -', 'E5 - - - C#5 - - - A4 - - - . . . .',
+    ],
+  },
   exec: {
     bpm: 92, swing: 0.22, lead: 'triangle', leadVol: 0.2,
     chords: ['Dm7', 'G7', 'Cmaj7', 'Am7', 'Dm7', 'G7', 'Cmaj7', 'Cmaj7'],
