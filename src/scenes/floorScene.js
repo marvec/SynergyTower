@@ -39,6 +39,8 @@ import { BOSS_TEASERS, BOSS_AFTER, VACATION_OFFER } from '../data/vacation.js';
 import { isTouch } from '../engine/platform.js';
 import * as CD from '../core/conduct.js';
 import { fireCareer, FiredScene } from './fired.js';
+import * as N from '../core/nightShift.js';
+import { NIGHT_TEASERS, NIGHT_OFFER, NIGHT_AFTER, NIGHT_GOODBYE, NIGHT_REFUSALS, NIGHT_GO_HOME, NIGHT_SUMMARY, NIGHT_SUMMARY_TITLE, NIGHT_SUMMARY_LINES } from '../data/nightShift.js';
 import { ASK_LINES, ASK_AGAIN_LINES, FIRST_NO, REPEAT_NO, FROSTY_LINES, GOSSIP_LINES, HR_CALL_LINES, HR_PASSED_LINES, HR_FAILED_LINES, HOLD_INTRO } from '../data/conduct.js';
 
 const SPEED = 4.4;
@@ -46,6 +48,7 @@ const R = 0.3;
 const REACH = 1.05;
 const TOP_MARGIN = 36;
 const RECEPTIONIST_SEED = 4242;
+const WALK_OUT_S = 8; // the night shift's walk-out: the lights go out after this at the latest
 // The receptionist's nudges while the new hire has not checked in yet.
 const CHECKIN_NUDGES = [
   'Over here! New starters check in at the front desk.',
@@ -57,12 +60,20 @@ const CHECKIN_NUDGES = [
 export class FloorScene {
   /** Badges unlock only while a floor is on the stack (not on the title, setup or exterior screens). */
   inTower = true;
-  /** fl: a prebuilt floor instead of the tower's (the client's office on a business trip, see clientOffice.js). */
-  constructor(game, floor, { arrival = 'elevator', fl = null } = {}) {
+  /**
+   * fl: a prebuilt floor instead of the tower's (the client's office on a business trip, see clientOffice.js).
+   * nightSummary: the night shift that just ended here (finishNight), shown once as a card.
+   */
+  constructor(game, floor, { arrival = 'elevator', fl = null, nightSummary = null } = {}) {
     this.game = game;
     this.floorNo = floor;
     this.fl = fl || buildFloor(floor);
     this.foreign = !!(this.fl.client || this.fl.foreign); // a client's office or the hotel: no firing, events, stand-ups or trips
+    this.nightSummary = nightSummary;
+    // A night shift under way here (a reload, an elevator ride, a warp): the floor is empty and dark from the start.
+    const night = this.night;
+    this.nightFade = night ? 1 : 0; // darkness, 0..1: grows during the walk-out, full once everyone has left
+    this.walkOut = null; // seconds since the walk-out started, while colleagues still head for the elevator
     this.dept = departmentForFloor(floor);
     this.view = new FloorView(this.fl, game.corpColor());
     const e = this.fl.entrance;
@@ -73,7 +84,7 @@ export class FloorScene {
     const fired = game.state.fired || {};
     const cast = S.castOf(game.state);
     this.npcs = this.fl.npcs
-      .filter((n) => !fired[n.seed])
+      .filter((n) => !fired[n.seed] && !night)
       .map((n) => {
         const a = new Actor(npcLook(n.seed, this.fl.dept, cast), n.x, n.y);
         const id = npcIdentity(n.seed, this.fl.dept, cast);
@@ -82,7 +93,7 @@ export class FloorScene {
       });
     // The HR rep stands behind the review desk all day.
     const rep = this.fl.hrRep;
-    this.hrRep = rep ? new Actor(suit(npcLook(floor * 91 + 7, this.fl.dept, cast), '#4a3a6a', { glasses: true }), rep.x + 0.5, rep.y + 0.75) : null;
+    this.hrRep = rep && !night ? new Actor(suit(npcLook(floor * 91 + 7, this.fl.dept, cast), '#4a3a6a', { glasses: true }), rep.x + 0.5, rep.y + 0.75) : null;
     if (this.hrRep) this.hrRep.who = { name: npcIdentity(floor * 91 + 7, 'legalhr', cast).name, role: 'HR Business Partner' };
     // Ground floor: the receptionist behind the front desk runs the new hire's check-in (see S.passTurnstile).
     const rc = this.fl.receptionist;
@@ -120,8 +131,11 @@ export class FloorScene {
     // Vacation (core/vacation.js): on floor 20 the first colleague is your own manager, who signs leave requests.
     this.bossNpc = !this.foreign && floor === E.VACATION_FLOOR ? this.npcs.find((n) => n.seed === this.fl.npcs[0]?.seed) || null : null;
     if (this.bossNpc) this.bossNpc.a.who.role = 'Your Manager';
+    // Night shift (core/nightShift.js): on floors 5, 15, 25 and 35 the first colleague is your manager, who offers it.
+    this.nightBoss = !this.foreign && N.isNightFloor(floor) ? this.npcs.find((n) => n.seed === this.fl.npcs[0]?.seed) || null : null;
+    if (this.nightBoss) this.nightBoss.a.who.role = 'Your Manager';
     // Conduct (core/conduct.js): one colleague per tower floor gets the coffee break chat, with the drink question.
-    const chat = this.foreign ? null : CD.chatSeed(this.fl, floor);
+    const chat = this.foreign || night ? null : CD.chatSeed(this.fl, floor);
     this.chatNpc = chat == null ? null : this.npcs.find((n) => n.seed === chat) || null;
     this.chatMemos = new Map(); // line list → pickLine memo, so answers come at random without repeats
     this.hrCallT = 2;
@@ -142,10 +156,20 @@ export class FloorScene {
     });
   }
 
+  /** A night shift is under way on this floor (read live: the scene that accepts it switches at once). */
+  get night() {
+    return !this.foreign && this.game.state.nightShift?.floor === this.floorNo;
+  }
+
+  /** The floor's song; the night shift has its own. */
+  get music() {
+    return this.night ? 'nightshift' : this.dept.music;
+  }
+
   enter() {
     this.game.state.floor = this.floorNo;
     this.game.markDirty();
-    this.game.audio.play(this.dept.music);
+    this.game.audio.play(this.music);
     const s = this.game.state;
     this.refreshStandup();
     if (this.standupNpc && !this.standupToast && !CD.onHold(s)) {
@@ -170,10 +194,11 @@ export class FloorScene {
         }),
       );
     }
+    if (this.nightSummary) this.showNightSummary();
   }
 
   resume() {
-    this.game.audio.play(this.dept.music);
+    this.game.audio.play(this.music);
   }
 
   openMenu() {
@@ -324,6 +349,13 @@ export class FloorScene {
       this.hrRep?.say(this.chatLine(HR_CALL_LINES), 3);
       return;
     }
+    // The night shift: the workstations are locked and the floor quests need colleagues who have gone home.
+    const night = this.night;
+    if (night && (t.kind === 'terminal' || (t.kind === 'task' && MINIGAMES[t.it.task.game].quest))) {
+      game.sfx('bad');
+      game.toast(t.kind === 'terminal' ? 'The workstations are locked for the night.' : 'Closed for the night: that one needs your colleagues.', C.warn);
+      return;
+    }
     if (t.kind === 'npc') {
       const a = t.n.a;
       a.faceTowards(p.x - a.x, p.y - a.y);
@@ -334,10 +366,16 @@ export class FloorScene {
       if (trip === 'available' && !q && !ev && !hold) return this.askTrip(t.n);
       const leave = t.n === this.bossNpc ? L.vacationStatus(s, this.floorNo, game.now()) : null;
       if (leave === 'available' && !q && !ev && !hold) return this.askVacation(t.n);
+      const shift = t.n === this.nightBoss ? N.nightStatus(s, this.floorNo, game.now()) : null;
+      if (shift === 'available' && !q && !ev && !hold) return this.askNight(t.n);
+      if (shift === 'blocked' || shift === 'available') return this.refuseNight(t.n);
       if (t.n === this.standupNpc && !q && !hold) return this.askStandup(t.n);
       if (t.n === this.chatNpc && !q && !ev) return this.openChat(t.n);
       const tripAfter = trip && trip !== 'available' && this.rng.chance(0.5) ? this.rng.pick(TRIP_AFTER[trip]) : null;
-      const after = tripAfter || (leave === 'today' && this.rng.chance(0.5) ? this.rng.pick(BOSS_AFTER) : null);
+      const after =
+        tripAfter ||
+        (leave === 'today' && this.rng.chance(0.5) ? this.rng.pick(BOSS_AFTER) : null) ||
+        (shift === 'today' && this.rng.chance(0.5) ? this.rng.pick(NIGHT_AFTER) : null);
       const line = q?.hintLine(t.n) || after || this.nextLine();
       a.say(line);
       game.sfx('blip');
@@ -362,11 +400,15 @@ export class FloorScene {
       game.push(new DeskOverlay(game, this.floorNo, this.view));
     } else if (t.kind === 'elevator') {
       game.sfx('ding');
+      if (night) return this.askGoHome();
       game.push(new ElevatorPanel(game, { onPromote: () => this.promote(), onTravel: (f) => this.travel(f) }));
     } else if (t.kind === 'hr') {
       const r = S.reviewStatus(s, game.now());
       game.sfx('click');
-      if (hold) {
+      if (night) {
+        game.sfx('bad');
+        game.toast('HR has gone home. Come back in the morning.', C.dim);
+      } else if (hold) {
         this.hrRep?.say('Sit down. This will not take long. Well, it might.', 3);
         game.push(new Dialog(game, { title: 'HR Office · Compliance hold', w: 320, text: HOLD_INTRO(s.maxFloor), button: 'Later', action: { label: 'Start the training', color: C.goodBtn, onClick: () => this.startCompliance() } }));
       } else if (['available', 'cooldown', 'coffee'].includes(r.state)) {
@@ -397,12 +439,13 @@ export class FloorScene {
     }
   }
 
-  /** The floor's coffee machine (a client's brewer refills sooner, see clientOffice.js). */
+  /** The floor's coffee machine (a client's brewer refills sooner, see clientOffice.js; so does the night machine). */
   useCoffee() {
+    if (this.night) return N.useNightBrewer(this.game.state, this.game.now());
     return S.useCoffeeMachine(this.game.state, this.floorNo, this.game.now());
   }
   get brewerKey() {
-    return `coffee-machine-${this.floorNo}`;
+    return this.night ? N.BREWER_KEY : `coffee-machine-${this.floorNo}`;
   }
 
   /** The account manager's business trip offer (floors 10 and 30, once per career). */
@@ -473,6 +516,137 @@ export class FloorScene {
     n.a.say(Q.pickLine(BOSS_TEASERS, (this.teaseMemo ||= {})), 4);
   }
 
+  /** Your manager on floors 5, 15, 25 and 35 asks for a volunteer for tonight's shift (once a day, free). */
+  askNight(n) {
+    const game = this.game;
+    n.brain.talkPause = 6;
+    game.sfx('blip');
+    game.push(
+      new Dialog(game, {
+        title: `${n.id.name} · Night shift`,
+        w: 330,
+        text: NIGHT_OFFER(E.NIGHT_SHIFT_S / 60),
+        button: 'Not now',
+        action: { label: 'Start the shift', onClick: () => this.startNight() },
+      }),
+    );
+  }
+
+  /** No shift right now: your manager says why (a compliance hold, no badge yet, or something else going on). */
+  refuseNight(n) {
+    const s = this.game.state;
+    const why = CD.onHold(s) ? 'hold' : s.lobby !== 'done' ? 'badge' : s.trip || s.vacation ? 'away' : 'busy';
+    n.a.say(NIGHT_REFUSALS[why], 3.5);
+    this.game.sfx('blip');
+  }
+
+  /** Accepting the shift: everyone goes home, the lights go out and the machines speed up (core/nightShift.js). */
+  startNight() {
+    const game = this.game;
+    const s = game.state;
+    if (this.quest || this.event) return game.toast('Finish what you are doing first.', C.warn);
+    if (!N.startNightShift(s, this.floorNo, game.now()).ok) return;
+    this.standupNpc = null;
+    this.chatNpc = null;
+    if (this.hrRep) this.hrRep.bubble = null;
+    this.nightBoss?.a.say(this.rng.pick(NIGHT_GOODBYE), 3);
+    this.nightBoss = null;
+    this.startWalkOut();
+    game.audio.play(this.music);
+    game.toast(`Night shift: ${E.NIGHT_SHIFT_S / 60} minutes, and the machines are all yours.`, C.gold);
+    track('night_start', { floor: this.floorNo });
+    game.markDirty();
+    game.saveNow();
+  }
+
+  /** Colleagues and the HR rep head for the elevator (the CEO-firing exit); see updateWalkOut. */
+  startWalkOut() {
+    const fl = this.fl;
+    const ex = Math.floor(fl.spawn.x);
+    const ey = Math.floor(fl.spawn.y);
+    for (const n of this.npcs) n.brain.leave(ex, ey);
+    // The HR rep stands behind a solid desk: they step out beside it first, then walk like everyone else.
+    const a = this.hrRep;
+    const rep = fl.hrRep;
+    if (a && rep) {
+      const free = itemNeighbors(fl, rep)
+        .filter(([x, y]) => fl.walk[y * fl.w + x] && fl.dist[y * fl.w + x] >= 0)
+        .sort(([x1, y1], [x2, y2]) => Math.hypot(x1 + 0.5 - a.x, y1 + 0.5 - a.y) - Math.hypot(x2 + 0.5 - a.x, y2 + 0.5 - a.y));
+      if (free.length) {
+        a.x = free[0][0] + 0.5;
+        a.y = free[0][1] + 0.5;
+        const brain = new NpcBrain(a, fl, this.floorNo * 91 + 7);
+        brain.leave(ex, ey);
+        this.npcs.push({ a, brain, seed: this.floorNo * 91 + 7, id: a.who });
+      }
+    }
+    this.hrRep = null;
+    this.walkOut = 0;
+    this.nightFade = 0;
+  }
+
+  /** One ding for the whole walk-out: when the last one is gone, or after WALK_OUT_S for anyone still walking. */
+  updateWalkOut(dt) {
+    this.walkOut += dt;
+    this.nightFade = Math.min(1, this.walkOut / WALK_OUT_S);
+    if (this.npcs.length && this.walkOut < WALK_OUT_S) return;
+    this.npcs = [];
+    this.walkOut = null;
+    this.nightFade = 1;
+    this.game.sfx('ding');
+  }
+
+  /** Your manager hints at the night shift now and then while today's is still on offer. */
+  updateNightTease(dt) {
+    const n = this.nightBoss;
+    if (!n || n.brain.exit || n.a.bubble || this.quest || this.event) return;
+    if (N.nightStatus(this.game.state, this.floorNo, this.game.now()) !== 'available') return;
+    if (Math.hypot(n.a.x - this.player.x, n.a.y - this.player.y) > 8) return;
+    this.teaseT -= dt;
+    if (this.teaseT > 0) return;
+    this.teaseT = 16;
+    n.a.say(Q.pickLine(NIGHT_TEASERS, (this.teaseMemo ||= {})), 4);
+  }
+
+  /** The elevator at night: going home ends the shift (today's is used up either way). */
+  askGoHome() {
+    const game = this.game;
+    game.push(
+      new Dialog(game, {
+        title: 'Go home early?',
+        w: 300,
+        text: NIGHT_GO_HOME(formatTime(N.nightLeft(game.state, game.now()))),
+        button: 'Keep working',
+        action: { label: 'Go home', onClick: () => this.finishNight(true) },
+      }),
+    );
+  }
+
+  /** The shift is over (gone home early, or the time is up with the floor on top): the daytime floor and a summary. */
+  finishNight(early = false) {
+    if (this.endingNight) return;
+    this.endingNight = true;
+    const game = this.game;
+    const sum = N.endNightShift(game.state) || { floor: this.floorNo, tasks: 0, sp: 0, stars: 0, coffee: 0 };
+    track('night_end', { floor: this.floorNo, sp: sum.sp, tasks: sum.tasks, early });
+    game.saveNow();
+    game.set(new FloorScene(game, this.floorNo, { arrival: 'elevator', nightSummary: { ...sum, early } }));
+  }
+
+  /** The morning after (or going home early): one card with the shift's tally. */
+  showNightSummary() {
+    const sum = this.nightSummary;
+    this.nightSummary = null;
+    const kind = sum.early ? 'early' : 'done';
+    this.game.push(
+      new Dialog(this.game, {
+        title: NIGHT_SUMMARY_TITLE[kind],
+        w: 300,
+        text: NIGHT_SUMMARY({ ...sum, sp: formatNum(sum.sp) }, this.rng.pick(NIGHT_SUMMARY_LINES[kind])),
+      }),
+    );
+  }
+
   /** Now and then the account manager calls out the trip while the player is around (it is a secret, not a hidden one). */
   updateTripTease(dt) {
     const n = this.tripNpc;
@@ -521,14 +695,14 @@ export class FloorScene {
   refreshStandup() {
     const s = this.game.state;
     const now = this.game.now();
-    if (this.foreign || D.standupStatus(s, now) !== 'pending') {
+    if (this.foreign || this.night || D.standupStatus(s, now) !== 'pending') {
       this.standupNpc = null;
       return;
     }
     const day = D.dayKey(now);
     if (this.standupNpc && this.standupDay === day && !this.standupNpc.brain.exit) return;
     // Not the account manager, your manager or the coffee-chat colleague: their own card would hide the favour.
-    const pool = this.npcs.filter((n) => !n.brain.exit && n !== this.tripNpc && n !== this.bossNpc && n !== this.chatNpc);
+    const pool = this.npcs.filter((n) => !n.brain.exit && n !== this.tripNpc && n !== this.bossNpc && n !== this.nightBoss && n !== this.chatNpc);
     let h = this.floorNo;
     for (const ch of day) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     this.standupNpc = pool.length ? createRng(h).pick(pool) : null;
@@ -669,7 +843,7 @@ export class FloorScene {
   /** On hold, the HR rep calls you in now and then. */
   updateHrCall(dt) {
     const r = this.hrRep;
-    if (!r || r.bubble || !CD.onHold(this.game.state)) return;
+    if (!r || r.bubble || this.night || !CD.onHold(this.game.state)) return;
     this.hrCallT -= dt;
     if (this.hrCallT > 0) return;
     this.hrCallT = 14;
@@ -707,7 +881,10 @@ export class FloorScene {
   }
 
   startTask(task) {
+    // The night shift's clock ran out while a card was open: end it instead (the floor is back on top).
+    if (this.night && !N.nightActive(this.game.state, this.game.now())) return this.finishNight();
     if (MINIGAMES[task.game].quest) {
+      if (this.night) return this.game.toast('Closed for the night: that one needs your colleagues.', C.warn);
       if (this.event) {
         this.game.toast('Better wait until the office event is over.', C.warn);
         return;
@@ -715,7 +892,7 @@ export class FloorScene {
       this.quest = new FloorQuest(this, task);
       return;
     }
-    this.game.push(new MinigameScene(this.game, task, (result) => this.taskDone(result), { mode: this.taskMode }));
+    this.game.push(new MinigameScene(this.game, task, (result) => this.taskDone(result), { mode: this.night ? 'night' : this.taskMode }));
   }
 
   async taskDone(result) {
@@ -914,6 +1091,8 @@ export class FloorScene {
     const p = this.player;
 
     if (this.firingT) return this.updateLockout(dt);
+    // The night shift's time is up: it ends once the floor is on top again (a mini-game or card is never cut short).
+    if (this.night && game.top === this && !N.nightActive(game.state, game.now())) return this.finishNight();
     const hudUsed = this.hud.update(dt, input);
     if (input.back()) {
       game.sfx('click');
@@ -928,7 +1107,7 @@ export class FloorScene {
     if (this.event) {
       this.event.update(dt);
       if (this.event.over) this.event = null;
-    } else if (!this.quest && !this.foreign && !CD.onHold(game.state) && V.canStartEvent(game.state, game.now(), { onFloorS: this.onFloorS, busy: false })) this.startEvent();
+    } else if (!this.quest && !this.foreign && !this.night && !CD.onHold(game.state) && V.canStartEvent(game.state, game.now(), { onFloorS: this.onFloorS, busy: false })) this.startEvent();
 
     // Keyboard movement.
     let kx = (input.down('ArrowRight') ? 1 : 0) - (input.down('ArrowLeft') ? 1 : 0);
@@ -1001,14 +1180,16 @@ export class FloorScene {
     for (const n of this.npcs) {
       n.brain.update(dt, (x, y) => Math.hypot(x - p.x, y - p.y) < 0.45);
       n.a.update(dt);
-      if (n.brain.gone) game.sfx('ding');
+      if (n.brain.gone && this.walkOut == null) game.sfx('ding');
     }
     this.npcs = this.npcs.filter((n) => !n.brain.gone);
+    if (this.walkOut != null) this.updateWalkOut(dt);
     p.update(dt);
     this.hrRep?.update(dt);
     this.updateReceptionist(dt);
     this.updateTripTease(dt);
     this.updateBossTease(dt);
+    this.updateNightTease(dt);
     this.updateHrCall(dt);
     this.standupT -= dt;
     if (this.standupT <= 0) {
@@ -1090,6 +1271,7 @@ export class FloorScene {
   drawMarkers(g, s, now) {
     const bob = Math.round(Math.sin(this.time * 4) * 1.5);
     const hold = CD.onHold(s);
+    const night = this.night;
     for (const it of this.fl.items) {
       const cx = Math.round((it.x + it.w / 2) * TILE);
       const top = this.view.itemTop(it) - 3;
@@ -1118,13 +1300,14 @@ export class FloorScene {
         }
       } else if (it.interact === 'elevator') {
         if (hold) this.drawHoldTape(g, cx, top);
-        else if (s.floor === s.maxFloor && S.promotionStatus(s).can) {
+        else if (!night && s.floor === s.maxFloor && S.promotionStatus(s).can) {
           const y = top - 14 + bob;
           rect(g, cx - 6, y, 12, 12, C.border);
           rect(g, cx - 5, y + 1, 10, 10, C.good);
           icon(g, 'up', cx - 3, y + 3);
         }
       } else if (it.interact === 'hr') {
+        if (night) continue; // HR has gone home
         const r = S.reviewStatus(s, now);
         const y = top - 24 + bob;
         if (hold) {
@@ -1214,7 +1397,7 @@ export class FloorScene {
       else sub = t.n === this.standupNpc && !this.quest && !CD.onHold(s) ? `${t.n.id.name} - daily stand-up` : S.canFire(s) && !this.quest ? `${t.n.id.name} - decide their fate` : t.n.id.name;
     } else if (t.kind === 'terminal') {
       text = 'Workstation';
-      sub = 'open terminal';
+      sub = this.night ? 'locked for the night' : 'open terminal';
     } else if (t.kind === 'poster') {
       text = t.it.ad ? t.it.ad.name : 'Ad space';
       sub = t.it.ad ? 'advertisement' : 'sponsor this wall';
@@ -1224,7 +1407,10 @@ export class FloorScene {
       text = 'Whiteboard';
       sub = t.b.checked ? 'look again' : 'take a look';
     }
-    else if (t.kind === 'elevator') text = 'Elevator';
+    else if (t.kind === 'elevator') {
+      text = 'Elevator';
+      if (this.night) sub = 'go home early';
+    }
     else if (t.kind === 'exit') {
       text = 'Way out';
       sub = 'back to the office';
@@ -1243,6 +1429,7 @@ export class FloorScene {
       const r = S.reviewStatus(s, now);
       sub = { available: 'performance review', coffee: 'performance review', cooldown: `retry ${formatTime(r.left)}`, passed: 'review passed', notReady: 'not promotion-ready yet' }[r.state] || '';
       if (CD.onHold(s)) sub = 'compliance training';
+      if (this.night) sub = 'gone home';
     }
     else {
       text = t.it.task.title;
@@ -1251,6 +1438,7 @@ export class FloorScene {
       sub = left > 0 ? `busy ${formatTime(left)}` : cost ? `-${cost} coffee` : 'check-in, free';
       if (this.quest) sub = this.quest.isStation(t.it) ? this.quest.stationSub() : 'finish your task first';
       if (this.event?.isLocked(t.it)) sub = 'locked for the audit';
+      if (this.night && MINIGAMES[t.it.task.game].quest) sub = 'closed for the night';
     }
     if (CD.onHold(s) && ['task', 'elevator', 'terminal', 'mydesk'].includes(t.kind)) sub = 'on hold: see HR';
     const w = measureText(text) + measureText(sub) + 56;

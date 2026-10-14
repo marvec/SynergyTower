@@ -21,7 +21,7 @@ export const STAT_TABS = [
 const TAB_W = 50;
 
 /** The explanation for one stat: { title, value, color, text, rows?: [[label, ok|null, detail]], bar? }. */
-function statInfo(key, s, now) {
+function statInfo(key, s, now, brewerKey = `coffee-machine-${s.floor}`) {
   const f = s.floor;
   const p = S.promotionStatus(s);
   const top = s.maxFloor >= E.FLOORS;
@@ -38,7 +38,7 @@ function statInfo(key, s, now) {
   if (key === 'coffee') {
     const max = S.coffeeMax(s);
     const next = S.msToNextCoffee(s, now);
-    const machine = S.cooldownLeft(s, `coffee-machine-${f}`, now);
+    const machine = S.cooldownLeft(s, brewerKey, now);
     return {
       title: 'Coffee',
       value: `${s.coffee.value}/${max}`,
@@ -163,7 +163,9 @@ export class StatsDialog extends Modal {
       icon(g, t.icon, tx + (TAB_W - lw) / 2, y + 6);
       drawText(g, t.label, tx + (TAB_W - lw) / 2 + iw, y + 6, { color: on ? C.gold : C.dim });
     });
-    const info = statInfo(STAT_TABS[this.tab].key, s, this.game.now());
+    // The floor underneath knows its coffee machine's key (a client's brewer, the night machine).
+    const floor = this.game.scenes().findLast((sc) => sc.brewerKey);
+    const info = statInfo(STAT_TABS[this.tab].key, s, this.game.now(), floor?.brewerKey);
     const bx = x + 12;
     const bw = this.w - 24;
     let yy = y + 24;

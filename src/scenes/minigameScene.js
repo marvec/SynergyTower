@@ -8,6 +8,7 @@ import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import { completeStandup } from '../core/daily.js';
 import { completeTripTask, tripLeft } from '../core/trip.js';
+import { completeNightTask } from '../core/nightShift.js';
 import { completeActivity, vacationLeft } from '../core/vacation.js';
 import { completeTraining } from '../core/conduct.js';
 import { fireCareer, FiredScene } from './fired.js';
@@ -21,7 +22,8 @@ export class MinigameScene {
    * (the daily stand-up favour: a daily bonus, no KPI stars or cooldown) or 'trip' (a client's office on a business
    * trip: double paperclips, no KPI stars) or 'vacation' (a holiday activity at the hotel: free, a coffee for 1 star or
    * more, once per stay; no paperclips, XP or KPI stars) or 'compliance' (the compliance training that ends a
-   * compliance hold: pass or be demoted, see core/conduct.js).
+   * compliance hold: pass or be demoted, see core/conduct.js) or 'night' (a station on the night shift: the usual
+   * rewards, half the cooldown, tallied for the shift's summary, see core/nightShift.js).
    */
   constructor(game, task, onDone, opts = {}) {
     this.game = game;
@@ -104,9 +106,11 @@ export class MinigameScene {
     const s = this.game.state;
     const before = { level: s.level };
     const trip = this.mode === 'trip';
-    this.result = trip ? completeTripTask(s, this.task, score, this.game.now()) : S.completeTask(s, this.task, this.floor, score, this.game.now());
+    const night = this.mode === 'night';
+    const now = this.game.now();
+    this.result = trip ? completeTripTask(s, this.task, score, now) : night ? completeNightTask(s, this.task, score, now) : S.completeTask(s, this.task, this.floor, score, now);
     this.result.score = score;
-    track('task_played', { game: this.task.game, floor: this.floor, stars: this.result.stars, ...(trip ? { trip: true } : {}) });
+    track('task_played', { game: this.task.game, floor: this.floor, stars: this.result.stars, ...(trip ? { trip: true } : {}), ...(night ? { night: true } : {}) });
     this.result.before = before;
     this.game.markDirty();
     this.game.saveNow();
