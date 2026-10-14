@@ -132,7 +132,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
   coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, vacation_start, vacation_activity {game, stars}, vacation_end {coffee, activities, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
-  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
+  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, night_start, night_end {sp, tasks, early}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
   c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing. The apps send Umami events too, tagged `app-ios`/`app-android`.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
@@ -199,6 +199,20 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   `VACATION_COFFEE` once per activity per stay, on top of the pot. The 8 holiday games (`sleep`, `buffet`, `beachball`,
   `swim`, `sunbathe`, `cocktail`, `massage`, `sandcastle`) are in `MINIGAMES` but not `STATION_GAMES`/`GAME_TIER`; each has
   a `peek()` for the attentive/idle player tests in `tests/holiday.test.js`. Text in `src/data/vacation.js`, song `tropical`.
+- **Night shift** (plan `docs/plans/2026-10-14-2102-feat-night-shift-plan.md`): on floors 5, 15, 25 and 35 (`NIGHT_FLOORS`)
+  the first colleague (`FloorScene.nightBoss`, "Your Manager") offers a 10-minute shift once per local day for all four
+  floors together (`src/core/nightShift.js`, `state.nightShifts.day`; `state.nightShift = { floor, endsAt, tasks, sp, stars,
+  coffee }` while it runs; text in `src/data/nightShift.js`). It is a mode of the ordinary `FloorScene`, not a subclass:
+  the live getter `night` (`state.nightShift.floor === floorNo`) makes any path onto that floor (reload, elevator ride,
+  warp) the dark, empty floor. Accepting walks everyone (the HR rep too) to the elevator, one ding, the lights out after
+  8 s at most (`nightFade`); `src/scenes/nightLights.js` draws the darkness (lamp pools from `fl.rooms` and the corridor,
+  a few flickering at most twice a second, a light around the player) and the song is `nightshift`. Station cooldowns
+  are halved (`completeTask` option `cooldownMult`, MinigameScene mode `'night'` → `completeNightTask`; running ones are
+  halved at the start) and the floor's machine brews every 2 minutes under its own key (`N.BREWER_KEY`). Closed at
+  night: HR, the terminal, floor quests ("CLOSED" tape), stand-ups, events, the coffee break chat. The elevator offers
+  "Go home early"; time up ends it once the floor is on top again; both lead to a new daytime `FloorScene` with a
+  summary card (`nightSummary`). Not during a hold, trip or holiday, or before check-in. The title's Continue ends an
+  expired shift (or one saved on another floor) with a toast.
 - **Office conduct** (`src/core/conduct.js`, `state.conduct`, text in `src/data/conduct.js`): on every tower floor one
   colleague (`CD.chatSeed`, never `fl.npcs[0]`; `FloorScene.chatNpc`, kept out of the stand-up pool) opens a `ChatCard`
   (overlays.js: Small talk / Ask for a drink / Bye, HR notes) instead of a bubble. Every ask is a strike (a colleague's
@@ -231,6 +245,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - `__step(frames)`: advance the loop manually (rAF pauses in background tabs).
 - `__mg('spreadsheet', 0.7)`: launch any mini-game at a given difficulty (needs a loaded career). Dev server only.
 - `__trip()` / `__trip(30)` / `__trip('client')`: the business trip again (resets it), or straight into the client's office.
+- `__night()` / `__night(15)` / `__night('dark')` / `__night(15, 'dark')`: the night shift again (resets today's), the manager's
+  offer on the nearest night floor at or below your highest one, or straight into the dark office.
 - `__conduct()` / `__conduct(4)` / `__conduct('hold')`: the coffee break chat on this floor with a clean record, one ask away
   from the hold, or straight into the compliance hold.
 - `__vacation()`: floor 20 with the leave request open, free (no paperclips) and repeatable (resets today's holiday);
