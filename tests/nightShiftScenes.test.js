@@ -10,7 +10,7 @@ const { createInput } = await import('../src/engine/input.js');
 const { createGame } = await import('../src/game.js');
 const { FloorScene } = await import('../src/scenes/floorScene.js');
 const { MinigameScene } = await import('../src/scenes/minigameScene.js');
-const { Dialog } = await import('../src/scenes/overlays.js');
+const { Dialog, TaskCard } = await import('../src/scenes/overlays.js');
 const { TerminalScene } = await import('../src/scenes/terminal.js');
 const { MINIGAMES } = await import('../src/minigames/index.js');
 const E = await import('../src/core/economy.js');
@@ -222,13 +222,18 @@ test('time running out during a mini-game ends nothing until it is over; the tas
   expect(game.top.text).toContain('1 task');
 });
 
-test('starting a task after the clock has run out ends the shift instead', async () => {
+test('a task card left open past the end of the shift still plays the game it paid for', async () => {
   const { game, fs } = nightFloor();
-  game.state.nightShift.endsAt = game.now() - 1;
-  fs.startTask(station(fs).task);
+  const task = station(fs).task;
+  const card = new TaskCard(game, task, (tk) => fs.startTask(tk));
+  game.push(card);
   await tick(game, 1);
-  expect(game.state.nightShift).toBeNull();
-  expect(game.scenes().some((sc) => sc instanceof MinigameScene)).toBe(false);
+  game.state.nightShift.endsAt = game.now() - 1; // the clock runs out while the card is open
+  const coffee = game.state.coffee.value;
+  card.start();
+  expect(game.top).toBeInstanceOf(MinigameScene); // the coffee bought a game
+  expect(game.state.coffee.value).toBeLessThan(coffee);
+  expect(game.state.nightShift).not.toBeNull();
 });
 
 test('a FloorScene built for the night floor from elsewhere is the dark, empty floor', async () => {

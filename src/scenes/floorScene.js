@@ -881,8 +881,6 @@ export class FloorScene {
   }
 
   startTask(task) {
-    // The night shift's clock ran out while a card was open: end it instead (the floor is back on top).
-    if (this.night && !N.nightActive(this.game.state, this.game.now())) return this.finishNight();
     if (MINIGAMES[task.game].quest) {
       if (this.night) return this.game.toast(NIGHT_QUEST_CLOSED, C.warn);
       if (this.event) {
