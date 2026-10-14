@@ -22,9 +22,11 @@ function career(pick, { night = false } = {}) {
     while (acc >= regen) { acc -= regen; if (cups < max) cups++; }
     if (cups >= max) acc = 0;
   };
+  // The machines pour up to the mug's maximum and wait while it is full (S.useCoffeeMachine).
+  const pour = () => (cups = Math.min(E.maxCoffee(f), cups + E.COFFEE_MACHINE_AMOUNT));
   const useMachine = () => {
-    if (!(machine[f] > t)) { cups += E.COFFEE_MACHINE_AMOUNT; machine[f] = t + E.COFFEE_MACHINE_COOLDOWN_S; }
-    if (t < nightEnd && !(machine.night > t)) { cups += E.COFFEE_MACHINE_AMOUNT; machine.night = t + E.NIGHT_BREWER_S; }
+    if (cups < E.maxCoffee(f) && !(machine[f] > t)) { pour(); machine[f] = t + E.COFFEE_MACHINE_COOLDOWN_S; }
+    if (cups < E.maxCoffee(f) && t < nightEnd && !(machine.night > t)) { pour(); machine.night = t + E.NIGHT_BREWER_S; }
   };
   const spend = (cost) => {
     let waited = 0;

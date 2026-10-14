@@ -99,8 +99,31 @@ test('perks, training, premium actions and fake purchases', () => {
   s.coffee.value = 0;
   expect(S.refillCoffee(s, 0).ok).toBe(true);
   expect(s.coffee.value).toBe(S.coffeeMax(s));
+  expect(S.useCoffeeMachine(s, 1, 0)).toEqual({ ok: false, reason: 'full' }); // a full mug: the machine stays ready
+  s.coffee.value = 0;
   expect(S.useCoffeeMachine(s, 1, 0).ok).toBe(true);
   expect(S.useCoffeeMachine(s, 1, 1).ok).toBe(false);
+});
+
+test('only holiday activities go over the mug: the machine, brewers, stand-up and cake stop at the maximum', () => {
+  const s = fresh();
+  const max = S.coffeeMax(s);
+  s.coffee.value = max - 1;
+  expect(S.useCoffeeMachine(s, 1, 0)).toEqual({ ok: true, gained: 1 });
+  expect(s.coffee.value).toBe(max);
+  // A full mug leaves the machine ready (no wasted brew, no cooldown).
+  s.cooldowns = {};
+  expect(S.useCoffeeMachine(s, 1, 0)).toEqual({ ok: false, reason: 'full' });
+  expect(s.cooldowns['coffee-machine-1']).toBeUndefined();
+  // Holiday coffee above the maximum is kept, never poured away.
+  s.coffee.value = max + 4;
+  expect(S.useCoffeeMachine(s, 1, 0).reason).toBe('full');
+  expect(s.coffee.value).toBe(max + 4);
+  expect(S.addCoffee(s, 2)).toBe(0);
+  expect(s.coffee.value).toBe(max + 4);
+  s.coffee.value = max - 2;
+  expect(S.addCoffee(s, 5)).toBe(2);
+  expect(s.coffee.value).toBe(max);
 });
 
 test('save round-trip and migration of missing fields', () => {

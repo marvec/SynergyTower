@@ -82,6 +82,7 @@ test('spending Stock Options is counted', () => {
   S.refillCoffee(s, 0);
   S.buyPerk(s, 'stapler');
   expect(s.stats.soSpent).toBe(E.SKIP_COOLDOWN_SO + E.REFILL_COFFEE_SO + E.PERKS.find((p) => p.id === 'stapler').baseCost);
+  s.coffee.value = 0; // the machine only pours into a mug with room
   S.useCoffeeMachine(s, 1, 0);
   expect(s.stats.coffeeMachine).toBe(1);
 });

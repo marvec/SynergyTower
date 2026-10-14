@@ -82,6 +82,7 @@ test('the night brewer is ready at once and every 2 minutes after', () => {
   const s = game();
   s.cooldowns['coffee-machine-15'] = NOON + 10 * MIN;
   N.startNightShift(s, 15, NOON);
+  s.coffee = { value: 0, updatedAt: NOON }; // room in the mug: the brewers stop at its maximum
   const first = N.useNightBrewer(s, NOON);
   expect(first.ok).toBe(true);
   expect(N.useNightBrewer(s, NOON + MIN).ok).toBe(false);

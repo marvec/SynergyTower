@@ -1,6 +1,7 @@
 // The daily stand-up: once per local calendar day a colleague asks for a quick favour (a tier-1 mini-game). Free to play,
 // no KPI stars or cooldown; pays a daily bonus and keeps a streak of consecutive days. Pure, no DOM.
 import * as E from './economy.js';
+import { addCoffee } from './state.js';
 
 /** Quick games only: the favour should take a minute. */
 export const STANDUP_GAMES = Object.keys(E.GAME_TIER).filter((g) => E.GAME_TIER[g] === 1);
@@ -49,8 +50,8 @@ export function completeStandup(s, game, score, now, rng = Math.random, day = da
   s.daily = { day, streak, best: Math.max(prev.best || 0, streak) };
   const bonusSo = streak % E.STANDUP_STREAK_SO === 0 || rng() < E.STANDUP_SO_CHANCE ? 1 : 0;
   s.so += lv.levelsGained + bonusSo;
-  s.coffee.value += E.STANDUP_COFFEE; // may top the pot over, like the coffee machine
+  const coffee = addCoffee(s, E.STANDUP_COFFEE); // up to the maximum, never past it
   s.played[game] = (s.played[game] || 0) + 1;
   s.stats.standups = (s.stats.standups || 0) + 1;
-  return { standup: true, stars, sp, xp, coffee: E.STANDUP_COFFEE, bonusSo, streak, levelsGained: lv.levelsGained };
+  return { standup: true, stars, sp, xp, coffee, bonusSo, streak, levelsGained: lv.levelsGained };
 }

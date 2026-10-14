@@ -434,6 +434,9 @@ export class FloorScene {
         game.sfx('coin');
         game.toast(`Fresh brew! +${r.gained} coffee`, C.coffee);
         game.markDirty();
+      } else if (r.reason === 'full') {
+        game.sfx('bad');
+        game.toast('Your mug is full. The machine will wait for you.', C.dim);
       } else {
         game.sfx('bad');
         game.toast(`The machine is brewing... ready in ${formatTime(r.left)}`, C.dim);
@@ -1450,7 +1453,10 @@ export class FloorScene {
       text = 'Turnstiles';
       sub = s.lobby === 'checkin' ? 'check in first' : `-${E.TURNSTILE_COFFEE} coffee`;
     }
-    else if (t.kind === 'coffee') text = 'Coffee machine';
+    else if (t.kind === 'coffee') {
+      text = 'Coffee machine';
+      if (s.coffee.value >= S.coffeeMax(s)) sub = 'your mug is full';
+    }
     else if (t.kind === 'hr') {
       text = 'HR office';
       const r = S.reviewStatus(s, now);

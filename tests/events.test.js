@@ -63,9 +63,14 @@ test('winning an event pays its reward and counts it; losing pays nothing', () =
   expect(s.stats.events.drill).toBe(1);
   expect(V.applyEventResult(s, 'drill', false, 4)).toBe(null);
   expect(s.stats.events.drill).toBe(1);
-  s.coffee.value = S.coffeeMax(s);
-  V.applyEventResult(s, 'cake', true, 4);
-  expect(s.coffee.value).toBe(S.coffeeMax(s) + E.EVENT_CAKE_COFFEE);
+  s.coffee.value = S.coffeeMax(s) - 3;
+  expect(V.applyEventResult(s, 'cake', true, 4).coffee).toBe(E.EVENT_CAKE_COFFEE);
+  expect(s.coffee.value).toBe(S.coffeeMax(s) - 3 + E.EVENT_CAKE_COFFEE);
+  // The cake fills the mug, never past it.
+  expect(V.applyEventResult(s, 'cake', true, 4).coffee).toBe(1);
+  expect(s.coffee.value).toBe(S.coffeeMax(s));
+  expect(V.applyEventResult(s, 'cake', true, 4).coffee).toBe(0);
+  expect(s.coffee.value).toBe(S.coffeeMax(s));
   const xp = s.xp;
   const a = V.applyEventResult(s, 'audit', true, 4);
   expect(a.xp).toBe(E.taskReward(4, 2).xp);

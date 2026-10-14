@@ -43,12 +43,12 @@ function statInfo(key, s, now, brewerKey = `coffee-machine-${s.floor}`) {
       title: 'Coffee',
       value: `${s.coffee.value}/${max}`,
       color: coffeeColor(S.coffeeLevel(s)),
-      text: `Tasks cost 1-3 coffee: quick games 1, bigger ones 2, the most complex 3. Quick ones take longer to be ready again. Coffee refills by itself over time, and the coffee machine on every floor pours ${E.COFFEE_MACHINE_AMOUNT} free cups now and then.`,
+      text: `Tasks cost 1-3 coffee: quick games 1, bigger ones 2, the most complex 3. Quick ones take longer to be ready again. Coffee refills by itself over time, and the coffee machine on every floor pours up to ${E.COFFEE_MACHINE_AMOUNT} free cups now and then (never past your mug; only holiday coffee goes over).`,
       rows: [
         !S.coffeeRegenOn(s)
           ? ['Next cup', false, 'check in at the front desk']
           : ['Next cup', next === 0 ? true : null, next === 0 ? 'mug is full' : `in ${formatTime(next)} (one every ${formatTime(E.coffeeRegenMs(s.perks))})`],
-        ['Coffee machine', machine <= 0, machine <= 0 ? `ready: +${E.COFFEE_MACHINE_AMOUNT}` : `brewing, ${formatTime(machine)}`],
+        ['Coffee machine', machine <= 0, machine > 0 ? `brewing, ${formatTime(machine)}` : s.coffee.value >= max ? 'ready when your mug has room' : `ready: up to +${E.COFFEE_MACHINE_AMOUNT}`],
       ],
     };
   }

@@ -2,6 +2,7 @@
 // Pure rules here: when one may start, which fit a floor, where things are, and what winning pays. The floor scene runs
 // them (src/scenes/officeEvent.js). No DOM.
 import * as E from './economy.js';
+import { addCoffee } from './state.js';
 import { CORRIDOR } from './floorgen.js';
 
 export const EVENT_KINDS = ['drill', 'printer', 'cake', 'audit'];
@@ -55,7 +56,7 @@ export function applyEventResult(s, kind, won, floor) {
   if (!won) return null;
   const r = eventReward(kind, floor, s.perks);
   s.sp += r.sp;
-  s.coffee.value += r.coffee; // the cake may top the pot over
+  r.coffee = addCoffee(s, r.coffee); // the cake fills the mug, never past it
   const lv = E.addXp(s.level, s.xp, r.xp);
   s.level = lv.level;
   s.xp = lv.xp;

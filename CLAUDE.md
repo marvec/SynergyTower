@@ -196,7 +196,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   with its own lines (`HOTEL_QUIPS`, read instead of the office `QUIPS` when `fl.hotel`); the reception desk is the
   concierge's (`CONCIERGE_LINES`, a `concierge` target in `HotelScene`; her own person via `frontDesk()`, not the lobby receptionist). Activities are items with
   `it.activity` (not `it.task`) running MinigameScene mode `'vacation'`: free, no paperclips/XP/KPI, ≥1 star pays
-  `VACATION_COFFEE` once per activity per stay, on top of the pot. The 8 holiday games (`sleep`, `buffet`, `beachball`,
+  `VACATION_COFFEE` once per activity per stay, on top of the pot (the only coffee past the maximum: everything else pours
+  through `S.addCoffee`, which stops at it; a full mug leaves the coffee machine ready, `reason: 'full'`). The 8 holiday games (`sleep`, `buffet`, `beachball`,
   `swim`, `sunbathe`, `cocktail`, `massage`, `sandcastle`) are in `MINIGAMES` but not `STATION_GAMES`/`GAME_TIER`; each has
   a `peek()` for the attentive/idle player tests in `tests/holiday.test.js`. Text in `src/data/vacation.js`, song `tropical`.
 - **Night shift** (plan `docs/plans/2026-10-14-2102-feat-night-shift-plan.md`): on floors 5, 15, 25 and 35 (`NIGHT_FLOORS`)

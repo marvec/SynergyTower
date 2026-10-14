@@ -158,6 +158,7 @@ test('arriving starts the 15-minute visit in the client office; tasks there pay 
   expect(game.top).toBe(co);
   // The brewer comes back after 2 minutes.
   const brewer = co.fl.items.find((it) => it.interact === 'coffee');
+  game.state.coffee = { value: 0, updatedAt: game.now() }; // room in the mug: a full one leaves the brewer ready
   const before = game.now(); // the real clock: it may tick between these reads
   co.interact({ kind: 'coffee', it: brewer });
   const until = game.state.cooldowns[T.BREWER_KEY] - E.TRIP_BREWER_S * 1000;

@@ -52,6 +52,7 @@ test('the daily bonus: double paperclips, XP, a cup of coffee, no KPI stars or c
   expect(s.sp).toBe(before.sp + r.sp);
   expect(r.xp).toBe(E.taskReward(5, 2).xp);
   expect(s.coffee.value).toBe(2 + E.STANDUP_COFFEE);
+  expect(r.coffee).toBe(E.STANDUP_COFFEE);
   expect(s.starsByFloor[5]).toBeUndefined();
   expect(Object.keys(s.cooldowns)).toEqual([]);
   expect(s.played.timing).toBe(1);
@@ -101,4 +102,12 @@ test('a stand-up started before midnight counts for the day it started', () => {
   expect(r.streak).toBe(2);
   expect(s.daily.day).toBe('2026-10-12');
   expect(D.standupStatus(s, at(2026, 10, 13, 1))).toBe('pending');
+});
+
+test('the stand-up coffee fills the mug, never past it', () => {
+  const s = player();
+  s.coffee.value = S.coffeeMax(s);
+  const r = D.completeStandup(s, 'timing', 0.7, at(2026, 10, 12), () => 1);
+  expect(r.coffee).toBe(0);
+  expect(s.coffee.value).toBe(S.coffeeMax(s));
 });

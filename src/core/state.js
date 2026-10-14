@@ -313,15 +313,25 @@ export function refillCoffee(s, now) {
   return { ok: true };
 }
 
-/** A floor's coffee machine; a client's brewer passes its own key and cooldown (core/trip.js). */
+/**
+ * Pours up to `cups` into the mug, never past its maximum: only holiday activities (core/vacation.js) go over it.
+ * Coffee already above the maximum stays. Returns the cups gained.
+ */
+export function addCoffee(s, cups) {
+  const gained = Math.max(0, Math.min(cups, coffeeMax(s) - s.coffee.value));
+  s.coffee.value += gained;
+  return gained;
+}
+
+/** A floor's coffee machine; a client's brewer passes its own key and cooldown (core/trip.js). A full mug leaves it ready. */
 export function useCoffeeMachine(s, floor, now, { key = `coffee-machine-${floor}`, cooldownS = E.COFFEE_MACHINE_COOLDOWN_S } = {}) {
   tick(s, now);
   if (cooldownLeft(s, key, now) > 0) return { ok: false, reason: 'cooldown', left: cooldownLeft(s, key, now) };
-  const before = s.coffee.value;
-  s.coffee.value = s.coffee.value + E.COFFEE_MACHINE_AMOUNT; // may exceed max: a little treat
+  if (s.coffee.value >= coffeeMax(s)) return { ok: false, reason: 'full' };
+  const gained = addCoffee(s, E.COFFEE_MACHINE_AMOUNT);
   s.cooldowns[key] = now + cooldownS * 1000;
   s.stats.coffeeMachine = (s.stats.coffeeMachine || 0) + 1;
-  return { ok: true, gained: s.coffee.value - before };
+  return { ok: true, gained };
 }
 
 /** Fake purchase — no real payment. */
