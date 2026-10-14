@@ -22,6 +22,8 @@ import { isTouch } from '../engine/platform.js';
 const SHIRTS = ['#e85d75', '#f29c38', '#2fa39a', '#f2e14e', '#7fc4ff', '#5fd068', '#f29cd0', '#ffffff'];
 const SHORTS = ['#f2e6c8', '#3b6fb6', '#e2504a', '#2f8a3a', '#d9b25c'];
 const SKIRTS = ['#ffffff', '#f29cd0', '#2fa39a', '#f2e14e', '#7fc4ff', '#e2504a'];
+// The concierge is the hotel's own (not the tower's receptionist on holiday), in the hotel's burgundy.
+const CONCIERGE_SEED = 5151;
 
 export class HotelScene extends FloorScene {
   constructor(game) {
@@ -39,7 +41,6 @@ export class HotelScene extends FloorScene {
       n.a.setLook({ ...n.a.look, jacket: null, tie: null, badge: false, ...summer });
       n.a.who.role = 'Hotel guest';
     }
-    if (this.receptionist) this.receptionist.who.role = 'Concierge';
     // Talking to the concierge: the reception desk and the concierge behind it, reached from in front of the desk.
     const desk = this.fl.items.find((it) => it.type === 'reception');
     const rc = this.fl.receptionist;
@@ -81,6 +82,10 @@ export class HotelScene extends FloorScene {
     const p = this.player;
     p.faceTowards(it.x + it.w / 2 - p.x, it.y + it.h / 2 - p.y);
     this.openActivity(it.activity);
+  }
+
+  frontDesk() {
+    return { seed: CONCIERGE_SEED, uniform: '#6a2433', role: 'Concierge' };
   }
 
   /** The concierge has a tip, a joke or a kind word: every line once before any repeats. */

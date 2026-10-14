@@ -142,9 +142,12 @@ export function posterContent(p, floor) {
   return { x: Math.round(cx - w / 2), w, ad };
 }
 
-/** A colleague's name, role and personnel-file trivia, deterministic per NPC seed. */
-export function npcIdentity(seed, deptId) {
-  const r = createRng(seed * 7121 + 11);
+/** The person at an NPC seed in a career's cast (S.castOf): the seed stays the key (fired, conduct), the person changes. */
+const person = (seed, cast) => (cast ? (Math.imul(seed, 0x9e3779b1) ^ cast) >>> 0 : seed);
+
+/** A colleague's name, role and personnel-file trivia, deterministic per NPC seed and cast. */
+export function npcIdentity(seed, deptId, cast = 0) {
+  const r = createRng(person(seed, cast) * 7121 + 11);
   return {
     name: `${r.pick(FIRST_NAMES)} ${r.pick(LAST_NAMES)}`,
     role: r.pick(ROLES[deptId] || ROLES.lobby),
@@ -153,8 +156,8 @@ export function npcIdentity(seed, deptId) {
   };
 }
 
-export function npcLook(seed, deptId) {
-  const r = createRng(seed * 977 + 3);
+export function npcLook(seed, deptId, cast = 0) {
+  const r = createRng(person(seed, cast) * 977 + 3);
   const shirts = ['#d8dfe8', '#e8d8d8', '#d8e8dc', '#3b6fb6', '#b6973b', '#7a3bb6', '#555a66', '#b63b5a', '#2f8f7f'];
   const exec = deptId === 'exec';
   const it = deptId === 'it';
@@ -171,8 +174,8 @@ export function npcLook(seed, deptId) {
   };
   // The figure follows the first name: a woman wears a skirt (a suit skirt with a jacket), mostly longer hair, no tie.
   // Its own RNG, so everything above (and every man) looks as before.
-  const w = createRng(seed * 389 + 5);
-  const first = npcIdentity(seed, deptId).name.split(' ')[0];
+  const w = createRng(person(seed, cast) * 389 + 5);
+  const first = npcIdentity(seed, deptId, cast).name.split(' ')[0];
   const woman = WOMEN_NAMES.includes(first) || (!MEN_NAMES.includes(first) && w.chance(0.5));
   if (woman) {
     look.skirt = look.jacket || w.pick(['#7a3b4a', '#2f6f5f', '#8a8f9a', '#3a4f8a', '#b6973b', '#6a4a8a', '#a8483a']);

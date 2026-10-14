@@ -3,6 +3,7 @@ import * as E from './economy.js';
 import { COUNTED_GAMES, buildFloor } from './tasks.js';
 export { COUNTED_GAMES };
 import { mergeOldDesks } from './desk.js';
+import { hashString } from './rng.js';
 
 export const SAVE_VERSION = 1;
 
@@ -10,6 +11,7 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
   return {
     version: SAVE_VERSION,
     createdAt: now,
+    cast: (hashString(`cast:${now}`) >>> 1) || 1, // this career's own colleagues (castOf; 0 = the original cast)
     corp: { name: corpName || 'Synergy Corp', colorId: colorId || 'bigblue' },
     player: { name: playerName || 'New Hire', skin, hair },
     floor: 1,
@@ -43,6 +45,10 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     flags: { introSeen: false, ceo: false, reminderOffered: false },
   };
 }
+
+/** Mixed into every colleague's name and look, so each career has other people at the same desks. Saves from before
+ * it have none: 0 keeps the colleagues they know. */
+export const castOf = (s) => s?.cast || 0;
 
 export const coffeeMax = (s) => E.maxCoffee(s.maxFloor, s.perks);
 
@@ -335,6 +341,7 @@ export function deserialize(json, now) {
     const merged = { ...base, ...s, settings: { ...base.settings, ...s.settings }, flags: { ...base.flags, ...s.flags }, stats: { ...base.stats, ...s.stats } };
     merged.version = SAVE_VERSION;
     if (s.lobby === undefined) merged.lobby = 'done'; // careers from before the lobby check-in
+    if (s.cast === undefined) merged.cast = 0; // careers from before their own cast keep the colleagues they know
     if (s.stats && s.stats.soSpent === undefined) merged.stats.soSpent = -1; // spent before we counted: unknown
     if (s.desks) {
       if (!s.desk) merged.desk = mergeOldDesks(s.desks, merged.maxFloor);

@@ -3,6 +3,7 @@ import { W, H } from '../engine/screen.js';
 import { C, rect, panel } from '../engine/ui.js';
 import { drawText } from '../engine/font.js';
 import { createRng } from '../core/rng.js';
+import { castOf } from '../core/state.js';
 import { drawSky, drawSkyline, drawTower, towerHeight, TOWER_W } from './cityscape.js';
 import { Actor, npcLook } from './floorWorld.js';
 import { isTouch } from '../engine/platform.js';
@@ -20,7 +21,7 @@ export class ExteriorScene {
     this.player.dir = 'right';
     const r = createRng(9);
     this.walkers = Array.from({ length: 6 }, (_, i) => {
-      const a = new Actor(npcLook(100 + i, 'lobby'), r.float(0, WORLD_W / 16), 0.35 + r.float(0, 0.4));
+      const a = new Actor(npcLook(100 + i, 'lobby', castOf(game.state)), r.float(0, WORLD_W / 16), 0.35 + r.float(0, 0.4));
       return { a, v: r.chance(0.5) ? r.float(1, 1.8) : -r.float(1, 1.8) };
     });
     this.cars = [{ x: -60, v: 70, c: '#c94a4a' }, { x: 500, v: -55, c: '#f2c14e' }];

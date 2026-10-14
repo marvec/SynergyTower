@@ -133,3 +133,22 @@ test('the setup screen offers trousers or a skirt and the new career keeps the c
   await setup.start();
   expect(made.player.skirt).toBe(false);
 });
+
+test('every career has its own cast: the same seat, another person; cast 0 is the original one', () => {
+  const name = (seed, cast) => npcIdentity(seed, 'support', cast).name;
+  let differ = 0;
+  for (let seed = 1; seed < 200; seed++) {
+    expect(name(seed, 0)).toBe(npcIdentity(seed, 'support').name); // saves from before the cast keep their colleagues
+    expect(npcLook(seed, 'support', 0)).toEqual(npcLook(seed, 'support'));
+    expect(name(seed, 12345)).toBe(name(seed, 12345)); // the same person all career long
+    expect(npcLook(seed, 'support', 12345)).toEqual(npcLook(seed, 'support', 12345));
+    if (name(seed, 12345) !== name(seed, 0)) differ++;
+  }
+  expect(differ).toBeGreaterThan(180);
+  // The figure still follows the career's own name.
+  for (let seed = 1; seed < 200; seed++) {
+    const first = npcIdentity(seed, 'support', 777).name.split(' ')[0];
+    if (WOMEN_NAMES.includes(first)) expect(npcLook(seed, 'support', 777).skirt).toBeTruthy();
+    if (MEN_NAMES.includes(first)) expect(npcLook(seed, 'support', 777).skirt).toBeFalsy();
+  }
+});

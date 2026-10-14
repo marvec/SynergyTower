@@ -13,6 +13,23 @@ const fresh = () => {
   return s;
 };
 
+test('a new career draws its own cast of colleagues; saves from before it keep the original one', () => {
+  const a = S.newGame({ corpName: 'Acme' }, 1_760_000_000_000);
+  const b = S.newGame({ corpName: 'Acme' }, 1_760_000_000_001);
+  expect(a.cast).toBeGreaterThan(0);
+  expect(b.cast).toBeGreaterThan(0);
+  expect(a.cast).not.toBe(b.cast);
+  expect(S.newGame({ corpName: 'Acme' }, 1_760_000_000_000).cast).toBe(a.cast);
+  expect(S.castOf({})).toBe(0); // an old save without one
+  expect(S.castOf(a)).toBe(a.cast);
+  // Loading keeps the cast; a save from before it keeps the original colleagues on every load.
+  expect(S.deserialize(S.serialize(a), 5).cast).toBe(a.cast);
+  const old = { ...a };
+  delete old.cast;
+  expect(S.deserialize(JSON.stringify(old), 5).cast).toBe(0);
+  expect(S.deserialize(JSON.stringify(old), 6).cast).toBe(0);
+});
+
 test('task costs coffee, sets cooldown and rewards', () => {
   const s = fresh();
   const start = s.coffee.value;

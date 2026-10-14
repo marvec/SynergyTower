@@ -15,6 +15,9 @@ const { Dialog } = await import('../src/scenes/overlays.js');
 const { TitleScene } = await import('../src/scenes/title.js');
 const E = await import('../src/core/economy.js');
 const V = await import('../src/core/vacation.js');
+const { buildFloor } = await import('../src/core/tasks.js');
+const { npcIdentity } = await import('../src/scenes/floorWorld.js');
+const buildFloorNames = (f) => buildFloor(f).npcs.map((n) => npcIdentity(n.seed, buildFloor(f).dept).name);
 
 const audio = { setMusic() {}, setSfx() {}, play() {}, sfx() {}, unlock() {} };
 const g = mockCanvas().getContext('2d');
@@ -258,4 +261,28 @@ test('the concierge at the reception desk has a word for you', async () => {
   expect(game.top).toBe(hotel);
   const said = hotel.receptionist.bubble?.text;
   expect(CONCIERGE_LINES.some((l) => said?.includes(l.slice(0, 12)))).toBe(true);
+});
+
+test('the hotel concierge is her own person, not the lobby receptionist', () => {
+  const game = career();
+  V.requestVacation(game.state, 20, game.now());
+  const hotel = new HotelScene(game);
+  const lobby = new FloorScene(game, 1);
+  expect(hotel.receptionist.who.role).toBe('Concierge');
+  expect(lobby.receptionist.who.role).toBe('Reception');
+  expect(hotel.receptionist.who.name).not.toBe(lobby.receptionist.who.name);
+  expect(hotel.receptionist.look.jacket).not.toBe(lobby.receptionist.look.jacket); // a hotel uniform, not the company's
+});
+
+test('colleagues follow the career: another career has other people at the same desks', () => {
+  const one = career(6000, 9);
+  const two = career(6000, 9);
+  two.state.cast = one.state.cast + 1;
+  const names = (game) => new FloorScene(game, 9).npcs.map((n) => n.a.who.name);
+  expect(names(one)).toEqual(names(one));
+  expect(names(two)).not.toEqual(names(one));
+  const desk = (game) => new FloorScene(game, 1).receptionist.who.name;
+  expect(desk(two)).not.toBe(desk(one));
+  one.state.cast = 0; // a save from before the cast: the original colleagues
+  expect(names(one)).toEqual(buildFloorNames(9));
 });

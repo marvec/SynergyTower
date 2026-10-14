@@ -48,6 +48,9 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
   draws as a woman's figure. Dress uniforms and suits with `suit(look, jacket)` (matching skirt, never a tie on a skirt).
   The player picks trousers or a skirt in setup (`state.player.skirt`, kept in the slot summary); `careerLook` gives the
   skirt the corporate colour, matching the jacket from floor 21.
+- Every career has its own cast (`state.cast`, set by `newGame`; `S.castOf`): `npcIdentity`/`npcLook(seed, dept, cast)` mix it
+  in, so the same seats hold other people per career. The NPC seed stays the key for `fired`/`conduct`; floors don't change.
+  Saves from before it load with cast 0, the original colleagues. Pass the cast at every new call site.
 
 ## Platforms: website, PWA, iOS/Android apps
 
@@ -191,7 +194,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   from `fl.ground`, outdoor walls are hedges (`fl.hedgeFrom`), `fl.arrive` is the spawn (mid-lobby, clear of the front door).
   Guests walk `fl.npcWalk` (`NpcBrain` prefers it to `fl.walk`), which keeps them out of the suite. Hotel decor is a curio
   with its own lines (`HOTEL_QUIPS`, read instead of the office `QUIPS` when `fl.hotel`); the reception desk is the
-  concierge's (`CONCIERGE_LINES`, a `concierge` target in `HotelScene`). Activities are items with
+  concierge's (`CONCIERGE_LINES`, a `concierge` target in `HotelScene`; her own person via `frontDesk()`, not the lobby receptionist). Activities are items with
   `it.activity` (not `it.task`) running MinigameScene mode `'vacation'`: free, no paperclips/XP/KPI, ≥1 star pays
   `VACATION_COFFEE` once per activity per stay, on top of the pot. The 8 holiday games (`sleep`, `buffet`, `beachball`,
   `swim`, `sunbathe`, `cocktail`, `massage`, `sandcastle`) are in `MINIGAMES` but not `STATION_GAMES`/`GAME_TIER`; each has

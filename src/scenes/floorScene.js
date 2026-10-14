@@ -71,22 +71,24 @@ export class FloorScene {
     this.player = new Actor(game.playerLook(), spawn.x, spawn.y);
     this.player.dir = arrival === 'entrance' && !this.fl.arrive ? 'up' : 'down';
     const fired = game.state.fired || {};
+    const cast = S.castOf(game.state);
     this.npcs = this.fl.npcs
       .filter((n) => !fired[n.seed])
       .map((n) => {
-        const a = new Actor(npcLook(n.seed, this.fl.dept), n.x, n.y);
-        const id = npcIdentity(n.seed, this.fl.dept);
+        const a = new Actor(npcLook(n.seed, this.fl.dept, cast), n.x, n.y);
+        const id = npcIdentity(n.seed, this.fl.dept, cast);
         a.who = { name: id.name, role: id.role };
         return { a, brain: new NpcBrain(a, this.fl, n.seed), seed: n.seed, id };
       });
     // The HR rep stands behind the review desk all day.
     const rep = this.fl.hrRep;
-    this.hrRep = rep ? new Actor(suit(npcLook(floor * 91 + 7, this.fl.dept), '#4a3a6a', { glasses: true }), rep.x + 0.5, rep.y + 0.75) : null;
-    if (this.hrRep) this.hrRep.who = { name: npcIdentity(floor * 91 + 7, 'legalhr').name, role: 'HR Business Partner' };
+    this.hrRep = rep ? new Actor(suit(npcLook(floor * 91 + 7, this.fl.dept, cast), '#4a3a6a', { glasses: true }), rep.x + 0.5, rep.y + 0.75) : null;
+    if (this.hrRep) this.hrRep.who = { name: npcIdentity(floor * 91 + 7, 'legalhr', cast).name, role: 'HR Business Partner' };
     // Ground floor: the receptionist behind the front desk runs the new hire's check-in (see S.passTurnstile).
     const rc = this.fl.receptionist;
-    this.receptionist = rc ? new Actor(suit(npcLook(RECEPTIONIST_SEED, 'lobby'), game.corpColor().color), rc.x + rc.w / 2, rc.y + 0.75) : null;
-    if (this.receptionist) this.receptionist.who = { name: npcIdentity(RECEPTIONIST_SEED, 'lobby').name, role: 'Reception' };
+    const desk = this.frontDesk();
+    this.receptionist = rc ? new Actor(suit(npcLook(desk.seed, 'lobby', cast), desk.uniform), rc.x + rc.w / 2, rc.y + 0.75) : null;
+    if (this.receptionist) this.receptionist.who = { name: npcIdentity(desk.seed, 'lobby', cast).name, role: desk.role };
     this.nudgeT = 4;
     this.gateNag = 0;
     // Sponsorship posters on the hallway wall, as interactable pseudo-items (top = the wall's front face).
@@ -814,6 +816,11 @@ export class FloorScene {
     }
   }
 
+  /** Who stands behind the front desk, in what uniform (the vacation hotel has a concierge of its own). */
+  frontDesk() {
+    return { seed: RECEPTIONIST_SEED, uniform: this.game.corpColor().color, role: 'Reception' };
+  }
+
   /** Everyone HR keeps a folder on: colleagues on this and the neighbouring floors (let-go ones too), the HR rep, the receptionist and you. */
   personnel() {
     const s = this.game.state;
@@ -823,12 +830,12 @@ export class FloorScene {
     const people = floors.flatMap((f) => {
       const fl = buildFloor(f);
       return fl.npcs.map((n) => {
-        const id = npcIdentity(n.seed, fl.dept);
+        const id = npcIdentity(n.seed, fl.dept, S.castOf(s));
         return { name: id.name, role: id.role, seed: n.seed, years: id.years, note: id.note, fired: !!fired[n.seed], floor: f };
       });
     });
     if (this.hrRep) people.push({ ...this.hrRep.who, seed: this.floorNo * 91 + 7, floor: this.floorNo });
-    if (this.receptionist) people.push({ ...this.receptionist.who, seed: RECEPTIONIST_SEED, floor: 1 });
+    if (this.receptionist) people.push({ ...this.receptionist.who, seed: this.frontDesk().seed, floor: 1 });
     people.push({ name: s.player?.name || 'New Hire', role: 'You', you: true, file: Q.playerFile(s) });
     return people;
   }
