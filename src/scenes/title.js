@@ -123,6 +123,15 @@ export class TitleScene {
       this.game.set(new FloorScene(this.game, E.VACATION_FLOOR));
       return this.game.toast(`The holiday is over: ${sum.coffee} extra coffee to show for it.`, C.coffee);
     }
+    // A night shift under way: the dark floor while its clock runs; else (or saved on another floor) it is over.
+    if (s.nightShift) {
+      const N = await import('../core/nightShift.js');
+      if (N.nightActive(s, this.game.now()) && s.floor === s.nightShift.floor) return this.game.set(new FloorScene(this.game, s.floor));
+      const sum = N.endNightShift(s);
+      this.game.saveNow();
+      this.game.set(new FloorScene(this.game, s.floor));
+      return this.game.toast(`The night shift is over: ${sum.tasks} tasks, +${sum.sp} paperclips.`, C.gold);
+    }
     // A new hire who has not made it past the lobby turnstiles yet comes back in through the front door.
     const arrival = s.lobby !== 'done' && s.floor === 1 ? 'entrance' : 'elevator';
     this.game.set(new FloorScene(this.game, s.floor, { arrival }));

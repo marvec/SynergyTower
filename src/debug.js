@@ -3,6 +3,7 @@ import * as T from './core/trip.js';
 import * as V from './core/vacation.js';
 import * as E from './core/economy.js';
 import * as CD from './core/conduct.js';
+import * as N from './core/nightShift.js';
 import { MinigameScene } from './scenes/minigameScene.js';
 
 export function installDebug(game) {
@@ -64,6 +65,31 @@ export function installDebug(game) {
     game.set(fs);
     if (fs.bossNpc) fs.askVacation(fs.bossNpc, 0);
     return 'floor 20: leave request';
+  };
+
+  /**
+   * Debug: the night shift again, as often as you like. __night() opens your manager's offer on the nearest night floor
+   * at or below your highest floor (5 at least), __night(15) on floor 15; __night('dark') / __night(15, 'dark') skips the
+   * offer and the walk-out, straight into the dark office. Today's shift (and one under way) is reset first.
+   */
+  window.__night = async (a, b) => {
+    const s = game.state;
+    if (!s) return 'no career loaded';
+    const below = E.NIGHT_FLOORS.filter((f) => f <= s.maxFloor);
+    const floor = typeof a === 'number' ? a : below.at(-1) || E.NIGHT_FLOORS[0];
+    const mode = typeof a === 'string' ? a : b;
+    if (!N.isNightFloor(floor)) return `night shifts run on floors ${E.NIGHT_FLOORS.join(', ')}: try __night(15)`;
+    N.resetNight(s);
+    s.maxFloor = Math.max(s.maxFloor, floor);
+    s.floor = floor;
+    if (mode === 'dark') N.startNightShift(s, floor, game.now());
+    game.saveNow();
+    const { FloorScene } = await import('./scenes/floorScene.js');
+    const fs = new FloorScene(game, floor);
+    game.set(fs);
+    if (mode === 'dark') return `floor ${floor}: night shift (${N.nightStatus(s, floor, game.now())})`;
+    if (fs.nightBoss) fs.askNight(fs.nightBoss);
+    return `floor ${floor}: night shift offer`;
   };
 
   /**

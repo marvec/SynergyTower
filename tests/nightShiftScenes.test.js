@@ -16,6 +16,7 @@ const { MINIGAMES } = await import('../src/minigames/index.js');
 const E = await import('../src/core/economy.js');
 const N = await import('../src/core/nightShift.js');
 const S = await import('../src/core/state.js');
+const { TitleScene } = await import('../src/scenes/title.js');
 
 const g = mockCanvas().getContext('2d');
 const tick = async (game, n = 3) => {
@@ -242,4 +243,59 @@ test('a FloorScene built for the night floor from elsewhere is the dark, empty f
   expect(fs.standupNpc).toBeNull();
   // Another floor's scene is not dark.
   expect(new FloorScene(game, 16).night).toBe(false);
+});
+
+test('the dark floor plays the night track, draws the clock and tapes off the quest stations', async () => {
+  const played = [];
+  const { game, fs } = nightFloor();
+  game.audio.play = (n) => played.push(n);
+  fs.resume();
+  expect(played.at(-1)).toBe('nightshift');
+  const texts = [];
+  const g2 = new Proxy(mockCanvas().getContext('2d'), {});
+  const orig = fs.drawHoldTape.bind(fs);
+  fs.drawHoldTape = (gg, cx, top, text) => (texts.push(text), orig(gg, cx, top, text));
+  let clock = 0;
+  const oc = fs.drawNightClock.bind(fs);
+  fs.drawNightClock = (...a) => (clock++, oc(...a));
+  fs.cam.x = 0;
+  fs.cam.y = 0;
+  fs.render(g2);
+  expect(clock).toBe(1);
+  if (station(fs, true)) expect(texts).toContain('CLOSED');
+  expect(fs.lamps.length).toBeGreaterThanOrEqual(4);
+});
+
+test('continuing a career mid-shift goes back to the dark floor; an expired shift ends with a toast', async () => {
+  const game = career();
+  N.startNightShift(game.state, 15, game.now());
+  game.state.nightShift.endsAt = game.now() + 4 * 60 * 1000;
+  game.saveNow();
+  const title = new TitleScene(game);
+  game.set(title);
+  game.state.nightShift.endsAt -= 2 * 60 * 1000; // two minutes later
+  await title.continue();
+  expect(game.top).toBeInstanceOf(FloorScene);
+  expect(game.top.night).toBe(true);
+  expect(game.top.npcs.length).toBe(0);
+  expect(N.nightLeft(game.state, game.now())).toBeGreaterThan(110 * 1000);
+  expect(N.nightLeft(game.state, game.now())).toBeLessThanOrEqual(120 * 1000);
+  game.set(title);
+  game.state.nightShift.endsAt = game.now() - 1000;
+  await title.continue();
+  expect(game.top).toBeInstanceOf(FloorScene);
+  expect(game.top.night).toBe(false);
+  expect(game.top.npcs.length).toBeGreaterThan(0);
+  expect(game.state.nightShift).toBeNull();
+});
+
+test('a shift saved on another floor ends on Continue', async () => {
+  const game = career();
+  N.startNightShift(game.state, 15, game.now());
+  game.state.floor = 14;
+  const title = new TitleScene(game);
+  game.set(title);
+  await title.continue();
+  expect(game.state.nightShift).toBeNull();
+  expect(game.top.floorNo).toBe(14);
 });
