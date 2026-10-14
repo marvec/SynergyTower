@@ -74,6 +74,15 @@ export const VACATION_COST = 5000;
 export const VACATION_S = 15 * 60;
 export const VACATION_COFFEE = 1;
 /**
+ * Night shift (core/nightShift.js, spec 2026-10-14-night-shift): the manager on these floors offers it once a day (for all
+ * four floors together). The office empties for 10 minutes; station cooldowns are halved and the floor's coffee machine
+ * brews every 2 minutes.
+ */
+export const NIGHT_FLOORS = [5, 15, 25, 35];
+export const NIGHT_SHIFT_S = 10 * 60;
+export const NIGHT_BREWER_S = 2 * 60;
+export const NIGHT_COOLDOWN_MULT = 0.5;
+/**
  * Conduct (core/conduct.js): every time the player asks a colleague out is a strike; HOLD_STRIKES strikes put them on
  * compliance hold until they take the training at HR. Failing it demotes.
  */

@@ -39,6 +39,8 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     trip: null, // the client visit under way: { floor, endsAt, sp, tasks }
     vacations: { day: null, count: 0 }, // vacation (core/vacation.js): the local day of the last one + how many so far
     vacation: null, // the hotel stay under way: { endsAt, done: { game: true }, coffee }
+    nightShifts: { day: null, count: 0 }, // night shift (core/nightShift.js): the local day of the last one + how many so far
+    nightShift: null, // the shift under way: { floor, endsAt, tasks, sp, stars, coffee }
     // conduct (core/conduct.js): strikes for asking a colleague out again after their no; hold = compliance hold
     conduct: { strikes: 0, refused: {}, reported: {}, hold: null, trained: false, holds: 0, demotions: 0 },
     settings: { music: true, sfx: true, reminders: false },
@@ -105,8 +107,11 @@ export function startTask(s, task, floor, now) {
   return c;
 }
 
-/** opts: spMult multiplies the paperclips; kpi: false keeps the stars off the floor's quota (a client's office). */
-export function completeTask(s, task, floor, score, now, rng = Math.random, { spMult = 1, kpi = true } = {}) {
+/**
+ * opts: spMult multiplies the paperclips; kpi: false keeps the stars off the floor's quota (a client's office);
+ * cooldownMult scales the station's cooldown (the night shift halves it).
+ */
+export function completeTask(s, task, floor, score, now, rng = Math.random, { spMult = 1, kpi = true, cooldownMult = 1 } = {}) {
   const stars = E.starsFromScore(score);
   const reward = E.taskReward(floor, stars, s.perks);
   reward.sp *= spMult;
@@ -120,7 +125,7 @@ export function completeTask(s, task, floor, score, now, rng = Math.random, { sp
   if (kpi) s.starsByFloor[floor] = (s.starsByFloor[floor] || 0) + stars;
   const prevBest = s.bestByTask[task.id] ?? -1;
   if (stars > prevBest) s.bestByTask[task.id] = stars;
-  s.cooldowns[task.id] = now + E.stationCooldownMs(floor, s.perks, task.game);
+  s.cooldowns[task.id] = now + Math.round(E.stationCooldownMs(floor, s.perks, task.game) * cooldownMult);
   if (task.game) s.played[task.game] = (s.played[task.game] || 0) + 1;
   s.stats.tasksPlayed++;
   if (stars === 3) s.stats.perfectTasks++;

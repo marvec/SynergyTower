@@ -6,10 +6,14 @@ import { buildFloor } from '../src/core/tasks.js';
 const PLAY_S = 105; // one task incl. walking and result screens
 const STEP_S = 10;
 
-/** pick(tasks, ready, t, f) → next task or null. Returns minutes and waiting minutes per floor. */
-function career(pick) {
+/**
+ * pick(tasks, ready, t, f) → next task or null. Returns minutes and waiting minutes per floor.
+ * night: a night shift (core/nightShift.js) at the start of every night floor: half cooldowns and the 2-minute brewer.
+ */
+function career(pick, { night = false } = {}) {
   let t = 0, cups = E.maxCoffee(1), acc = 0, f = 1;
   const machine = {};
+  let nightEnd = -1;
   const floors = [];
   const step = (dt) => {
     t += dt;
@@ -20,6 +24,7 @@ function career(pick) {
   };
   const useMachine = () => {
     if (!(machine[f] > t)) { cups += E.COFFEE_MACHINE_AMOUNT; machine[f] = t + E.COFFEE_MACHINE_COOLDOWN_S; }
+    if (t < nightEnd && !(machine.night > t)) { cups += E.COFFEE_MACHINE_AMOUNT; machine.night = t + E.NIGHT_BREWER_S; }
   };
   const spend = (cost) => {
     let waited = 0;
@@ -32,6 +37,7 @@ function career(pick) {
     const tasks = buildFloor(f).tasks.map((it) => it.task);
     const ready = {};
     const t0 = t;
+    if (night && E.NIGHT_FLOORS.includes(f)) { nightEnd = t + E.NIGHT_SHIFT_S; machine.night = -1; }
     let stars = 0, wait = 0;
     while (stars < E.starQuota(f)) {
       const task = pick(tasks, ready, t, f);
@@ -39,7 +45,8 @@ function career(pick) {
       wait += spend(E.taskCoffeeCost(task.game));
       step(PLAY_S);
       stars += 2;
-      ready[task.id] = t + E.stationCooldownMs(f, {}, task.game) / 1000;
+      const mult = t < nightEnd ? E.NIGHT_COOLDOWN_MULT : 1;
+      ready[task.id] = t + (E.stationCooldownMs(f, {}, task.game) / 1000) * mult;
     }
     wait += spend(E.REVIEW_COFFEE);
     step(PLAY_S + 30);
@@ -87,4 +94,12 @@ test('a whole career stays in the intended range', () => {
 
 test('farming the cheapest games is not a big shortcut', () => {
   expect(career(cheapest).hours / normal.hours).toBeGreaterThan(0.8);
+});
+
+test('a night shift on every night floor stays a small boost, not a shortcut', () => {
+  const nights = career(rotation(), { night: true });
+  expect(nights.hours).toBeGreaterThan(40);
+  expect(nights.hours).toBeLessThan(75);
+  expect(nights.hours / normal.hours).toBeGreaterThan(0.95);
+  for (const f of E.NIGHT_FLOORS) expect(nights.floors[f].min).toBeGreaterThan(normal.floors[f].min * 0.7);
 });
