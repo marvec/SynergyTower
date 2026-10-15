@@ -74,6 +74,7 @@ export class MinigameScene {
         this.t = 0;
         input.consumeKeys();
         input.consumeClick();
+        if (this.inst.song) this.game.audio.play(this.inst.song); // a game with its own song (Carol Karaoke) starts it now
       }
       return;
     }
