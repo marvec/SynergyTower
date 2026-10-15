@@ -59,6 +59,8 @@ with the HUD as a dock of big controls under the game (`src/scenes/portraitDock.
   the offer after running out of coffee. The app does not use exact alarms (Google Play restricts them).
 - **Store listing**: App Store guideline 4.2 (minimum functionality) is met by a full offline game with native
   notifications and haptics; screenshots can come from the website's `public/how-to-play/img/` grabs (landscape).
+- **Age rating**: the game mentions alcohol (the hotel's cocktails, the Christmas party's bar): tick infrequent/mild
+  alcohol references in the App Store and Google Play rating questionnaires.
 - **Encryption**: `ITSAppUsesNonExemptEncryption` is false (HTTPS only), so no export compliance questions.
 
 ## Testing on a device or emulator

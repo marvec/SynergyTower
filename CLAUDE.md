@@ -29,7 +29,7 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 | Content | `src/data/` | Pure data: departments/titles/NPC lines, corp colours, task titles, music, `mg-*.js` mini-game content. |
 | Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit. |
 | Scenes | `src/scenes/` | title → setup → exterior → floor ⇄ (overlays, mini-game host, elevator ride) → ending. |
-| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review, + `compliance`, the compliance training, + 8 holiday activities for the vacation hotel + 6 home office chores), registered in `src/minigames/index.js`. |
+| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review, + `compliance`, the compliance training, + 8 holiday activities for the vacation hotel + 6 home office chores + 4 Christmas party activities: `dance`, `giftwrap`, `carols`, `photobooth`), registered in `src/minigames/index.js`. |
 
 - `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`), the
   pause rule for timed stays (while a scene with `pausesClocks` is on the stack, the PauseMenu or a paused mini-game,
@@ -134,7 +134,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
   coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, vacation_start, vacation_activity {game, stars}, vacation_end {coffee, activities, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
-  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, night_start, night_end {sp, tasks, early}, archive_start, archive_enter, archive_end {result: found|timeout|gave_up, left}, archive_handin {stars, levels, sp}, home_start, home_chore {game, stars}, home_call {answered}, home_end {result: done|early|sent_back, lapses, chores}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
+  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, night_start, night_end {sp, tasks, early}, archive_start, archive_enter, archive_end {result: found|timeout|gave_up, left}, archive_handin {stars, levels, sp}, home_start, home_chore {game, stars}, home_call {answered}, home_end {result: done|early|sent_back, lapses, chores}, party_invite {action: shown|go}, party_start, party_activity {game, stars}, party_drink {kind}, party_end {result: done|early, activities, sp, drinks}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
   c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing. The apps send Umami events too, tagged `app-ios`/`app-android`.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
@@ -266,6 +266,33 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   training and the drink question stays, so the cycle can repeat on every floor, except with the colleague whose
   ask started the hold (`conduct.reported`): their button is gone for good. Console: `__conduct()` opens the card with a clean record, `__conduct(4)` one ask from the hold,
   `__conduct('hold')` straight to the hold.
+- **Christmas party** (spec `docs/superpowers/specs/2026-10-15-christmas-party-design.md`, `src/core/party.js`, settings in
+  `E.PARTY` (economy.js), text in `src/data/party.js`): once per career and calendar year, local dates 6-23 December
+  (`partyWindow`; `state.parties[year] = 'done'` as soon as it starts). On the first tower FloorScene entered in the window
+  (not foreign, not at night, no quest or event) the Fun Committee's invitation opens once a year (`state.partyInvite`,
+  `FloorScene#inviteParty`); "Later" leaves a red P button in the `ElevatorPanel` (`onParty`) while it is `available`.
+  Blocked (`partyBlock`: `hold`, `badge`, `away` = trip, holiday, night shift, home office, inside the archive).
+  `FloorScene#startParty` pays the year-end bonus (1 Stock Option) and sets `state.party = { floor, year, endsAt, t, paid,
+  best, sp, drinks, tipsy, soberT, gift, speech }`: 10 minutes of wall clock (`party` is in `TIMED`, so pauses hold it).
+  `PartyScene` (`src/scenes/party.js`, a `foreign` FloorScene subclass) on the 44x28 `buildPartyHall()`
+  (`src/core/partyHall.js`, floorgen's `createPlanner`): it overrides `interactables`/`interact` (activities, the bar,
+  the elevator doors), `frontDesk`, `music` (`xmasparty`), `drawMarkers`/`drawPrompt`/`drawTimer`, `render`/`drawDark`
+  (`partyLighting`/`moveDisco` in `src/scenes/partyLights.js`, the disco ball, `Confetti` from `src/scenes/confetti.js`).
+  Guests are colleagues you know (`partyGuests`: tower NPCs of floors 1..maxFloor, by year and cast, never the fired, each
+  with their own `dept`), the first 6 dance (`DanceBrain`, `Actor.hop`); Santa hats are the look field `hat: 'santa'`;
+  the CEO's speech once per party (`party.speech`; yours if you are the CEO). Five activities (`ACTIVITY_GAMES`, MinigameScene
+  mode `'party'`, difficulty 0.3, free): `dance` (DJ booth), `giftwrap` (Secret Santa table), `carols` (stage, the host
+  plays `inst.song`), `buffet` (Christmas dishes for `theme.dept === 'party'`), `photobooth`; each pays
+  `activityPay` (twice a 3-star task's paperclips on your highest floor) once per party at 1+ star, never XP, KPI stars or
+  coffee. The new games are not in `COUNTED_GAMES` or `GAME_TIER`. Gift wrapping at 1+ star gives the year's Secret Santa
+  desk decoration `xmas-<year>` (`partyGiftId`, never in a shop, `needs: 'party'`). The bar (`PartyBar`, `src/scenes/partyBar.js`):
+  three drinks raise `party.tipsy` to `maxTipsy` (3), water sobers at once, one level wears off per `soberS` (120 s) of
+  party play time (`tickParty`); no reward: the hall and party mini-games sway (`sway`, not with `reducedMotion()`) and at 3
+  show a double image. Leaving by the elevator doors or time up (`endParty`: `early`/`done`) goes back to the floor it
+  started from with a summary card (`showPartySummary`); Continue resumes the hall while it lasts, else ends it with a toast.
+  Badges: Party Animal, Tipsy, Designated Driver (`stats.parties/partyTipsy/partyDesignated`). Furniture quips: `PARTY_QUIPS`
+  (`fl.party`). Console: `__party()` (this year's party again, the invitation on your floor, any date), `__party('hall')`
+  straight in, `__party('tipsy')` in with three drinks.
 - Reminders: opt-in browser notifications ("Reminders" in Menu > Settings (`SettingsMenu`), offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;
   `src/engine/reminders.js` schedules the soonest one when the tab is hidden and fires only if the tab is still hidden.
@@ -294,6 +321,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   on the nearest home floor at or below your highest one, or straight into the flat.
 - `__conduct()` / `__conduct(4)` / `__conduct('hold')`: the coffee break chat on this floor with a clean record, one ask away
   from the hold, or straight into the compliance hold.
+- `__party()` / `__party('hall')` / `__party('tipsy')`: the Christmas party again on any date (resets this year's), the
+  invitation on your floor, straight into the hall, or into the hall three drinks in.
 - `__vacation()`: floor 20 with the leave request open, free (no paperclips) and repeatable (resets today's holiday);
   `__vacation('hotel')` goes straight to the hotel, also free.
   Dev server only: it lives in `src/debug.js`, which `main.js` imports unless `__DEV__` is false; the production build

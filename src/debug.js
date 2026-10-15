@@ -6,6 +6,7 @@ import * as CD from './core/conduct.js';
 import * as N from './core/nightShift.js';
 import * as AR from './core/archive.js';
 import * as HO from './core/home.js';
+import * as PA from './core/party.js';
 import * as S from './core/state.js';
 import { MinigameScene } from './scenes/minigameScene.js';
 import { LIGHTING, VIEWS } from './engine/lighting.js';
@@ -161,6 +162,29 @@ export function installDebug(game) {
     game.set(fs);
     if (fs.homeBoss) fs.askHome(fs.homeBoss);
     return `floor ${floor}: home office offer`;
+  };
+
+  /**
+   * Debug: the Christmas party, any day of the year, as often as you like. __party() resets this year's party and opens
+   * the invitation on your floor; __party('hall') goes straight in; __party('tipsy') goes in with three drinks.
+   */
+  window.__party = async (mode) => {
+    const s = game.state;
+    if (!s) return 'no career loaded';
+    PA.resetParty(s, game.now());
+    if (PA.partyBlock(s)) return `no party: ${PA.partyBlock(s)}`;
+    game.saveNow();
+    const { FloorScene } = await import('./scenes/floorScene.js');
+    const fs = new FloorScene(game, s.floor);
+    game.set(fs);
+    if (!mode) {
+      if (!(game.top instanceof FloorScene)) game.pop(); // the floor's own invitation, if December already opened one
+      fs.inviteParty({ force: true });
+      return 'the party invitation';
+    }
+    await fs.startParty({ force: true });
+    if (mode === 'tipsy') for (let i = 0; i < PA.PARTY.maxTipsy; i++) PA.drink(s, 'punch');
+    return mode === 'tipsy' ? 'at the party, three drinks in' : 'at the party';
   };
 
   /** Why HR would not offer the archive task (for __archive): the first rule that says no. */
