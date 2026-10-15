@@ -36,6 +36,7 @@ export class Actor {
     this.bubble = null; // { text, t }
     this.who = null; // { name, role } shown on top of speech bubbles
     this.carry = null; // 'box' while a fired colleague clears their desk
+    this.hop = 0; // px the sprite is lifted by (dancers at the Christmas party)
   }
   setLook(look) {
     this.look = look;
@@ -68,9 +69,10 @@ export class Actor {
     g.fillStyle = 'rgba(0,0,0,0.28)';
     g.fillRect(px - 5, py - 1, 10, 3);
     g.fillRect(px - 4, py - 2, 8, 5);
+    const lift = Math.round(this.hop || 0); // a dancer's bounce (scenes/party.js), the shadow stays on the floor
     const box = () => {
       const bx = px - 6;
-      const by = py - 12;
+      const by = py - 12 - lift;
       rect(g, bx, by, 12, 8, '#5a3d22');
       rect(g, bx + 1, by + 1, 10, 6, '#b0814f');
       rect(g, bx + 1, by + 1, 10, 1, '#cfa06a');
@@ -79,7 +81,7 @@ export class Actor {
       rect(g, bx + 7, by - 3, 1, 3, '#d8dfe8'); // and the stapler
     };
     if (this.carry && this.dir === 'up') box();
-    g.drawImage(this.sheet, this.frame * CHAR_W, DIR_ROW[this.dir] * CHAR_H, CHAR_W, CHAR_H, px - CHAR_W / 2, py - CHAR_H + 1, CHAR_W, CHAR_H);
+    g.drawImage(this.sheet, this.frame * CHAR_W, DIR_ROW[this.dir] * CHAR_H, CHAR_W, CHAR_H, px - CHAR_W / 2, py - lift - CHAR_H + 1, CHAR_W, CHAR_H);
     if (this.carry && this.dir !== 'up') box();
   }
   /** view: the visible world rect { x, y, w, h, top } (top = HUD bar height); the bubble stays inside it. */
