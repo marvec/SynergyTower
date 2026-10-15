@@ -65,6 +65,7 @@ export class PartyScene extends FloorScene {
     const fl = { ...buildPartyHall(), npcs: partyGuests(s, year) };
     super(game, s.party?.floor ?? s.floor, { arrival: 'entrance', fl });
     this.taskMode = 'party';
+    this.view.setNight(true); // an evening do: dark outside the windows
     this.leaving = false;
     this.year = year;
     const e = this.fl.entrance;
@@ -246,6 +247,7 @@ export class PartyScene extends FloorScene {
     this.lighting ||= partyLighting(this.fl);
     moveDisco(this.lighting, this.fl.disco, this.time);
     drawNight(g, this.lighting, { fade: 1, cam: { x: Math.round(this.cam.x), y: Math.round(this.cam.y) }, player: this.player, t: this.time });
+    this.drawNightGlass(g);
     this.drawDiscoBall(g);
     if (PA.tipsyLevel(this.game.state) >= 3) {
       g.save();

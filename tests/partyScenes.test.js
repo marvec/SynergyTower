@@ -87,6 +87,8 @@ test('the hall: Santa hats, guests you know (with their own roles), six dancers,
   const p = game.top;
   expect(p).toBeInstanceOf(PartyScene);
   expect(p.player.look.hat).toBe('santa');
+  expect(p.view.nightWindows).toBe(true); // an evening do: dark outside
+  expect(p.view.glassOverlay()).toBeTruthy();
   expect(p.npcs.length).toBe(E.PARTY.guests);
   expect(p.npcs.filter((n) => n.brain instanceof DanceBrain).length).toBe(6);
   const depts = new Map();

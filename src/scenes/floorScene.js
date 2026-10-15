@@ -1465,7 +1465,11 @@ export class FloorScene {
     if (!this.night) return;
     this.lighting ||= nightLighting(this.fl, this.floorNo);
     drawNight(g, this.lighting, { fade: this.nightFade, cam: { x: Math.round(this.cam.x), y: Math.round(this.cam.y) }, player: this.player, t: this.time });
-    // The city outside the windows keeps its own lights.
+    this.drawNightGlass(g);
+  }
+
+  /** The night outside the windows, over the lighting: the city keeps its own lights (see FloorView.setNight). */
+  drawNightGlass(g) {
     const glass = this.view.glassOverlay();
     if (glass) g.drawImage(glass, 0, 0);
   }
