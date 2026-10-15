@@ -90,7 +90,7 @@ test('everyone walks out with a single ding, then the lights go out (8 s at most
   expect(fs.hrRep).toBeNull();
   expect(fs.nightFade).toBe(1);
   expect(game.sfxLog.filter((n) => n === 'ding').length).toBe(1);
-});
+}, 30000); // 9 s of lit frames: slow on CI runners
 
 test('the shift is refused during a quest or an office event, and on a compliance hold', async () => {
   const game = career();
