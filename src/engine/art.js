@@ -3,9 +3,11 @@
 // at (x, y - h) and its front face at (x, y + d - h, w, h). Everything is drawn in 1px units at 16px/tile.
 import { makeCanvas } from './screen.js';
 import { turnstilePosts } from '../core/floorgen.js';
+import { drawText, measureText } from './font.js';
 
 export const TILE = 16;
 export const WALL_H = 12;
+export const OUTER_RISE = 12; // the outer wall (the map's top row) stands this much taller, for its windows
 export const CHAR_W = 16;
 export const CHAR_H = 22;
 
@@ -1525,28 +1527,72 @@ export function floorStyleForRoom(roomType, deptId) {
   }
 }
 
-/** Wall tile: top face shifted up by WALL_H, front face shown when the tile below is open. */
+/**
+ * Wall tile: top face shifted up by its front's height, front face shown when the tile below is open. The outer wall
+ * (`outer`, the map's top row) stands OUTER_RISE px taller: same top, a taller front with the windows above a sill.
+ * An inner wall meeting it (tile below not open) gets a longer top, so the two tops line up.
+ */
 export function drawWallTile(g, x, y, opts) {
   const { r } = P(g);
-  const { top, front, openBelow, openAbove, openLeft, openRight, window: win, tx } = opts;
-  const ty = y - WALL_H;
-  r(x, ty, 16, 16, top);
+  const { top, front, openBelow, openAbove, openLeft, openRight, window: win, tx, outer, night } = opts;
+  const fh = WALL_H + (outer ? OUTER_RISE : 0);
+  const ty = y - fh;
+  const th = outer && !openBelow ? 16 + OUTER_RISE : 16;
+  r(x, ty, 16, th, top);
   if (openAbove) r(x, ty, 16, 1, shade(top, 0.3));
-  if (openLeft) r(x, ty, 1, 16, shade(top, -0.3));
-  if (openRight) r(x + 15, ty, 1, 16, shade(top, -0.3));
+  if (openLeft) r(x, ty, 1, th, shade(top, -0.3));
+  if (openRight) r(x + 15, ty, 1, th, shade(top, -0.3));
   if (openBelow) {
-    const fy = y + 16 - WALL_H;
-    r(x, fy, 16, WALL_H, front);
+    const fy = y + 16 - fh;
+    r(x, fy, 16, fh, front);
     r(x, fy, 16, 1, shade(front, 0.2));
-    r(x, fy + WALL_H - 2, 16, 2, shade(front, -0.35));
-    if (openLeft) r(x, fy, 1, WALL_H, shade(front, -0.2));
-    if (openRight) r(x + 15, fy, 1, WALL_H, shade(front, -0.2));
-    if (win) {
-      r(x + 1, fy + 1, 14, WALL_H - 4, '#1a1a22');
-      r(x + 2, fy + 2, 12, WALL_H - 6, '#8ec5f0');
-      r(x + 2, fy + 2, 12, 1, '#c8e6fa');
-      const hgt = 2 + Math.floor(noiseAt(tx, 1) * 4);
-      r(x + 2 + (tx % 3) * 3, fy + WALL_H - 4 - hgt, 3, hgt, '#5a7a9a');
+    r(x, fy + fh - 2, 16, 2, shade(front, -0.35));
+    if (openLeft) r(x, fy, 1, fh, shade(front, -0.2));
+    if (openRight) r(x + 15, fy, 1, fh, shade(front, -0.2));
+    if (win && outer) {
+      drawWindowGlass(g, x, y, tx, night);
+      // The sill.
+      r(x, fy + fh - 8, 16, 1, shade(front, 0.35));
+      r(x, fy + fh - 7, 16, 1, shade(front, -0.15));
     }
   }
+}
+
+/**
+ * The glass of an outer wall window (drawWallTile's coordinates): a skyline by day, the night outside in the title
+ * screen's colours (a dark sky, a star, a building with a lit window or two). The night shift draws it again on top
+ * of its lighting, so the city stays lit.
+ */
+export function drawWindowGlass(g, x, y, tx, night) {
+  const { r } = P(g);
+  const gy = y + 16 - WALL_H - OUTER_RISE + 3;
+  const gh = WALL_H + OUTER_RISE - 12;
+  r(x + 1, gy - 1, 14, gh + 2, '#1a1a22');
+  const hgt = 3 + Math.floor(noiseAt(tx, 1) * 6);
+  const bx = x + 2 + (tx % 3) * 3;
+  if (night) {
+    r(x + 2, gy, 12, gh, '#121735');
+    r(x + 2, gy + gh - 4, 12, 4, '#1b2147');
+    r(x + 2 + Math.floor(noiseAt(tx, 2) * 12), gy + 1 + Math.floor(noiseAt(tx, 3) * 4), 1, 1, noiseAt(tx, 4) < 0.5 ? '#ffffff' : '#8890b0');
+    r(bx, gy + gh - hgt, 3, hgt, '#0b0e24');
+    if (noiseAt(tx, 5) < 0.6) r(bx + 1, gy + gh - hgt + 1, 1, 1, '#f2d878');
+    if (hgt > 5 && noiseAt(tx, 6) < 0.4) r(bx + 1, gy + gh - 3, 1, 1, '#f2d878');
+  } else {
+    r(x + 2, gy, 12, gh, '#8ec5f0');
+    r(x + 2, gy, 12, 1, '#c8e6fa');
+    r(bx, gy + gh - hgt, 3, hgt, '#5a7a9a');
+  }
+}
+
+/** The floor number plate on the outer wall beside the elevator (row-canvas coordinates of an outer wall tile). */
+export function drawFloorPlate(g, x, y, label, accent) {
+  const { r } = P(g);
+  const fy = y + 16 - WALL_H - OUTER_RISE;
+  const w = measureText(label) + 5;
+  const px = x + Math.floor((16 - w) / 2);
+  const py = fy + 3;
+  r(px + 1, py + 1, w, 12, 'rgba(0,0,0,0.3)');
+  r(px, py, w, 12, '#1a1c24');
+  r(px + 1, py + 1, w - 2, 1, accent);
+  drawText(g, label, px + w / 2, py + 3, { align: 'center', color: '#f4f1e8' });
 }

@@ -45,6 +45,11 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
   The elevator lobby sits at a fixed top-centre position. Tests assert that every station is reachable.
 - Rendering: the floor tiles are baked once, then walls (per row), furniture and actors are depth-sorted by their base y.
   Furniture art lives in `src/engine/art.js` as draw functions (footprint + `lift` = height above the footprint).
+  The outer wall (every map's top row) stands `OUTER_RISE` px taller than inner walls (`drawWallTile` `outer`): its windows sit
+  above a sill, none in the elevator lobby (your flat: only where no furniture stands against it, `FloorView.hasWindow`);
+  `drawFloorPlate` puts the floor number ("A" in the archive) left of the elevator. On a night shift `FloorView.setNight`
+  re-bakes it with the night outside (title screen colours) and `glassOverlay()` is drawn over the lighting, so the city stays lit.
+  Its row canvas grows upwards, so `Lighting` takes `outerRise` (its maps start above row 0) and small maps centre with it.
 - Colleagues' figures follow their first name (`WOMEN_NAMES`/`MEN_NAMES` in `src/data/people.js`; other names are
   gender-neutral, either figure by seed): `npcLook` gives a woman a `skirt` (and maybe `tights`), which `bakeCharacter`
   draws as a woman's figure. Dress uniforms and suits with `suit(look, jacket)` (matching skirt, never a tie on a skirt).

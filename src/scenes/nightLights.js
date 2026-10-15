@@ -1,7 +1,7 @@
 // The night shift's darkness (core/nightShift.js): the floor lit by its ceiling lamps and a small light around the player,
 // through the DOS-style lighting in engine/lighting.js. A few lamps flicker: most waver softly (engine flickerLevel), one or
 // two are failing tubes that blink, changing at most twice a second.
-import { TILE, WALL_H, furnitureDef } from '../engine/art.js';
+import { TILE, WALL_H, OUTER_RISE, furnitureDef } from '../engine/art.js';
 import { T_WALL } from '../core/floorgen.js';
 import { Lighting, LIGHTING } from '../engine/lighting.js';
 import { hashString } from '../core/rng.js';
@@ -82,7 +82,7 @@ export function darkLighting(fl, lamps, { ambient = LIGHTING.ambient, config = L
     if (!def || def.solid === false || (def.lift || 0) < TALL_LIFT) continue;
     for (let y = it.y; y < it.y + it.h; y++) for (let x = it.x; x < it.x + it.w; x++) opaque[y * fl.w + x] = 1;
   }
-  const lighting = new Lighting({ cols: fl.w, rows: fl.h, tile: TILE, opaque, wall, wallH: WALL_H, config });
+  const lighting = new Lighting({ cols: fl.w, rows: fl.h, tile: TILE, opaque, wall, wallH: WALL_H, outerRise: OUTER_RISE, config });
   lighting.setAmbient(ambient, NIGHT_TINT);
   for (const l of lamps) {
     const light = { x: l.x * TILE, y: l.y * TILE, r: l.r, ...LAMP };

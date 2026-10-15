@@ -1,6 +1,6 @@
 // The main play scene: walk a floor, talk to colleagues, start tasks, use the elevator.
 import { W, H } from '../engine/screen.js';
-import { TILE, CHAR_H } from '../engine/art.js';
+import { TILE, CHAR_H, WALL_H, OUTER_RISE } from '../engine/art.js';
 import { C, rect, panel, icon, stars, formatTime, formatNum, openCoffee } from '../engine/ui.js';
 import { drawText, measureText } from '../engine/font.js';
 import { buildFloor } from '../core/tasks.js';
@@ -87,6 +87,7 @@ export class FloorScene {
     this.walkOut = null; // seconds since the walk-out started, while colleagues still head for the elevator
     this.dept = departmentForFloor(floor);
     this.view = new FloorView(this.fl, game.corpColor());
+    this.view.setNight(night); // dark outside the windows
     const e = this.fl.entrance;
     // fl.arrive: a floor whose way in is not in the bottom wall (the vacation hotel's front door is at the top).
     const spawn = arrival === 'entrance' && e ? this.fl.arrive || { x: e.x + e.w / 2 - 0.1, y: this.fl.h - 2.2 } : { x: 19.9, y: 2.6 };
@@ -268,11 +269,13 @@ export class FloorScene {
   }
   camTarget() {
     const { fl } = this;
-    // A map smaller than the screen (your flat, core/home.js) stays centred below the HUD.
+    // A map smaller than the screen (your flat, core/home.js) stays centred below the HUD, its outer wall included (it
+    // stands `wallTop` px above the map's first row).
     const mw = fl.w * TILE;
     const mh = fl.h * TILE;
     const view = H - HUD_H;
-    if (mw <= W && mh <= view) return { x: Math.round((mw - W) / 2), y: -HUD_H - Math.round((view - mh) / 2) };
+    const wallTop = WALL_H + OUTER_RISE;
+    if (mw <= W && mh + wallTop <= view) return { x: Math.round((mw - W) / 2), y: -HUD_H - wallTop - Math.round((view - mh - wallTop) / 2) };
     const x = mw <= W ? Math.round((mw - W) / 2) : Math.max(0, Math.min(mw - W, this.player.x * TILE - W / 2));
     // Top limit: the tallest furniture in the first row (lift 26) plus its bobbing "!" marker and best-star dots
     // reach ~30 px above the map edge; keep all of that below the HUD.
@@ -649,6 +652,7 @@ export class FloorScene {
     if (this.hrRep) this.hrRep.bubble = null;
     this.nightBoss?.a.say(this.rng.pick(NIGHT_GOODBYE), 3);
     this.nightBoss = null;
+    this.view.setNight(true);
     this.startWalkOut();
     game.audio.play(this.music);
     game.toast(`Night shift: ${E.NIGHT_SHIFT_S / 60} minutes, and the machines are all yours.`, C.gold);
@@ -1461,6 +1465,9 @@ export class FloorScene {
     if (!this.night) return;
     this.lighting ||= nightLighting(this.fl, this.floorNo);
     drawNight(g, this.lighting, { fade: this.nightFade, cam: { x: Math.round(this.cam.x), y: Math.round(this.cam.y) }, player: this.player, t: this.time });
+    // The city outside the windows keeps its own lights.
+    const glass = this.view.glassOverlay();
+    if (glass) g.drawImage(glass, 0, 0);
   }
 
   /** A clock panel under the HUD at y (the night shift's; the archive draws its own). True if one was drawn. */

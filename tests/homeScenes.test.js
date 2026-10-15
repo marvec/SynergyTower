@@ -16,6 +16,7 @@ const { Dialog, PauseMenu } = await import('../src/scenes/overlays.js');
 const { TitleScene } = await import('../src/scenes/title.js');
 const { W, H } = await import('../src/engine/screen.js');
 const { HUD_H } = await import('../src/scenes/hud.js');
+const { WALL_H, OUTER_RISE } = await import('../src/engine/art.js');
 const HO = await import('../src/core/home.js');
 const { buildFloor } = await import('../src/core/tasks.js');
 
@@ -85,17 +86,26 @@ test('a compliance hold: the manager says no', async () => {
   expect(fs.homeBoss.a.bubble?.text || '').toContain('compliance hold');
 });
 
-test('the flat is centred below the HUD, and you are in your home clothes', async () => {
+test('the flat is centred below the HUD (its taller outer wall included), and you are in your home clothes', async () => {
   const { game, home } = atHome();
   await tick(game, 5);
   const fl = home.fl;
   expect(home.cam.x).toBe(Math.round((fl.w * 16 - W) / 2));
-  expect(home.cam.y).toBe(-HUD_H - Math.round((H - HUD_H - fl.h * 16) / 2));
+  const wallTop = WALL_H + OUTER_RISE; // the outer wall stands this far above the map's first row
+  expect(home.cam.y).toBe(-HUD_H - wallTop - Math.round((H - HUD_H - fl.h * 16 - wallTop) / 2));
   // Walking about does not scroll a map that fits.
   home.player.x = 2;
   home.snapCamera();
   expect(home.cam.x).toBe(Math.round((fl.w * 16 - W) / 2));
   expect(home.player.look.tie).toBeNull();
+  // Windows only where no furniture stands against the outer wall, but some there are.
+  const against = (x) => fl.items.some((it) => x >= it.x && x < it.x + it.w && it.y <= 1 && it.y + it.h > 1);
+  const wins = [];
+  for (let x = 1; x < fl.w - 1; x++) {
+    if (against(x)) expect(home.view.hasWindow(x)).toBe(false);
+    if (home.view.hasWindow(x)) wins.push(x);
+  }
+  expect(wins.length).toBeGreaterThan(2);
   expect(home.hud.floorLabel).toBe('Home');
 });
 

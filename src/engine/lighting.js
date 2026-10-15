@@ -81,18 +81,21 @@ function clearLine(opaque, cols, x0, y0, x1, y1) {
 export class Lighting {
   /**
    * cols x rows tiles of `tile` px. opaque: Uint8Array per tile (walls and tall furniture block light). wall: Uint8Array
-   * per tile of the walls alone, drawn wallH px taller than their tile (their top surface reaches into the row above).
+   * per tile of the walls alone, drawn wallH px taller than their tile (their top surface reaches into the row above);
+   * the top row's walls (the outer wall) are outerRise px taller still. The pixel maps start `top` px above the floor's
+   * first row, so those walls (reaching above y 0) are lit too.
    */
-  constructor({ cols, rows, tile = 16, opaque, wall = opaque, wallH = 0, config = LIGHTING }) {
+  constructor({ cols, rows, tile = 16, opaque, wall = opaque, wallH = 0, outerRise = 0, config = LIGHTING }) {
     Object.assign(this, { cols, rows, tile, opaque, wall, config });
     this.pw = cols * tile;
     this.ph = rows * tile;
-    this.owner = this.buildOwners(wall, wallH);
+    this.top = wallH ? wallH + outerRise : 0;
+    this.owner = this.buildOwners(wall, wallH, outerRise);
     this.lights = [];
     this.ambient = [config.ambient, config.ambient, config.ambient];
     this.flashV = 0;
     this.flashRate = 0;
-    this.map = new Float32Array(this.pw * this.ph * 3);
+    this.map = new Float32Array(this.pw * (this.ph + this.top) * 3);
     this.dirty = true;
     this.frame = new Float32Array(W * H * 3);
     this.seen = config.fog ? new Uint8Array(cols * rows) : null;
@@ -103,20 +106,26 @@ export class Lighting {
    * Which tile each world pixel shows, so a wall's pixels drawn over the row above still belong to the wall: tile index + 1
    * (0 = outside the floor), with FACE set on a wall's front face.
    */
-  buildOwners(wall, wallH) {
-    const { cols, rows, tile, pw, ph } = this;
-    const owner = new Uint16Array(pw * ph);
+  buildOwners(wall, wallH, outerRise) {
+    const { cols, rows, tile, pw, ph, top } = this;
+    const owner = new Uint16Array(pw * (ph + top));
     const isWall = (x, y) => y >= 0 && y < rows && wall[y * cols + x];
-    const top = tile - wallH; // a wall's top surface starts this far into the tile above it
-    for (let py = 0; py < ph; py++) {
-      const ty = (py / tile) | 0;
-      const off = py - ty * tile;
+    const frontH = (r) => wallH + (r === 0 ? outerRise : 0);
+    for (let py = -top; py < ph; py++) {
+      const ty = Math.floor(py / tile);
       for (let tx = 0; tx < cols; tx++) {
-        let v;
-        if (off >= top && isWall(tx, ty + 1)) v = (ty + 1) * cols + tx + 1; // the next wall's top
-        else if (off >= top && isWall(tx, ty) && wallH) v = (ty * cols + tx + 1) | FACE; // this wall's front
-        else v = ty * cols + tx + 1;
-        owner.fill(v, py * pw + tx * tile, py * pw + (tx + 1) * tile);
+        let v = ty >= 0 ? ty * cols + tx + 1 : 0;
+        // A wall at row r covers [r * tile - frontH(r), (r + 1) * tile): its top, then its front (when the tile below is
+        // open). Rows are drawn top to bottom, so the lowest wall covering the pixel shows.
+        if (wallH) {
+          for (let r = ty + 2; r >= ty; r--) {
+            if (!isWall(tx, r) || py < r * tile - frontH(r) || py >= (r + 1) * tile) continue;
+            v = r * cols + tx + 1;
+            if (py >= (r + 1) * tile - frontH(r) && !isWall(tx, r + 1)) v |= FACE;
+            break;
+          }
+        }
+        owner.fill(v, (py + top) * pw + tx * tile, (py + top) * pw + (tx + 1) * tile);
       }
     }
     return owner;
@@ -213,12 +222,12 @@ export class Lighting {
    */
   splat(light, buf, ox, oy, bw, bh, level = 1, edge = null) {
     if (level <= 0) return;
-    const { tile, cols, pw, ph, owner } = this;
+    const { tile, cols, pw, ph, owner, top } = this;
     const vis = this.visibility(light);
     const perTile = this.config.mode === 'tile';
     const pad = perTile ? tile : 0;
     const x0 = Math.max(0, ox, Math.floor(light.x - light.r - pad));
-    const y0 = Math.max(0, oy, Math.floor(light.y - light.r - pad));
+    const y0 = Math.max(-top, oy, Math.floor(light.y - light.r - pad));
     const x1 = Math.min(pw, ox + bw, Math.ceil(light.x + light.r + pad));
     const y1 = Math.min(ph, oy + bh, Math.ceil(light.y + light.r + pad));
     const fall = FALLOFF[light.falloff] || FALLOFF.linear;
@@ -226,7 +235,7 @@ export class Lighting {
     const k = light.intensity * level;
     const [tr, tg, tb] = light.tint;
     for (let py = y0; py < y1; py++) {
-      const row = py * pw;
+      const row = (py + top) * pw;
       let i = ((py - oy) * bw + (x0 - ox)) * 3;
       for (let px = x0; px < x1; px++, i += 3) {
         const o = owner[row + px];
@@ -272,7 +281,7 @@ export class Lighting {
         const h = Math.ceil(l.y + l.r + pad) - y;
         l._patch = { x, y, w, h, data: new Float32Array(w * h * 3), edge: l.flicker ? new Float32Array(w * h * 3) : null };
         this.splat(l, l._patch.data, x, y, w, h, 1, l._patch.edge);
-      } else this.splat(l, this.map, 0, 0, this.pw, this.ph, l.level);
+      } else this.splat(l, this.map, 0, -this.top, this.pw, this.ph + this.top, l.level);
     }
     this.bakedMode = this.config.mode;
     this.dirty = false;
@@ -296,7 +305,7 @@ export class Lighting {
    * the pattern does not crawl when the camera moves). fade 0..1 blends from full light to the night (the lights going out).
    */
   compute(out, cx, cy, { fade = 1, t = 0 } = {}) {
-    const { config, pw, ph, frame, owner } = this;
+    const { config, pw, ph, frame, owner, top } = this;
     if (this.dirty || this.bakedMode !== config.mode) this.bake();
     frame.fill(0);
     // The baked map, row by row.
@@ -305,8 +314,9 @@ export class Lighting {
     if (xb > xa) {
       for (let sy = 0; sy < H; sy++) {
         const wy = cy + sy;
-        if (wy < 0 || wy >= ph) continue;
-        frame.set(this.map.subarray((wy * pw + xa) * 3, (wy * pw + xb) * 3), (sy * W + (xa - cx)) * 3);
+        if (wy < -top || wy >= ph) continue;
+        const row = (wy + top) * pw;
+        frame.set(this.map.subarray((row + xa) * 3, (row + xb) * 3), (sy * W + (xa - cx)) * 3);
       }
     }
     for (const l of this.lights) {
@@ -328,7 +338,7 @@ export class Lighting {
     for (let sy = 0, i = 0; sy < H; sy++) {
       const wy = cy + sy;
       const brow = (wy & 3) * 4;
-      const inRow = wy >= 0 && wy < ph;
+      const inRow = wy >= -top && wy < ph;
       for (let sx = 0; sx < W; sx++, i++) {
         const wx = cx + sx;
         const b = config.dither ? BAYER[brow + (wx & 3)] : 0.5;
@@ -336,7 +346,7 @@ export class Lighting {
         let g = frame[i * 3 + 1] + ag + fl;
         let bl = frame[i * 3 + 2] + ab + fl;
         if (sight) {
-          const o = inRow && wx >= 0 && wx < pw ? owner[wy * pw + wx] : 0;
+          const o = inRow && wx >= 0 && wx < pw ? owner[(wy + top) * pw + wx] : 0;
           const tIdx = (o & ~FACE) - 1;
           if (!o || !sight[tIdx]) r = g = bl = o && this.seen[tIdx] ? fog : 0;
         }

@@ -1,6 +1,6 @@
 // Floor visuals + actors: bakes static layers once per floor and draws a depth-sorted 2.5D scene.
-import { TILE, WALL_H, CHAR_W, CHAR_H, bakeCharacter, bakeFurniture, furnitureDef, drawFloorTile, drawWallTile, floorStyleForRoom, shade, drawDeskDecor } from '../engine/art.js';
-import { makeCanvas } from '../engine/screen.js';
+import { TILE, WALL_H, OUTER_RISE, CHAR_W, CHAR_H, bakeCharacter, bakeFurniture, furnitureDef, drawFloorTile, drawWallTile, drawWindowGlass, drawFloorPlate, floorStyleForRoom, shade, drawDeskDecor } from '../engine/art.js';
+import { makeCanvas, W as VIEW_W, H as VIEW_H } from '../engine/screen.js';
 import { T_WALL } from '../core/floorgen.js';
 import { findPath } from '../core/pathfind.js';
 import { createRng } from '../core/rng.js';
@@ -267,33 +267,8 @@ export class FloorView {
     }
     this.floorCanvas = floorC;
 
-    const top = dept.wall;
-    const front = shade(dept.wall, 0.62);
     this.wallRows = [];
-    for (let y = 0; y < fl.h; y++) {
-      let any = false;
-      const [rc, rg] = makeCanvas(W, TILE + WALL_H);
-      for (let x = 0; x < fl.w; x++) {
-        if (!this.isWall(x, y)) continue;
-        any = true;
-        const isEntrance = fl.entrance && y === fl.entrance.y && x >= fl.entrance.x && x < fl.entrance.x + fl.entrance.w;
-        if (isEntrance) continue;
-        // Outside the hotel building the boundary is a hedge.
-        const hedge = fl.hedgeFrom != null && y >= fl.hedgeFrom;
-        drawWallTile(rg, x * TILE, WALL_H, {
-          top: hedge ? '#3f8f3f' : top,
-          front: hedge ? '#2f6f2f' : front,
-          openBelow: !this.isWall(x, y + 1) && y + 1 < fl.h,
-          openAbove: !this.isWall(x, y - 1),
-          openLeft: !this.isWall(x - 1, y),
-          openRight: !this.isWall(x + 1, y),
-          window: !fl.noWindows && y === 0 && x > 0 && x < fl.w - 1, // no windows in the basement archive
-          tx: x,
-        });
-      }
-      for (const p of fl.posters || []) if (p.y === y) this.drawPoster(rg, p);
-      this.wallRows.push(any ? rc : null);
-    }
+    for (let y = 0; y < fl.h; y++) this.wallRows.push(this.bakeWallRow(y));
 
     this.sprites = fl.items.map((it) => {
       const baked = bakeFurniture(it.type, it.w, it.h, this.kit);
@@ -307,6 +282,78 @@ export class FloorView {
     });
     this.gateOpen = false;
     this.desk = null; // { owned, show } of your desk on this floor, or null while it is not yours
+  }
+
+  /** The night outside the outer wall's windows (night shift): re-bakes the top row when it changes. */
+  setNight(on) {
+    if (!!on === !!this.nightWindows) return;
+    this.nightWindows = !!on;
+    this.wallRows[0] = this.bakeWallRow(0);
+    // The glass alone, drawn again over the night lighting (glassOverlay), so the city outside stays lit.
+    this.glassRow = null;
+    if (!on) return;
+    const { fl } = this;
+    const [c, g] = makeCanvas(fl.w * TILE, TILE + WALL_H + OUTER_RISE);
+    for (let x = 0; x < fl.w; x++) if (this.isWall(x, 0) && !this.isWall(x, 1) && this.hasWindow(x)) drawWindowGlass(g, x * TILE, WALL_H + OUTER_RISE, x, true);
+    this.glassRow = c;
+  }
+
+  /**
+   * The night glass for the screen (after render, so it knows what stands in front of the windows): the glass row minus
+   * every wall, item and person drawn over it. Null by day. The floor scene draws it on top of its lighting.
+   */
+  glassOverlay() {
+    return this.nightWindows ? this.glassScreen : null;
+  }
+
+  /** One row of walls as a canvas (null when the row has none), drawn WALL_H (+ OUTER_RISE for the top row) above it. */
+  bakeWallRow(y) {
+    const { fl, dept } = this;
+    const top = dept.wall;
+    const front = shade(dept.wall, 0.62);
+    let any = false;
+    // The outer wall (the top row) stands OUTER_RISE taller; its row canvas grows upwards by as much.
+    const rise = y === 0 ? OUTER_RISE : 0;
+    const [rc, rg] = makeCanvas(fl.w * TILE, TILE + WALL_H + rise);
+    for (let x = 0; x < fl.w; x++) {
+      if (!this.isWall(x, y)) continue;
+      any = true;
+      const isEntrance = fl.entrance && y === fl.entrance.y && x >= fl.entrance.x && x < fl.entrance.x + fl.entrance.w;
+      if (isEntrance) continue;
+      // Outside the hotel building the boundary is a hedge.
+      const hedge = fl.hedgeFrom != null && y >= fl.hedgeFrom;
+      drawWallTile(rg, x * TILE, WALL_H + rise, {
+        top: hedge ? '#3f8f3f' : top,
+        front: hedge ? '#2f6f2f' : front,
+        openBelow: !this.isWall(x, y + 1) && y + 1 < fl.h,
+        openAbove: !this.isWall(x, y - 1),
+        openLeft: !this.isWall(x - 1, y),
+        openRight: !this.isWall(x + 1, y),
+        window: y === 0 && this.hasWindow(x),
+        night: this.nightWindows,
+        outer: y === 0 && !hedge,
+        tx: x,
+      });
+    }
+    // The floor number beside the elevator ("A" for the archive in the basement).
+    const lift = fl.elevator;
+    if (y === 0 && lift?.y === 1 && this.isWall(lift.x - 1, 0) && !this.isWall(lift.x - 1, 1)) {
+      drawFloorPlate(rg, (lift.x - 1) * TILE, WALL_H + rise, fl.archive ? 'A' : String(fl.floor), this.kit.accent);
+    }
+    for (const p of fl.posters || []) if (p.y === y) this.drawPoster(rg, p);
+    return any ? rc : null;
+  }
+
+  /**
+   * Windows run all along the outer wall, but not in the elevator lobby (the building's core) or the basement archive;
+   * your flat has them only where no furniture stands against the wall.
+   */
+  hasWindow(x) {
+    const { fl } = this;
+    if (fl.noWindows || x <= 0 || x >= fl.w - 1) return false;
+    if (fl.rooms[fl.roomOf[fl.w + x]]?.type === 'elevator') return false;
+    if (fl.home && fl.items.some((it) => x >= it.x && x < it.x + it.w && it.y <= 1 && it.y + it.h > 1)) return false;
+    return true;
   }
 
   /** A hallway poster on the upper part of the wall (row-canvas coordinates: the wall top spans y 0..16). */
@@ -360,11 +407,28 @@ export class FloorView {
     }
     for (const a of actors) list.push({ base: a.y * TILE, kind: 'actor', a });
     list.sort((p, q) => p.base - q.base);
-    for (const e of list) {
-      if (e.kind === 'wall') g.drawImage(this.wallRows[e.y], 0, e.y * TILE - WALL_H);
-      else if (e.kind === 'item') this.drawItem(g, e.s);
-      else e.a.draw(g);
-    }
+    for (const e of list) this.drawEntry(g, e);
+    g.restore();
+    if (this.glassRow) this.renderGlass(cam, list);
+  }
+
+  drawEntry(g, e) {
+    if (e.kind === 'wall') g.drawImage(this.wallRows[e.y], 0, e.y * TILE - WALL_H - (e.y === 0 ? OUTER_RISE : 0));
+    else if (e.kind === 'item') this.drawItem(g, e.s);
+    else e.a.draw(g);
+  }
+
+  /** The night glass on a screen-sized canvas, cut out wherever something drawn after the outer wall covers it. */
+  renderGlass(cam, list) {
+    if (!this.glassScreen) [this.glassScreen, this.glassG] = makeCanvas(VIEW_W, VIEW_H);
+    const g = this.glassG;
+    g.clearRect(0, 0, VIEW_W, VIEW_H);
+    g.save();
+    g.translate(-Math.round(cam.x), -Math.round(cam.y));
+    g.drawImage(this.glassRow, 0, -WALL_H - OUTER_RISE);
+    g.globalCompositeOperation = 'destination-out';
+    // Only what is drawn after the outer wall and reaches up to it (people and furniture near the top) can cover it.
+    for (const e of list) if (e.base > TILE && e.base < 5 * TILE) this.drawEntry(g, e);
     g.restore();
   }
 

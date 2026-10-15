@@ -58,6 +58,7 @@ test('floor 15: your manager offers the night shift; starting it saves the shift
   const fs = new FloorScene(game, 15);
   game.set(fs);
   expect(fs.night).toBe(false);
+  expect(fs.view.nightWindows).toBeFalsy(); // daylight outside
   expect(fs.nightBoss).toBeTruthy();
   expect(fs.nightBoss.seed).toBe(fs.fl.npcs[0].seed);
   expect(fs.nightBoss.a.who.role).toBe('Your Manager');
@@ -72,7 +73,9 @@ test('floor 15: your manager offers the night shift; starting it saves the shift
   expect(game.top).toBe(fs);
   expect(game.state.nightShift?.floor).toBe(15);
   expect(fs.night).toBe(true);
+  expect(fs.view.nightWindows).toBe(true); // dark outside from the start of the walk-out
   expect(fs.standupNpc).toBeNull();
+  expect(nightFloor().fs.view.nightWindows).toBe(true); // and on a floor built at night
 });
 
 test('everyone walks out with a single ding, then the lights go out (8 s at most)', async () => {

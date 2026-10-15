@@ -1,7 +1,7 @@
 // The Christmas party's lights (engine/lighting.js): the hall dim and warm, string lights along the walls blinking in
 // colours, the tree twinkling, a warm glow at the bar and six coloured disco spots (dynamic lights) circling the dance
 // floor, moved each frame by moveDisco. Walls and tall furniture block light, as at night (darkLighting).
-import { TILE, WALL_H, furnitureDef } from '../engine/art.js';
+import { TILE, WALL_H, OUTER_RISE, furnitureDef } from '../engine/art.js';
 import { T_WALL } from '../core/floorgen.js';
 import { Lighting, LIGHTING } from '../engine/lighting.js';
 
@@ -21,7 +21,7 @@ export function partyLighting(fl) {
     if (!def || def.solid === false || (def.lift || 0) < TALL_LIFT) continue;
     for (let y = it.y; y < it.y + it.h; y++) for (let x = it.x; x < it.x + it.w; x++) opaque[y * fl.w + x] = 1;
   }
-  const lighting = new Lighting({ cols: fl.w, rows: fl.h, tile: TILE, opaque, wall, wallH: WALL_H, config: LIGHTING });
+  const lighting = new Lighting({ cols: fl.w, rows: fl.h, tile: TILE, opaque, wall, wallH: WALL_H, outerRise: OUTER_RISE, config: LIGHTING });
   lighting.setAmbient(0.38, [1, 0.85, 0.75]);
   let i = 0;
   const string = (x, y) => lighting.addLight({ x: x * TILE, y: y * TILE, r: 22, intensity: 1.3, tint: STRING[i % STRING.length], level: blink(i++) });
