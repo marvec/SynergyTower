@@ -1435,7 +1435,11 @@ export class FloorScene {
     this.drawStandupMarker(g);
     this.quest?.renderWorld(g);
     this.event?.renderWorld(g);
-    const bubbleView = { x: Math.round(this.cam.x), y: Math.round(this.cam.y), w: W, h: H, top: HUD_H };
+    // Bubbles keep clear of last frame's clock panel (it is drawn later, over the world).
+    const cx = Math.round(this.cam.x);
+    const cy = Math.round(this.cam.y);
+    const hp = this.hudPanel;
+    const bubbleView = { x: cx, y: cy, w: W, h: H, top: HUD_H, panel: hp && { x: hp.x + cx, y: hp.y + cy, w: hp.w, h: hp.h } };
     for (const a of actors) a.drawBubble(g, bubbleView);
     g.restore();
 
@@ -1443,6 +1447,7 @@ export class FloorScene {
     this.hud.render(g);
     if (CD.onHold(s)) this.drawHoldStrip(g);
     // Timers under the HUD, top right; the archive's folder below them while it is carried.
+    this.hudPanel = null;
     let panelY = HUD_H + 3;
     if (this.drawTimer(g, panelY)) panelY += 18;
     if (A.carryingFolder(s)) this.drawFolderBadge(g, panelY);
@@ -1477,6 +1482,7 @@ export class FloorScene {
     const t = formatTime(left);
     const w = measureText(name) + measureText(t) + measureText(info) + 36;
     const x = W - w - 4;
+    this.markPanel(x, y, w, 15);
     panel(g, x, y, w, 15, { fill: C.panelDark });
     drawText(g, name, x + 6, y + 4, { color });
     let cx = x + 10 + measureText(name);
@@ -1488,11 +1494,24 @@ export class FloorScene {
     rect(g, x + 1, y + 13, Math.round((w - 2) * Math.min(1, left / total)), 1, low ? C.bad : color);
   }
 
+  /**
+   * A panel under the HUD (screen px; top right) this frame: hudPanel is their union. Toasts (game.toastBoxes) and
+   * speech bubbles keep clear of it.
+   */
+  markPanel(x, y, w, h) {
+    const p = this.hudPanel;
+    if (!p) return void (this.hudPanel = { x, y, w, h });
+    const x0 = Math.min(p.x, x);
+    const y0 = Math.min(p.y, y);
+    this.hudPanel = { x: x0, y: y0, w: Math.max(p.x + p.w, x + w) - x0, h: Math.max(p.y + p.h, y + h) - y0 };
+  }
+
   /** The archive's lost folder, carried until HR takes it (core/archive.js). */
   drawFolderBadge(g, y) {
     const text = 'LOST FOLDER';
     const w = measureText(text) + 22;
     const x = W - w - 4;
+    this.markPanel(x, y, w, 15);
     panel(g, x, y, w, 15, { fill: C.panelDark });
     icon(g, 'folder', x + 5, y + 4);
     drawText(g, text, x + 16, y + 4, { color: '#e8c46a' });

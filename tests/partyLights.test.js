@@ -55,3 +55,20 @@ test('confetti fades out at the end of its life, and leaves the canvas alpha as 
   expect(Math.max(...alphas)).toBeLessThanOrEqual(1);
   expect(g.globalAlpha).toBe(1);
 });
+
+const { discoBall } = await import('../src/scenes/partyLights.js');
+const { CHAR_H } = await import('../src/engine/art.js');
+
+test('the disco ball and its string stay clear of the DJ booth, of whoever stands at it, and of anyone in front', () => {
+  const b = discoBall(hall);
+  const booth = hall.items.find((it) => it.type === 'djbooth');
+  // Nothing of the ball over the booth's sprite, nor over someone standing on the row in front of it.
+  const standY = (booth.y + booth.h + 1) * 16; // feet at the bottom of the row in front
+  expect(b.top).toBeGreaterThan(standY);
+  expect(b.top).toBeGreaterThan(booth.y * 16 + booth.h * 16);
+  // Hanging over the dance floor's centre: whoever stands in front of that point (lower on screen) is drawn after the
+  // world and the ball is not over them.
+  expect(b.bottom).toBeLessThan(hall.disco.y * 16 - CHAR_H);
+  expect(b.x).toBe(Math.round(hall.disco.x * 16));
+  expect(b.top).toBeLessThan(b.ballY - 6); // a string, short
+});

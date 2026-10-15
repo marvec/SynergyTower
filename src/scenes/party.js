@@ -17,7 +17,7 @@ import { NpcBrain } from './floorWorld.js';
 import { MinigameScene } from './minigameScene.js';
 import { Dialog } from './overlays.js';
 import { PartyBar } from './partyBar.js';
-import { partyLighting, moveDisco } from './partyLights.js';
+import { partyLighting, moveDisco, discoBall } from './partyLights.js';
 import { drawNight } from './nightLights.js';
 import { Confetti } from './confetti.js';
 
@@ -25,6 +25,22 @@ const PARTY_RED = '#d8343a';
 const BARTENDER_SEED = 2412;
 const BEAT = 60 / SONGS.xmasparty.bpm;
 const TURNS = ['down', 'left', 'down', 'right'];
+
+/** The CEO's speech on arrival: the hall's confetti keeps flying, over the dialog (the hall waits underneath). */
+class SpeechDialog extends Dialog {
+  constructor(game, confetti, opts) {
+    super(game, opts);
+    this.confetti = confetti;
+  }
+  update(dt) {
+    this.confetti.update(dt);
+    super.update(dt);
+  }
+  render(g) {
+    super.render(g);
+    this.confetti.render(g);
+  }
+}
 
 /** A guest on the dance floor: stays put, bounces on every beat, turns now and then. */
 export class DanceBrain extends NpcBrain {
@@ -84,14 +100,16 @@ export class PartyScene extends FloorScene {
     s.floor = this.floorNo;
     game.audio.play(this.music);
     this.banner = 4;
-    this.confetti.burst(W / 2, H / 2, 70);
+    // Arrival: two confetti cannons at the bottom corners, fanned up over the hall (and over the speech).
+    this.confetti.burst(Math.round(W * 0.08), H - 8, 45, 0.6, 0.45);
+    this.confetti.burst(Math.round(W * 0.92), H - 8, 45, 0.6, -0.45);
     const fired = Object.keys(s.fired || {}).length;
     game.toast(fired ? FIRED_JOKE(fired) : `The ${s.corp.name} Christmas party! ${formatTime(PA.partyLeft(s, game.now()))} of fun.`, PARTY_RED);
     if (s.party && !s.party.speech) {
       s.party.speech = true;
       game.markDirty();
       const you = !!s.flags.ceo;
-      game.push(new Dialog(game, { title: you ? 'Your speech' : 'The CEO\'s speech', w: 330, text: (you ? CEO_SPEECH_YOU : CEO_SPEECH)(s.corp.name), button: 'Cheers!', onClose: () => this.cheers() }));
+      game.push(new SpeechDialog(game, this.confetti, { title: you ? 'Your speech' : 'The CEO\'s speech', w: 330, text: (you ? CEO_SPEECH_YOU : CEO_SPEECH)(s.corp.name), button: 'Cheers!', onClose: () => this.cheers() }));
     }
   }
 
@@ -220,7 +238,7 @@ export class PartyScene extends FloorScene {
     super.render(g);
     this.cam.x -= o.x;
     this.cam.y -= o.y;
-    this.confetti.render(g);
+    if (!(this.game.top instanceof SpeechDialog)) this.confetti.render(g); // during the speech it flies over the dialog
   }
 
   /** The lights (under markers and the HUD): disco spots, then the disco ball over them; tipsy at 3, a double image. */
@@ -238,10 +256,16 @@ export class PartyScene extends FloorScene {
   }
 
   drawDiscoBall(g) {
-    const d = this.fl.disco;
-    const cx = Math.round(d.x * TILE - this.cam.x);
-    const cy = Math.round((d.y - 4) * TILE - this.cam.y);
-    rect(g, cx, cy - 60, 1, 53, '#9aa1ad');
+    const b = discoBall(this.fl);
+    const cx = b.x - Math.round(this.cam.x);
+    const cy = b.ballY - Math.round(this.cam.y);
+    const top = b.top - Math.round(this.cam.y);
+    // A short string, fading up into the dark above.
+    for (let y = top; y < cy - 6; y++) {
+      g.globalAlpha = Math.min(1, (y - top + 1) / 8);
+      rect(g, cx, y, 1, 1, '#9aa1ad');
+    }
+    g.globalAlpha = 1;
     const spin = Math.floor(this.time * 8);
     for (let y = -6; y <= 6; y += 2)
       for (let x = -6; x <= 6; x += 2) {

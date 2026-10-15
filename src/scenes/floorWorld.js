@@ -84,7 +84,7 @@ export class Actor {
     g.drawImage(this.sheet, this.frame * CHAR_W, DIR_ROW[this.dir] * CHAR_H, CHAR_W, CHAR_H, px - CHAR_W / 2, py - lift - CHAR_H + 1, CHAR_W, CHAR_H);
     if (this.carry && this.dir !== 'up') box();
   }
-  /** view: the visible world rect { x, y, w, h, top } (top = HUD bar height); the bubble stays inside it. */
+  /** view: the visible world rect { x, y, w, h, top, panel } (top = HUD bar height; panel: a clock panel to keep clear of); the bubble stays inside it, and is not drawn for a speaker off screen. */
   drawBubble(g, view) {
     if (!this.bubble || this.bubble.wait > 0) return;
     const lines = wrapText(this.bubble.text, 120);
@@ -94,7 +94,9 @@ export class Actor {
     const bw = Math.min(150, textW + 10);
     const bh = lines.length * 10 + 6 + head;
     const ax = Math.round(this.x * TILE);
-    const { x: bx, y: by, below, tail } = view ? placeBubble(ax, Math.round(this.y * TILE), bw, bh, view) : { x: ax - bw / 2, y: this.y * TILE - CHAR_H - bh - 6, below: false, tail: ax };
+    const at = view ? placeBubble(ax, Math.round(this.y * TILE), bw, bh, view) : { x: ax - bw / 2, y: this.y * TILE - CHAR_H - bh - 6, below: false, tail: ax };
+    if (!at) return; // the speaker is off screen
+    const { x: bx, y: by, below, tail } = at;
     rect(g, bx, by, bw, bh, C.border);
     rect(g, bx + 1, by + 1, bw - 2, bh - 2, '#fbf8ef');
     if (below) {
@@ -116,13 +118,23 @@ export class Actor {
 
 /**
  * Where a speech bubble goes: above the speaker (ax = their x, ay = their feet, world px), slid sideways into the view
- * and flipped below them when it would run under the HUD bar. The tail points at the speaker. Returns { x, y, below, tail }.
+ * and flipped below them when it would run under the HUD bar. The tail points at the speaker. Returns { x, y, below, tail },
+ * or null when the speaker is off screen (the bubble follows its speaker, it does not wait at the edge). view.panel (world
+ * px, optional): the timed stay's clock panel under the HUD; the bubble slides left of it or goes below it.
  */
 export function placeBubble(ax, ay, bw, bh, view) {
-  const x = Math.round(Math.max(view.x + 2, Math.min(ax - bw / 2, view.x + view.w - bw - 2)));
+  if (ax < view.x || ax > view.x + view.w || ay <= view.y + view.top || ay - CHAR_H >= view.y + view.h) return null;
+  let x = Math.round(Math.max(view.x + 2, Math.min(ax - bw / 2, view.x + view.w - bw - 2)));
   let y = ay - CHAR_H - bh - 6;
-  const below = y < view.y + view.top + 2;
+  let below = y < view.y + view.top + 2;
   if (below) y = ay + 6;
+  const p = view.panel;
+  const hits = () => p && x < p.x + p.w && x + bw > p.x && y < p.y + p.h && y + bh > p.y;
+  if (hits()) {
+    const left = Math.max(view.x + 2, p.x - bw - 2);
+    if (!below && ax <= left + bw - 4) x = left; // still above the speaker, left of the panel
+    else (below = true), (y = Math.max(ay + 6, p.y + p.h + 2));
+  }
   const tail = Math.max(x + 3, Math.min(ax, x + bw - 4));
   return { x, y: Math.round(y), below, tail };
 }

@@ -44,6 +44,17 @@ export function discoSpots(centre, t, n = DISCO_COLORS.length) {
   });
 }
 
+/**
+ * The disco ball in world px: x, the ball's centre ballY, and the drawn span top (the string's top) .. bottom. It hangs a
+ * short string over the dance floor, low enough to stay clear of the DJ booth and whoever stands at it (it is drawn over
+ * the world, after the lights) and high enough that nobody in front of its spot reaches up to it.
+ */
+export function discoBall(fl) {
+  const d = fl.disco;
+  const ballY = Math.round((d.y - 3) * TILE);
+  return { x: Math.round(d.x * TILE), ballY, top: ballY - 22, bottom: ballY + 8 };
+}
+
 export function moveDisco(lighting, centre, t) {
   discoSpots(centre, t).forEach((p, i) => {
     lighting.disco[i].x = p.x * TILE;

@@ -6,7 +6,7 @@ import { track } from './engine/analytics.js';
 import { gameStorage, haptic } from './engine/platform.js';
 import { CORP_COLORS, SKIN_TONES, HAIR_COLORS } from './data/corpColors.js';
 import { setAccent, C, panel } from './engine/ui.js';
-import { drawText } from './engine/font.js';
+import { drawText, measureText } from './engine/font.js';
 import { W } from './engine/screen.js';
 
 
@@ -36,6 +36,7 @@ const HAPTICS = { bad: 'light', fail: 'medium', crash: 'heavy', levelup: 'medium
 export function createGame({ screen, input, audio }) {
   const stack = [];
   let toasts = [];
+  let shown = []; // the scenes drawn in the last frame (toasts keep clear of their clock panels)
   let saveTimer = 0;
   let dirty = false;
   let badgeT = 0;
@@ -224,14 +225,29 @@ export function createGame({ screen, input, audio }) {
           break;
         }
       for (let i = from; i < stack.length; i++) stack[i].render(g);
-      toasts.forEach((t, i) => {
-        const a = Math.min(1, (3 - t.t) * 2);
-        g.globalAlpha = a;
-        const w = Math.min(300, t.text.length * 5 + 16);
-        panel(g, W / 2 - w / 2, 22 + i * 16, w, 14, { fill: C.panelDark });
-        drawText(g, t.text, W / 2, 25 + i * 16, { align: 'center', color: t.color });
+      shown = stack.slice(from);
+      for (const b of game.toastBoxes()) {
+        g.globalAlpha = Math.min(1, (3 - b.t) * 2);
+        panel(g, b.x, b.y, b.w, b.h, { fill: C.panelDark });
+        drawText(g, b.text, b.x + b.w / 2, b.y + 3, { align: 'center', color: b.color });
         g.globalAlpha = 1;
-      });
+      }
+    },
+    /**
+     * Where the toasts go: centred under the HUD, one row each. A timed stay's clock panel (the scenes drawn last frame
+     * mark it, FloorScene.markPanel) keeps them clear: centred in the room left of it if they all fit there, else below it.
+     */
+    toastBoxes() {
+      const p = shown.map((sc) => sc.hudPanel).find(Boolean);
+      const widths = toasts.map((t) => Math.min(W - 8, measureText(t.text) + 16)); // the box holds the whole line
+      let cx = W / 2;
+      let y0 = 22;
+      if (p) {
+        const room = p.x - 8; // from 4 px in to 4 px short of the panel
+        if (Math.max(...widths) <= room) cx = 4 + room / 2;
+        else y0 = p.y + p.h + 3;
+      }
+      return toasts.map((t, i) => ({ x: Math.round(cx - widths[i] / 2), y: y0 + i * 16, w: widths[i], h: 14, text: t.text, color: t.color, t: t.t }));
     },
   };
   return game;

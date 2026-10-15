@@ -7,10 +7,10 @@ export class Confetti {
     this.rng = rng;
     this.bits = [];
   }
-  /** n bits from x, y (px), fanned upwards; spread 1 = a wide fan. */
-  burst(x, y, n = 60, spread = 1) {
+  /** n bits from x, y (px), fanned upwards; spread 1 = a wide fan; tilt (radians) leans it right (+) or left (-). */
+  burst(x, y, n = 60, spread = 1, tilt = 0) {
     for (let i = 0; i < n; i++) {
-      const a = -Math.PI / 2 + (this.rng() - 0.5) * 2.2 * spread;
+      const a = -Math.PI / 2 + tilt + (this.rng() - 0.5) * 2.2 * spread;
       const v = 90 + this.rng() * 140;
       this.bits.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 2 + this.rng() * 1.5, c: COLORS[Math.floor(this.rng() * COLORS.length)], w: this.rng() < 0.5 ? 2 : 1, spin: this.rng() * 6 });
     }

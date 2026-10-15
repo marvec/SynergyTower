@@ -139,6 +139,7 @@ export class ClientOfficeScene extends FloorScene {
     const x = W - w - 4; // right-aligned: toasts take the middle
     const y = HUD_H + 3;
     const low = left < 60000;
+    this.markPanel(x, y, w, 15);
     panel(g, x, y, w, 15, { fill: C.panelDark });
     drawText(g, name, x + 6, y + 4, { color: C.gold });
     let cx = x + 10 + measureText(name);

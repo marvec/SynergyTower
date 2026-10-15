@@ -65,6 +65,7 @@ const { PartyScene, DanceBrain } = await import('../src/scenes/party.js');
 const { FloorScene } = await import('../src/scenes/floorScene.js');
 const { MinigameScene } = await import('../src/scenes/minigameScene.js');
 const { Dialog } = await import('../src/scenes/overlays.js');
+const { measureText } = await import('../src/engine/font.js');
 const { npcIdentity } = await import('../src/scenes/floorWorld.js');
 const { buildFloor } = await import('../src/core/tasks.js');
 const E = await import('../src/core/economy.js');
@@ -249,4 +250,82 @@ test('continuing a career mid-party: back to the hall while its clock runs (even
   await tick(game, 2);
   expect(game.state.party).toBe(null);
   expect(game.top).toBeInstanceOf(FloorScene);
+});
+
+test('the elevator panel fits the 270 px screen with both the archive A and the party P buttons', async () => {
+  const game = career();
+  game.set(new FloorScene(game, 12));
+  await tick(game, 1);
+  game.top.close(); // Later
+  game.state.archive = { ...game.state.archive, task: { floor: 12 } }; // the folder is down there
+  const panel = new ElevatorPanel(game, { onPromote() {}, onTravel() {}, onArchive() {}, onParty() {} });
+  game.push(panel);
+  await tick(game, 1);
+  const items = panel.buttons.items;
+  expect(items.some((b) => b.label.startsWith('A '))).toBe(true);
+  expect(items.some((b) => b.label === 'P · Christmas party')).toBe(true);
+  expect(items.filter((b) => /^\d+$/.test(b.label)).length).toBe(40);
+  expect(panel.y).toBeGreaterThanOrEqual(0);
+  expect(panel.y + panel.h).toBeLessThanOrEqual(270);
+  for (const b of items) {
+    expect(b.x).toBeGreaterThanOrEqual(panel.x);
+    expect(b.x + b.w).toBeLessThanOrEqual(panel.x + panel.w);
+    expect(b.y).toBeGreaterThanOrEqual(panel.y + 14); // under the title bar
+    expect(`${b.label} ${b.y + b.h <= panel.y + panel.h - 4}`).toBe(`${b.label} true`);
+  }
+  for (const a of items)
+    for (const b of items) {
+      if (a === b) continue;
+      const overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      expect(`${a.label}/${b.label} ${overlap}`).toBe(`${a.label}/${b.label} false`);
+    }
+});
+
+test('toasts keep clear of the clock panel of a timed stay; without one they stay centred at the top', async () => {
+  const game = inHall();
+  await tick(game, 2);
+  game.top.close?.();
+  await tick(game, 1);
+  const hall = game.top;
+  game.toast('Short one.');
+  game.toast('A much longer toast that runs all the way across the top of the screen, past the clock.');
+  game.toast('Another.');
+  await tick(game, 1);
+  const p = hall.hudPanel;
+  expect(p).toBeTruthy();
+  const boxes = game.toastBoxes();
+  expect(boxes.length).toBeGreaterThanOrEqual(3);
+  for (const b of boxes) {
+    const clear = b.x + b.w <= p.x || b.x >= p.x + p.w || b.y + b.h <= p.y || b.y >= p.y + p.h;
+    expect(`${b.text} ${clear}`).toBe(`${b.text} true`);
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.w).toBeLessThanOrEqual(480);
+    expect(b.w).toBeGreaterThanOrEqual(measureText(b.text)); // the whole line inside its box
+  }
+  const office = career(11);
+  office.set(new FloorScene(office, 11));
+  await tick(office, 1);
+  while (office.top !== office.scenes()[0]) office.pop();
+  office.toast('Hello.');
+  await tick(office, 1);
+  const [b] = office.toastBoxes();
+  expect(b.y).toBe(22);
+  expect(Math.abs(b.x + b.w / 2 - 240)).toBeLessThanOrEqual(0.5);
+});
+
+test('the arrival confetti flies over the CEO\'s speech, not hidden behind it', async () => {
+  const game = inHall();
+  const hall = game.scenes()[0];
+  const speech = game.top;
+  expect(speech).toBeInstanceOf(Dialog);
+  expect(hall.confetti.count).toBeGreaterThan(0);
+  const log = [];
+  const [dr, cr] = [speech.render.bind(speech), hall.confetti.render.bind(hall.confetti)];
+  speech.render = (g) => (log.push('speech'), dr(g));
+  hall.confetti.render = (g) => (log.push('confetti'), cr(g));
+  const before = hall.confetti.bits.map((b) => b.y).join();
+  await tick(game, 5);
+  expect(game.top).toBe(speech);
+  expect(log.lastIndexOf('confetti')).toBeGreaterThan(log.lastIndexOf('speech')); // drawn over the dialog
+  expect(hall.confetti.bits.map((b) => b.y).join()).not.toBe(before); // and flying meanwhile
 });
