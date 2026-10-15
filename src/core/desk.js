@@ -10,6 +10,17 @@ export const myDesk = (s) => s.desk || { owned: [], show: {} };
 
 export const trophyId = (floor) => `trophy-${floor}`;
 
+/** The Christmas party's Secret Santa gift for `year`: a desk decoration no shop sells. */
+export const partyGiftId = (year) => `xmas-${year}`;
+
+/** Adds a decoration to the collection (not on show); false if it was owned already. */
+export function giveDecor(s, id) {
+  const desk = myDesk(s);
+  if (desk.owned.includes(id)) return false;
+  s.desk = { ...desk, owned: [...desk.owned, id] };
+  return true;
+}
+
 const ordinal = (n) => {
   const t = n % 100;
   const suf = t >= 11 && t <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th';

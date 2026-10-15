@@ -104,6 +104,12 @@ export const HOME = {
   brewCooldownS: [60, 240, 180, 120], // by stars (a failed brew: try again in a minute)
 };
 /**
+ * Christmas party (core/party.js): once per career and calendar year, local dates fromDay-toDay of December (month 11).
+ * stayS in the party hall; activities are free and pay spMult x a 3-star task's paperclips on your highest floor, once
+ * each; arriving pays bonusSo. Drinks only make things wobblier: tipsy 0..maxTipsy, one level wears off per soberS of play.
+ */
+export const PARTY = { month: 11, fromDay: 6, toDay: 23, stayS: 10 * 60, bonusSo: 1, spMult: 2, difficulty: 0.3, guests: 14, dancers: 6, maxTipsy: 3, soberS: 120 };
+/**
  * Conduct (core/conduct.js): every time the player asks a colleague out is a strike; HOLD_STRIKES strikes put them on
  * compliance hold until they take the training at HR. Failing it demotes.
  */

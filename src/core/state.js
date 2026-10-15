@@ -39,6 +39,9 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     trip: null, // the client visit under way: { floor, endsAt, sp, tasks }
     vacations: { day: null, count: 0 }, // vacation (core/vacation.js): the local day of the last one + how many so far
     vacation: null, // the hotel stay under way: { endsAt, done: { game: true }, coffee }
+    parties: {}, // Christmas parties (core/party.js): year → 'done' once that year's party has started
+    partyInvite: null, // the year whose invitation has been shown
+    party: null, // the party under way: { floor, year, endsAt, t, paid, best, sp, drinks, tipsy, soberT, gift, speech }
     nightShifts: { day: null, count: 0 }, // night shift (core/nightShift.js): the local day of the last one + how many so far
     nightShift: null, // the shift under way: { floor, endsAt, tasks, sp, stars, coffee }
     // conduct (core/conduct.js): strikes for asking a colleague out again after their no; hold = compliance hold
@@ -335,7 +338,7 @@ export function useCoffeeMachine(s, floor, now, { key = `coffee-machine-${floor}
 }
 
 /** The timed stays that run on the wall clock: the client visit, the holiday, the night shift, the home office day. */
-const TIMED = ['trip', 'vacation', 'nightShift', 'home'];
+const TIMED = ['trip', 'vacation', 'nightShift', 'home', 'party'];
 
 /** The game is paused (the menu, a paused mini-game): every timed stay under way ends `ms` later, so pausing costs no time. */
 export function holdClocks(s, ms) {
