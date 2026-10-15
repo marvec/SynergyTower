@@ -96,9 +96,11 @@ export default {
         for (const n of notes) {
           const x = NOW_X + (n.t - time) * PX;
           const w = Math.max(3, n.dur * PX - 2);
-          if (x + w < 40 || x > W) continue;
+          const x0 = Math.max(40, x);
+          const x1 = Math.min(W - 20, x + w); // inside the lane
+          if (x1 <= x0) continue;
           const live = time >= n.t && time < n.t + n.dur;
-          rect(g, Math.round(Math.max(40, x)), LANE_Y[n.lane] + 3, Math.round(w - Math.max(0, 40 - x)), 10, live ? '#f2e14e' : '#c8343a');
+          rect(g, Math.round(x0), LANE_Y[n.lane] + 3, Math.round(x1) - Math.round(x0), 10, live ? '#f2e14e' : '#c8343a');
         }
         rect(g, NOW_X, 92, 1, 112, '#f4f1e8');
         if (voice >= 0) {
@@ -114,7 +116,7 @@ export default {
         for (let i = i0; i < Math.min(notes.length, i0 + 8); i++) {
           const word = notes[i].word;
           drawText(g, word, x, 230, { color: i === i0 && time >= notes[i].t ? '#f2e14e' : '#c8b8a8' });
-          x += measureText(word) + 6;
+          x += measureText(word) + (word.endsWith('-') ? 1 : 6); // Jin-gle, not Jin gle
         }
         drawText(g, isTouch() ? 'Tap a lane to sing there' : 'Up/Down to change your note', W / 2, 252, { align: 'center', color: '#8a80a0' });
         header(g, theme?.title || 'Carol Karaoke', carol.title);

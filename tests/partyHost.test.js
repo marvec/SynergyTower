@@ -8,7 +8,6 @@ globalThis.localStorage ??= { getItem: (k) => (m.has(k) ? m.get(k) : null), setI
 const { createInput } = await import('../src/engine/input.js');
 const { createGame } = await import('../src/game.js');
 const { MinigameScene } = await import('../src/scenes/minigameScene.js');
-const { MINIGAMES } = await import('../src/minigames/index.js');
 const PA = await import('../src/core/party.js');
 
 const DEC10 = new Date(2026, 11, 10, 12).getTime();

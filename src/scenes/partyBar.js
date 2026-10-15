@@ -1,7 +1,7 @@
 // The party's bar (core/party.js drink): mulled wine, eggnog and Synergy Punch raise how tipsy you are, up to three;
 // then the bartender only pours water, which sobers you up at once. No reward: drinks only make things wobblier.
 import { C, rect } from '../engine/ui.js';
-import { drawText } from '../engine/font.js';
+import { drawText, measureText } from '../engine/font.js';
 import { track } from '../engine/analytics.js';
 import * as PA from '../core/party.js';
 import { BARTENDER, DRINKS } from '../data/party.js';
@@ -41,9 +41,13 @@ export class PartyBar extends Modal {
   renderBody(g, x, y) {
     const s = this.game.state;
     const t = PA.tipsyLevel(s);
-    drawText(g, `"${this.line}"`, x + this.w / 2, y + 26, { align: 'center', color: C.text });
-    drawText(g, 'Free drinks. They only make things wobblier.', x + this.w / 2, y + 42, { align: 'center', color: C.dim });
-    drawText(g, 'Tipsy', x + 92, y + 58, { color: C.dim });
-    for (let i = 0; i < PA.PARTY.maxTipsy; i++) rect(g, x + 126 + i * 12, y + 58, 9, 7, i < t ? '#f29cd0' : '#3a3d48');
+    drawText(g, `"${this.line}"`, x + this.w / 2, y + 20, { align: 'center', color: C.text });
+    drawText(g, 'Free drinks. They only make things wobblier.', x + this.w / 2, y + 34, { align: 'center', color: C.dim });
+    // "Tipsy" and its boxes, centred, clear of the drink buttons below
+    const n = PA.PARTY.maxTipsy;
+    const tx = Math.round(x + this.w / 2 - (measureText('Tipsy') + 6 + n * 12 - 3) / 2);
+    const bx = tx + measureText('Tipsy') + 6;
+    drawText(g, 'Tipsy', tx, y + 50, { color: C.dim });
+    for (let i = 0; i < n; i++) rect(g, bx + i * 12, y + 50, 9, 7, i < t ? '#f29cd0' : '#3a3d48');
   }
 }

@@ -5,16 +5,18 @@ import { BADGES } from '../core/achievements.js';
 import { dayKey } from '../core/daily.js';
 import { Modal } from './overlays.js';
 
-// 40 badges: 8 columns make five full rows (9 columns would leave a lonely badge in the last row).
-export const COLS = 8;
+// 43 badges: 9 columns make five rows (seven in the last), so the wall still fits the 270 px screen.
+export const COLS = 9;
 export const CW = 36;
 const CH = 28;
 const ROWS = Math.ceil(BADGES.length / COLS);
+/** The wall's height: header, the grid, the description box and the Close button (must fit the 270 px screen). */
+export const WALL_H = 84 + ROWS * CH + 34;
 const RIBBONS = ['#e2504a', '#2a6ad1', '#2e8540', '#7a3bb6'];
 
 export class BadgeWall extends Modal {
   constructor(game) {
-    super(game, { w: 344, h: 84 + ROWS * CH + 34, title: 'Badge wall' });
+    super(game, { w: 344, h: WALL_H, title: 'Badge wall' });
     this.buttons = new ButtonSet({ keyboard: false });
     this.sel = 0;
   }

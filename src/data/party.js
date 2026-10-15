@@ -116,25 +116,25 @@ export const CAROLS = [
     id: 'jinglebells',
     title: 'Jingle Bells',
     syllables: [
-      'Jin', 'gle', 'bells,', 'jin', 'gle', 'bells,', 'jin', 'gle', 'all', 'the', 'way!', 'Oh', 'what', 'fun', 'it', 'is', 'to', 'ride', 'in', 'a',
-      'one', 'horse', 'o', 'pen', 'sleigh,', 'hey!', 'Jin', 'gle', 'bells,', 'jin', 'gle', 'bells,', 'jin', 'gle', 'all', 'the', 'way!',
-      'Oh', 'what', 'fun', 'it', 'is', 'to', 'ride', 'in', 'a', 'one', 'horse', 'o', 'pen', 'sleigh!',
+      'Jin-', 'gle', 'bells,', 'jin-', 'gle', 'bells,', 'jin-', 'gle', 'all', 'the', 'way!', 'Oh', 'what', 'fun', 'it', 'is', 'to', 'ride', 'in', 'a',
+      'one', 'horse', 'o-', 'pen', 'sleigh,', 'hey!', 'Jin-', 'gle', 'bells,', 'jin-', 'gle', 'bells,', 'jin-', 'gle', 'all', 'the', 'way!',
+      'Oh', 'what', 'fun', 'it', 'is', 'to', 'ride', 'in', 'a', 'one', 'horse', 'o-', 'pen', 'sleigh!',
     ],
   },
   {
     id: 'deckhalls',
     title: 'Deck the Halls',
     syllables: [
-      'Deck', 'the', 'halls', 'with', 'boughs', 'of', 'hol', 'ly,', 'Fa', 'la', 'la', 'la', 'la,', 'la', 'la', 'la', 'la!',
-      "'Tis", 'the', 'sea', 'son', 'to', 'be', 'jol', 'ly,', 'Fa', 'la', 'la', 'la', 'la,', 'la', 'la', 'la', 'la!',
+      'Deck', 'the', 'halls', 'with', 'boughs', 'of', 'hol-', 'ly,', 'Fa', 'la', 'la', 'la', 'la,', 'la', 'la', 'la', 'la!',
+      "'Tis", 'the', 'sea-', 'son', 'to', 'be', 'jol-', 'ly,', 'Fa', 'la', 'la', 'la', 'la,', 'la', 'la', 'la', 'la!',
     ],
   },
   {
     id: 'wenceslas',
     title: 'Good King Wenceslas',
     syllables: [
-      'Good', 'King', 'Wen', 'ces', 'las', 'looked', 'out', 'on', 'the', 'feast', 'of', 'Ste', 'phen.',
-      'When', 'the', 'snow', 'lay', 'round', 'a', 'bout,', 'deep', 'and', 'crisp', 'and', 'e', 'ven.',
+      'Good', 'King', 'Wen-', 'ces-', 'las', 'looked', 'out', 'on', 'the', 'feast', 'of', 'Ste-', 'phen.',
+      'When', 'the', 'snow', 'lay', 'round', 'a-', 'bout,', 'deep', 'and', 'crisp', 'and', 'e-', 'ven.',
     ],
   },
 ];
