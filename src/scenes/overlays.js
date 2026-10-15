@@ -7,6 +7,7 @@ import * as E from '../core/economy.js';
 import * as C_ from '../core/conduct.js';
 import { taskCooldownMs } from '../core/nightShift.js';
 import { archiveOpen } from '../core/archive.js';
+import * as PA from '../core/party.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
@@ -243,13 +244,15 @@ export function hrNotice(game, state, onClose = null) {
 
 // ------------------------------------------------------------------ elevator
 export class ElevatorPanel extends Modal {
-  /** onArchive: the A button down to the archive, shown only while the archive challenge's folder is down there. */
-  constructor(game, { onPromote, onTravel, onArchive = null }) {
+  /** onArchive: the A button down to the archive, shown only while the archive challenge's folder is down there; onParty: the Christmas party's button while this year's is on offer. */
+  constructor(game, { onPromote, onTravel, onArchive = null, onParty = null }) {
     const archive = !!onArchive && archiveOpen(game.state);
-    super(game, { w: 320, h: archive ? 226 : 208, title: 'Elevator' });
+    const party = !!onParty && PA.partyStatus(game.state, game.now()) === 'available';
+    super(game, { w: 320, h: 208 + (archive ? 18 : 0) + (party ? 18 : 0), title: 'Elevator' });
     this.onPromote = onPromote;
     this.onTravel = onTravel;
     this.onArchive = archive ? onArchive : null;
+    this.onParty = party ? onParty : null;
   }
   build() {
     const s = this.game.state;
@@ -293,6 +296,15 @@ export class ElevatorPanel extends Modal {
         onClick: () => {
           this.game.pop();
           this.onArchive();
+        },
+      });
+    }
+    if (this.onParty) {
+      b.add({
+        x: gx, y: this.y + 202 + (this.onArchive ? 18 : 0), w: cols * (bw + 2) - 2, h: 14, label: 'P · Christmas party', icon: 'star', color: '#a8242a',
+        onClick: () => {
+          this.game.pop();
+          this.onParty();
         },
       });
     }

@@ -98,6 +98,18 @@ export class TitleScene {
       const { ExteriorScene } = await import('./exterior.js');
       return this.game.set(new ExteriorScene(this.game));
     }
+    // The Christmas party under way: back to the hall while its clock runs (whatever the date), else it is over.
+    if (s.party) {
+      const PA = await import('../core/party.js');
+      if (PA.partyActive(s, this.game.now())) {
+        const { PartyScene } = await import('./party.js');
+        return this.game.set(new PartyScene(this.game));
+      }
+      const sum = PA.endParty(s, 'done');
+      this.game.saveNow();
+      this.game.set(new FloorScene(this.game, sum.floor));
+      return this.game.toast(`The Christmas party is over: +${sum.sp} paperclips.`, C.gold);
+    }
     // Saved in the basement archive mid-search: that run counts as failed (its clock is not saved), back upstairs.
     if (s.archive?.task?.inside) {
       const A = await import('../core/archive.js');

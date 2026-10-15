@@ -137,3 +137,85 @@ test('when the time is up the party ends on the floor you came from', async () =
   expect(game.state.party).toBe(null);
   expect(game.state.floor).toBe(12);
 });
+
+// ---------------------------------------------------------------- the invitation, the elevator button, continuing
+const { ElevatorPanel } = await import('../src/scenes/overlays.js');
+const { TitleScene } = await import('../src/scenes/title.js');
+
+test('in the window, a tower floor opens the invitation once a year; Go now starts the party', async () => {
+  const game = career();
+  game.set(new FloorScene(game, 12));
+  await tick(game, 1);
+  expect(game.top).toBeInstanceOf(Dialog);
+  expect(game.top.action.label).toBe('Go now');
+  game.top.close();
+  game.set(new FloorScene(game, 11));
+  await tick(game, 1);
+  expect(game.top).toBeInstanceOf(FloorScene); // once a year
+  const so = game.state.so;
+  game.top.inviteParty();
+  game.top.action.onClick();
+  await tick(game, 2);
+  expect(game.state.party).toBeTruthy();
+  expect(game.state.so).toBe(so + 1);
+  expect(game.top).toBeInstanceOf(Dialog); // the CEO's speech in the hall
+});
+
+test('outside the window: no invitation and no party button in the elevator', async () => {
+  const game = career(12, { now: new Date(2026, 10, 30, 12).getTime() });
+  game.set(new FloorScene(game, 12));
+  await tick(game, 1);
+  expect(game.top).toBeInstanceOf(FloorScene);
+  const panel = new ElevatorPanel(game, { onPromote() {}, onTravel() {}, onParty() {} });
+  game.push(panel);
+  await tick(game, 1);
+  expect(panel.buttons.items.some((b) => b.label === 'P · Christmas party')).toBe(false);
+});
+
+test('in the window, after "Later": the elevator\'s party button starts it', async () => {
+  const game = career();
+  const fs = new FloorScene(game, 12);
+  game.set(fs);
+  await tick(game, 1);
+  game.top.close(); // Later
+  let went = false;
+  const panel = new ElevatorPanel(game, { onPromote() {}, onTravel() {}, onParty: () => (went = true) });
+  game.push(panel);
+  await tick(game, 1);
+  const b = panel.buttons.items.find((x) => x.label === 'P · Christmas party');
+  expect(b).toBeTruthy();
+  b.onClick();
+  expect(went).toBe(true);
+});
+
+test('no invitation on hold, before check-in, or on a night shift', async () => {
+  for (const prep of [(s) => (s.conduct.hold = { since: 0 }), (s) => (s.lobby = 'checkin'), (s) => (s.nightShift = { floor: 12, endsAt: DEC10 + 60000 })]) {
+    const game = career();
+    prep(game.state);
+    game.set(new FloorScene(game, 12));
+    await tick(game, 1);
+    expect(game.top instanceof Dialog && game.top.action?.label === 'Go now').toBe(false);
+  }
+});
+
+test('continuing a career mid-party: back to the hall while its clock runs (even after 23 December), else it ends', async () => {
+  const clock = { now: new Date(2026, 11, 23, 23, 58).getTime() };
+  const game = career(12, clock);
+  PA.startParty(game.state, 12, clock.now);
+  game.saveNow();
+  clock.now = new Date(2026, 11, 24, 0, 3).getTime(); // the window is closed, the party's 10 minutes are not
+  expect(PA.partyWindow(clock.now)).toBe(false);
+  const title = new TitleScene(game);
+  game.set(title);
+  await title.continue();
+  await tick(game, 2);
+  expect(game.scenes().some((sc) => sc instanceof PartyScene)).toBe(true); // the hall (its speech may be on top)
+  expect(game.state.party).toBeTruthy();
+  clock.now += E.PARTY.stayS * 1000;
+  const again = new TitleScene(game);
+  game.set(again);
+  await again.continue();
+  await tick(game, 2);
+  expect(game.state.party).toBe(null);
+  expect(game.top).toBeInstanceOf(FloorScene);
+});

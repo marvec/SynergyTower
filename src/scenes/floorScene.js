@@ -46,7 +46,8 @@ import * as N from '../core/nightShift.js';
 import { NIGHT_TEASERS, NIGHT_OFFER, NIGHT_AFTER, NIGHT_GOODBYE, NIGHT_REFUSALS, NIGHT_GO_HOME, NIGHT_SUMMARY, NIGHT_SUMMARY_TITLE, NIGHT_SUMMARY_LINES } from '../data/nightShift.js';
 import * as HO from '../core/home.js';
 import { HOME_TEASERS, HOME_OFFER, HOME_AFTER, HOME_REFUSALS, HOME_GOODBYE, HOME_FRIDGE, HOME_SUMMARY, HOME_SUMMARY_TITLE } from '../data/home.js';
-import { PARTY_SUMMARY, PARTY_SUMMARY_TITLE } from '../data/party.js';
+import * as PA from '../core/party.js';
+import { PARTY_SUMMARY, PARTY_SUMMARY_TITLE, PARTY_INVITE, PARTY_REFUSALS } from '../data/party.js';
 import { ASK_LINES, ASK_AGAIN_LINES, FIRST_NO, REPEAT_NO, FROSTY_LINES, GOSSIP_LINES, HR_CALL_LINES, HR_PASSED_LINES, HR_FAILED_LINES, HOLD_INTRO } from '../data/conduct.js';
 
 const SPEED = 4.4;
@@ -210,6 +211,8 @@ export class FloorScene {
     if (this.nightSummary) this.showNightSummary();
     if (this.homeSummary) this.showHomeSummary();
     if (this.partySummary) this.showPartySummary();
+    // The Christmas party (core/party.js): in December, the Fun Committee's invitation, once a year.
+    if (!this.foreign && !this.night && !this.quest && !this.event && PA.inviteDue(s, this.game.now())) this.inviteParty();
   }
 
   resume() {
@@ -425,7 +428,7 @@ export class FloorScene {
     } else if (t.kind === 'elevator') {
       game.sfx('ding');
       if (night) return this.askGoHome();
-      game.push(new ElevatorPanel(game, { onPromote: () => this.promote(), onTravel: (f) => this.travel(f), onArchive: () => this.goToArchive() }));
+      game.push(new ElevatorPanel(game, { onPromote: () => this.promote(), onTravel: (f) => this.travel(f), onArchive: () => this.goToArchive(), onParty: () => this.startParty() }));
     } else if (t.kind === 'hr') {
       const r = S.reviewStatus(s, game.now());
       game.sfx('click');
@@ -800,6 +803,37 @@ export class FloorScene {
     const sum = this.partySummary;
     this.partySummary = null;
     this.game.push(new Dialog(this.game, { title: PARTY_SUMMARY_TITLE[sum.result] || PARTY_SUMMARY_TITLE.done, w: 320, text: PARTY_SUMMARY(sum) }));
+  }
+
+  /** The Fun Committee's invitation (once a year; the elevator keeps a party button until you go). force: any date (dev). */
+  inviteParty({ force = false } = {}) {
+    const game = this.game;
+    const s = game.state;
+    PA.markInvited(s, game.now());
+    game.markDirty();
+    track('party_invite', { action: 'shown' });
+    game.push(
+      new Dialog(game, {
+        title: 'Fun Committee · You are invited!',
+        w: 330,
+        text: PARTY_INVITE(s.corp.name, PA.PARTY.stayS / 60),
+        button: 'Later',
+        action: { label: 'Go now', color: '#d8343a', onClick: () => (track('party_invite', { action: 'go' }), this.startParty({ force })) },
+      }),
+    );
+  }
+
+  /** To the party hall (core/party.js startParty pays the year-end bonus). */
+  async startParty({ force = false } = {}) {
+    const game = this.game;
+    if (this.quest || this.event) return game.toast('Finish what you are doing first.', C.warn);
+    const r = PA.startParty(game.state, this.floorNo, game.now(), { force });
+    if (!r.ok) return game.toast(PARTY_REFUSALS[r.reason] || PARTY_REFUSALS.away, C.warn);
+    track('party_start', {});
+    game.sfx('door');
+    game.saveNow();
+    const { PartyScene } = await import('./party.js');
+    game.set(new PartyScene(game));
   }
 
   /** Now and then the account manager calls out the trip while the player is around (it is a secret, not a hidden one). */
