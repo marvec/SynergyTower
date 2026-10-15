@@ -29,9 +29,11 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 | Content | `src/data/` | Pure data: departments/titles/NPC lines, corp colours, task titles, music, `mg-*.js` mini-game content. |
 | Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit. |
 | Scenes | `src/scenes/` | title → setup → exterior → floor ⇄ (overlays, mini-game host, elevator ride) → ending. |
-| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review, + `compliance`, the compliance training, + 8 holiday activities for the vacation hotel), registered in `src/minigames/index.js`. |
+| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review, + `compliance`, the compliance training, + 8 holiday activities for the vacation hotel + 6 home office chores), registered in `src/minigames/index.js`. |
 
-- `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`),
+- `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`), the
+  pause rule for timed stays (while a scene with `pausesClocks` is on the stack, the PauseMenu or a paused mini-game,
+  `S.holdClocks` pushes back the `endsAt` of the trip, holiday, night shift and home office, so pausing costs no time),
   throttled autosave of the career being played (`game.slot`), toasts.
 - Scenes import each other with dynamic `import()` where a cycle would otherwise form (floor ⇄ elevator ride ⇄ title).
 - The soft currency is **paperclips** (state key and code name `sp`, a leftover from "Synergy Points").
@@ -115,7 +117,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   `floorWorld.js`). Interacting shows `SPONSOR_PITCH` / `adPitch` from `src/data/sponsors.js`, with an "Advertise here"
   button that opens the feedback form on the `sponsor` topic.
 - HUD stats are clickable: `Hud.hits` (rebuilt every render) opens `StatsDialog` (`src/scenes/statsDialog.js`) on the matching
-  tab. "Games played" = distinct mini-games in `state.played` out of `COUNTED_GAMES` (tasks.js: the 33 station games plus the 8 holiday activities, ordinary games for the title's count of 41, the Generalist badge, the player guide, `llms.txt` and the page metadata; any result counts; `S.gamesPlayed`).
+  tab. "Games played" = distinct mini-games in `state.played` out of `COUNTED_GAMES` (tasks.js: the 33 station games plus the 8 holiday activities and the 6 home chores, ordinary games for the title's count of 47, the Generalist badge, the player guide, `llms.txt` and the page metadata; any result counts; `S.gamesPlayed`).
 - Feedback form: `openFeedback(context)` in `src/engine/feedback.js` is a DOM overlay (title link, ☰ menu, posters) with
   topics (task idea, bug, sponsorship, other; email required for sponsorship). It lazy-loads
   reCAPTCHA v3 (the only external script) and POSTs to `api/feedback.js`, a Vercel Function (project `well-be/synergy-tower`,
@@ -132,7 +134,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
   coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, vacation_start, vacation_activity {game, stars}, vacation_end {coffee, activities, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
-  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, night_start, night_end {sp, tasks, early}, archive_start, archive_enter, archive_end {result: found|timeout|gave_up, left}, archive_handin {stars, levels, sp}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
+  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, night_start, night_end {sp, tasks, early}, archive_start, archive_enter, archive_end {result: found|timeout|gave_up, left}, archive_handin {stars, levels, sp}, home_start, home_chore {game, stars}, home_call {answered}, home_end {result: done|early|sent_back, lapses, chores}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
   c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing. The apps send Umami events too, tagged `app-ios`/`app-android`.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
@@ -232,6 +234,24 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   keeps it (`task.folder`, a HUD badge) until HR on that floor takes it (`handInFolder`: exactly the missing stars,
   levels, paperclips, then the review as usual; `done[floor]` for good). A save made in the archive (`task.inside`)
   fails on Continue (`resumeArchive`). The night shift and archive clocks share `FloorScene.drawClockPanel`.
+- **Home office** (`src/core/home.js`, settings in `E.HOME` (economy.js), text in `src/data/home.js`): on floors 8, 18, 28 and 38
+  the first colleague (`FloorScene.homeBoss`, "Your Manager") offers a home office day once per local day for all four floors
+  (`state.homeDays.day`), free; not during a hold, before check-in, on a trip/holiday/night shift or in the archive (`homeBlock`).
+  `state.home = { floor, endsAt, t, presence, lapses, paid, best, calls, coffee }`: the 10-minute stay (`HOME.stayS`) is wall clock (`endsAt`),
+  but the presence meter and the boss's 1-2 video calls run on `t`, play time at home (`tickHome`: HomeScene's own dt, plus each
+  chore's play time, `result.playS` from MinigameScene, added with `away` so a call falling due mid-chore rings afterwards with
+  its full 20 s). A dry meter or a missed call is a lapse (the meter refills); the computer (`pokeComputer`) refills it and
+  answers a ringing call; chores wait while one rings. `HOME.maxLapses` (3) end the day (`sent_back`). `HomeScene`
+  (`src/scenes/home.js`, a `foreign` FloorScene subclass) runs on `buildHome()`, a 26x13 flat (kitchen and bathroom left, living
+  room right, so no marker sits under the clock panel) smaller than the screen: `FloorScene.camTarget` centres any map that fits
+  below the HUD. Chores are items with `it.chore` in MinigameScene mode `'home'` (`completeChore`): 1 coffee, XP and
+  `choreSpMult` of a task's paperclips once per chore and stay at 1+ star, never KPI stars; `brew` (the coffee maker) is free,
+  pours `brewCoffee` via `S.addCoffee` (capped) with its cooldown (`BREW_KEY`) by stars. The 6 chores (`vacuum`, `dishes`,
+  `laundry`, `ironing`, `bath`, `brew`) are in `MINIGAMES` and `COUNTED_GAMES`, not `STATION_GAMES`/`GAME_TIER`; each has a
+  `peek()` for `tests/chores.test.js`. Leaving (front door or time up) with fewer than 3 lapses clears the floor's station
+  cooldowns (`endHome`); the office floor shows a summary card (`homeSummary`). Badges: Domestic Hero, Always Online, Camera
+  Ready (`stats.homeHero/homeOnline/homeCamera`). Furniture quips: `HOME_QUIPS` (`fl.home`), own fridge (`HOME_FRIDGE`).
+  Song `homeoffice`. Continue resumes the flat while the day lasts, else ends it.
 - **Office conduct** (`src/core/conduct.js`, `state.conduct`, text in `src/data/conduct.js`): on every tower floor one
   colleague (`CD.chatSeed`, never `fl.npcs[0]`; `FloorScene.chatNpc`, kept out of the stand-up pool) opens a `ChatCard`
   (overlays.js: Small talk / Ask for a drink / Bye, HR notes) instead of a bubble. Every ask is a strike (a colleague's
@@ -270,6 +290,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   lighting's settings; the backslash key cycles its view (final, unlit, the light buffer alone).
 - `__archive()` / `__archive(23)` / `__archive('down')` / `__archive(13, 'down')`: HR's archive offer again (forgets that
   floor's offer; off an archive floor it goes to the next one up and makes it your highest), or straight down to A.
+- `__home()` / `__home(28)` / `__home('flat')` / `__home(18, 'flat')`: the home office again (resets today's), the manager's offer
+  on the nearest home floor at or below your highest one, or straight into the flat.
 - `__conduct()` / `__conduct(4)` / `__conduct('hold')`: the coffee break chat on this floor with a clean record, one ask away
   from the hold, or straight into the compliance hold.
 - `__vacation()`: floor 20 with the leave request open, free (no paperclips) and repeatable (resets today's holiday);

@@ -11,6 +11,7 @@ import { completeTripTask, tripLeft } from '../core/trip.js';
 import { completeNightTask } from '../core/nightShift.js';
 import { completeActivity, vacationLeft } from '../core/vacation.js';
 import { completeTraining } from '../core/conduct.js';
+import { completeChore, homeLeft, HOME } from '../core/home.js';
 import { fireCareer, FiredScene } from './fired.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { departmentForFloor, titleForFloor } from '../data/departments.js';
@@ -23,7 +24,9 @@ export class MinigameScene {
    * trip: double paperclips, no KPI stars) or 'vacation' (a holiday activity at the hotel: free, a coffee for 1 star or
    * more, once per stay; no paperclips, XP or KPI stars) or 'compliance' (the compliance training that ends a
    * compliance hold: pass or be demoted, see core/conduct.js) or 'night' (a station on the night shift: the usual
-   * rewards, half the cooldown, tallied for the shift's summary, see core/nightShift.js).
+   * rewards, half the cooldown, tallied for the shift's summary, see core/nightShift.js) or 'home' (a chore in your
+   * flat: XP and a few paperclips once per chore and stay, never KPI stars; the coffee maker pours cups instead, see
+   * core/home.js). The result carries `playS`, the seconds of play (the home's presence meter drains by them).
    */
   constructor(game, task, onDone, opts = {}) {
     this.game = game;
@@ -49,9 +52,14 @@ export class MinigameScene {
     this.buttons = new ButtonSet();
     this.result = null;
     this.revealed = 0;
+    this.playT = 0;
+  }
+  /** A paused mini-game stops the timed stays' clocks too (game.update), like the menu. */
+  get pausesClocks() {
+    return this.phase === 'paused';
   }
   enter() {
-    this.game.audio.play(this.mode === 'vacation' ? 'tropical' : 'minigame');
+    this.game.audio.play(this.mode === 'vacation' ? 'tropical' : this.mode === 'home' ? 'homeoffice' : 'minigame');
     this.game.sfx('start');
   }
   update(dt) {
@@ -72,6 +80,7 @@ export class MinigameScene {
         this.buildPause();
         return;
       }
+      this.playT += dt;
       this.inst.update(dt, input);
       if (this.inst.done) this.complete(this.inst.score);
       return;
@@ -103,6 +112,7 @@ export class MinigameScene {
     if (this.mode === 'compliance') return this.completeCompliance(score);
     if (this.mode === 'standup') return this.completeStandup(score);
     if (this.mode === 'vacation') return this.completeVacation(score);
+    if (this.mode === 'home') return this.completeHome(score);
     const s = this.game.state;
     const before = { level: s.level };
     const trip = this.mode === 'trip';
@@ -197,6 +207,54 @@ export class MinigameScene {
     this.buttons.clear();
     this.buttons.add({ x: W / 2 - 50, y: H / 2 + 58, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
   }
+  completeHome(score) {
+    const s = this.game.state;
+    this.result = completeChore(s, this.task.game, score, this.game.now());
+    this.result.score = score;
+    track('home_chore', { game: this.task.game, stars: this.result.stars });
+    this.game.markDirty();
+    this.game.saveNow();
+    this.phase = 'result';
+    this.t = 0;
+    this.revealed = 0;
+    this.game.sfx(this.result.stars > 0 ? 'good' : 'fail');
+    if (this.result.levelsGained) setTimeout(() => this.game.sfx('levelup'), 900);
+    this.buttons.clear();
+    this.buttons.add({ x: W / 2 - 50, y: H / 2 + 58, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  renderHomeResult(g) {
+    const r = this.result;
+    const s = this.game.state;
+    dim(g, 0.65);
+    const x = W / 2 - 120;
+    const y = H / 2 - 82;
+    const titles = r.brew ? ['Undrinkable', 'Drinkable', 'Good coffee', 'Barista level!'] : ['Still a mess', 'Good enough', 'Spotless', 'Domestic hero!'];
+    panel(g, x, y, 240, 168, { title: titles[r.stars], titleColor: r.stars ? '#5a8a4a' : '#7a2b2b' });
+    drawStarsLarge(g, this.revealed, W / 2, y + 18);
+    drawText(g, `Score ${Math.round(r.score * 100)}%`, W / 2, y + 44, { align: 'center', color: C.dim });
+    let yy = y + 60;
+    const line = (ic, label, val, color) => {
+      icon(g, ic, x + 40, yy);
+      drawText(g, label, x + 52, yy, { color: C.dim });
+      drawText(g, val, x + 200, yy, { align: 'right', color });
+      yy += 12;
+    };
+    if (r.brew) {
+      if (r.coffee) line('coffee', 'Coffee', `+${r.coffee}`, C.coffee);
+      else drawText(g, r.stars ? 'Your mug is already full.' : 'Down the sink. Try again in a minute.', W / 2, yy, { align: 'center', color: C.warn }), (yy += 12);
+      drawText(g, `The coffee maker is ready again in ${formatTime(r.cooldownS * 1000)}`, W / 2, yy + 4, { align: 'center', color: C.dim });
+    } else if (r.first) {
+      line('sp', 'Paperclips', `+${formatNum(r.sp)}`, C.gold);
+      line('xp', 'Experience', `+${formatNum(r.xp)}`, C.xp);
+      if (r.levelsGained) drawText(g, `LEVEL UP! Seniority Lv${s.level}`, W / 2, yy + 2, { align: 'center', color: C.gold });
+    } else {
+      drawText(g, r.stars ? 'Already done today: no pay twice.' : 'Have another go: it pays at 1 star.', W / 2, yy, { align: 'center', color: r.stars ? C.dim : C.warn });
+    }
+    const left = homeLeft(s, this.game.now());
+    drawText(g, left > 0 ? `${formatTime(left)} left at home` : 'Time to head back!', W / 2, y + 112, { align: 'center', color: C.dim });
+    if (s.home) drawText(g, `Status lapses: ${s.home.lapses}/${HOME.maxLapses}`, W / 2, y + 124, { align: 'center', color: s.home.lapses ? C.warn : C.dim });
+    this.buttons.render(g);
+  }
   renderVacationResult(g) {
     const r = this.result;
     const s = this.game.state;
@@ -272,6 +330,7 @@ export class MinigameScene {
   finish() {
     if (this.firedCareer) return this.game.set(new FiredScene(this.game, this.firedCareer));
     this.game.pop();
+    if (this.result) this.result.playS = this.playT;
     this.onDone?.(this.result);
   }
   render(g) {
@@ -295,6 +354,7 @@ export class MinigameScene {
       else if (this.mode === 'compliance') this.renderComplianceResult(g);
       else if (this.mode === 'standup') this.renderStandupResult(g);
       else if (this.mode === 'vacation') this.renderVacationResult(g);
+      else if (this.mode === 'home') this.renderHomeResult(g);
       else this.renderResult(g);
     }
     drawText(g, 'Esc: pause', W - 4, H - 10, { align: 'right', color: 'rgba(255,255,255,0.4)' });

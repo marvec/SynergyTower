@@ -4,6 +4,7 @@ import { generateFloor, buildWalkable, bfs, isItemReachable, STATION_GAMES } fro
 import { stationCount } from './economy.js';
 import { taskTitle } from '../data/taskTitles.js';
 import { ACTIVITIES } from '../data/vacation.js';
+import { CHORES } from '../data/home.js';
 
 export const ALL_GAMES = [
   'inbox', 'compose', 'typing', 'spreadsheet', 'bingo', 'calendar', 'timing', 'memory',
@@ -12,8 +13,8 @@ export const ALL_GAMES = [
   'karaoke', 'tailgate', 'defender', 'plant', 'chart', 'feedback', 'lostpw',
 ];
 /** Every kind of mini-game the "games played" counter, the title and the Generalist badge count: the station games plus
- *  the holiday activities at the vacation hotel (not the HR review). */
-export const COUNTED_GAMES = [...ALL_GAMES, ...ACTIVITIES.map((a) => a.game)];
+ *  the holiday activities at the vacation hotel and the chores at home (not the HR review). */
+export const COUNTED_GAMES = [...ALL_GAMES, ...ACTIVITIES.map((a) => a.game), ...CHORES.map((c) => c.game)];
 
 /** Furniture with a computer on it, in order of preference for the terminal. */
 const TERMINAL_TYPES = ['desk', 'headsetdesk', 'tradingdesk', 'reception', 'bossdesk'];

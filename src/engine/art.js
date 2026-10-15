@@ -819,6 +819,101 @@ const FURNITURE = {
     p.r(12, -13, 3, 2, '#e2504a');
     p.r(4, 8, 4, 4, '#3b6fb6');
   } },
+  // ------------------------------------------------ your flat (core/home.js)
+  homedesk: { lift: 18, draw(p, w) {
+    const W = w * 16;
+    deskBase(p, W, WOOD, WOOD_D);
+    monitorOn(p, W / 2 - 6, -14, '#9fe8b0');
+    p.r(W / 2 - 7, -1, 14, 3, '#d8dce4');
+    p.r(W / 2 - 7, -1, 14, 1, '#ffffff');
+    p.r(3, -5, 4, 4, '#f4f1e8');
+    p.r(4, -4, 2, 1, '#6a3a1e');
+    p.r(W - 7, -3, 5, 2, '#e2504a');
+  } },
+  hometv: { lift: 22, draw(p, w) {
+    const W = w * 16;
+    p.box(2, 4, W - 4, 8, 6, WOOD, WOOD_D);
+    p.r(4, -20, W - 8, 15, '#1a1a22');
+    p.r(5, -19, W - 10, 12, '#22324a');
+    p.r(6, -18, 6, 1, '#4a6a8a');
+    p.r(W / 2 - 1, -5, 2, 3, '#1a1a22');
+  } },
+  houseplant: { lift: 18, draw(p) {
+    p.box(4, 6, 8, 6, 7, '#e8e2d4', '#c8c0ae');
+    p.r(2, -14, 12, 14, '#1a1a22');
+    p.r(3, -13, 10, 12, '#2f8a3a');
+    p.r(1, -9, 4, 3, '#2f8a3a');
+    p.r(11, -10, 4, 3, '#2f8a3a');
+    p.r(5, -13, 2, 6, '#5fbf5a');
+    p.r(9, -11, 2, 5, '#5fbf5a');
+    p.r(7, -16, 2, 4, '#3f9a4a');
+  } },
+  homebed: { lift: 14, draw(p, w, h) {
+    const W = w * 16;
+    const D = h * 16;
+    p.box(0, -2, W, 6, 12, WOOD, WOOD_D);
+    p.box(1, 4, W - 2, D - 6, 6, '#f4f1e8', '#d8d2c4');
+    p.r(4, -1, W - 8, 7, '#1a1a22');
+    p.r(5, 0, W - 10, 5, '#ffffff');
+    p.r(2, 9, W - 4, D - 18, '#7a8ac8');
+    p.r(2, 9, W - 4, 2, '#9aaae0');
+    p.r(6, 16, 8, 3, '#5a6aa8'); // rumpled: you never make it
+  } },
+  ironingboard: { lift: 12, draw(p, w) {
+    const W = w * 16;
+    p.r(6, 4, 1, 10, '#6a707c');
+    p.r(W - 8, 4, 1, 10, '#6a707c');
+    p.box(1, 2, W - 4, 6, 3, '#e8e2d4', '#b8b0a0');
+    p.r(4, -2, W - 10, 3, '#9fd3f0');
+    p.r(W - 10, -6, 7, 4, '#1a1a22');
+    p.r(W - 9, -5, 5, 2, '#e2504a');
+  } },
+  vacuum: { lift: 18, draw(p) {
+    p.box(3, 8, 10, 4, 6, '#e2504a', '#b63b3b');
+    p.r(7, -14, 2, 18, '#6a707c');
+    p.r(5, -16, 6, 3, '#1a1a22');
+    p.r(9, -4, 4, 7, '#1a1a22');
+    p.r(10, -3, 2, 5, '#f2c14e');
+  } },
+  dishsink: { lift: 16, draw(p, w) {
+    const W = w * 16;
+    p.box(0, 2, W, 10, 10, '#b8bcc4', '#e8e6e0');
+    p.r(4, -6, W - 8, 6, '#1a1a22');
+    p.r(5, -5, W - 10, 4, '#8aa8bc');
+    // The pile of dirty plates, cups and a pan.
+    for (let i = 0; i < 4; i++) p.r(7 + i * 2, -9 - i * 2, 8, 2, i % 2 ? '#f4f1e8' : '#d8d2c4');
+    p.r(W - 12, -10, 5, 6, '#f4f1e8');
+    p.r(W - 11, -8, 3, 1, '#8a5a3a');
+    p.r(W / 2, -14, 2, 8, METAL);
+    p.r(W / 2, -14, 5, 2, METAL);
+  } },
+  homebrewer: { lift: 20, draw(p) {
+    p.box(0, 2, 16, 10, 10, '#b8bcc4', '#e8e6e0');
+    p.r(3, -16, 10, 13, '#1a1a22');
+    p.r(4, -15, 8, 4, '#3a3d48');
+    p.r(5, -10, 6, 6, '#c8e4f4');
+    p.r(5, -7, 6, 3, '#6b4a32');
+    p.r(11, -14, 1, 1, '#5fd068');
+  } },
+  bathtub: { lift: 12, draw(p, w) {
+    const W = w * 16;
+    p.box(0, 2, W, 12, 10, '#f4f6f8', '#d8dce4');
+    p.r(3, -6, W - 6, 8, '#1a1a22');
+    p.r(4, -5, W - 8, 6, '#9fd3f0');
+    for (const [x, y] of [[8, -5], [14, -4], [22, -5], [30, -4]]) if (x < W - 6) p.r(x, y, 4, 2, '#ffffff');
+    p.r(W - 8, -14, 2, 8, METAL);
+    p.r(W - 10, -14, 4, 2, METAL);
+    p.r(W - 11, -11, 2, 2, '#e2504a');
+    p.r(W - 6, -11, 2, 2, '#2a6ad1');
+  } },
+  washer: { lift: 20, draw(p) {
+    p.box(1, 2, 14, 10, 20, '#f4f6f8', '#d8dce4');
+    p.r(2, -17, 12, 3, '#c8ccd4');
+    p.r(10, -16, 2, 1, '#5fd068');
+    p.r(3, -11, 10, 10, '#1a1a22');
+    p.r(4, -10, 8, 8, '#6a8aa8');
+    p.r(5, -8, 6, 4, '#f29cd0');
+  } },
   swimladder: { lift: 18, draw(p, w) {
     const W = w * 16;
     p.r(3, -4, 2, 20, '#c8ccd4');

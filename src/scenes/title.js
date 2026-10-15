@@ -131,6 +131,19 @@ export class TitleScene {
       this.game.set(new FloorScene(this.game, E.VACATION_FLOOR));
       return this.game.toast(`The holiday is over: ${sum.coffee} extra coffee to show for it.`, C.coffee);
     }
+    // Working from home: back to the flat while the day lasts, else it is over (back on the manager's floor, its
+    // cooldowns cleared unless three lapses sent you back).
+    if (s.home) {
+      const HO = await import('../core/home.js');
+      if (HO.homeActive(s, this.game.now())) {
+        const { HomeScene } = await import('./home.js');
+        return this.game.set(new HomeScene(this.game));
+      }
+      const sum = HO.endHome(s, 'done');
+      this.game.saveNow();
+      this.game.set(new FloorScene(this.game, sum.floor));
+      return this.game.toast(sum.cleared ? 'The home office day is over. Rested: every station on this floor is ready.' : 'The home office day is over.', C.gold);
+    }
     // A night shift under way: the dark floor while its clock runs; else (or saved on another floor) it is over.
     if (s.nightShift) {
       const N = await import('../core/nightShift.js');

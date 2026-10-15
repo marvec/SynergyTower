@@ -14,7 +14,7 @@ const ids = (list) => list.map((b) => b.id);
 
 test('badges have unique ids, names and descriptions that fit the wall', () => {
   expect(new Set(ids(A.BADGES)).size).toBe(A.BADGES.length);
-  expect(A.BADGES.length).toBe(37);
+  expect(A.BADGES.length).toBe(40);
   for (const b of A.BADGES) {
     expect(b.name.length).toBeLessThanOrEqual(24);
     expect(b.desc.length).toBeLessThanOrEqual(56);
@@ -48,13 +48,16 @@ test('progress badges follow the state', () => {
   expect(got).not.toContain('ceo');
 });
 
-test('Generalist means every kind of mini-game the counter shows, the holiday activities included', async () => {
+test('Generalist means every kind of mini-game the counter shows, the holiday activities and chores included', async () => {
   const { ACTIVITIES } = await import('../src/data/vacation.js');
+  const { CHORES } = await import('../src/data/home.js');
   const s = player();
   for (const g of ALL_GAMES) s.played[g] = 1;
   expect(ids(A.checkBadges(s, 1))).not.toContain('generalist');
   for (const a of ACTIVITIES) s.played[a.game] = 1;
-  expect(ids(A.checkBadges(s, 2))).toContain('generalist');
+  expect(ids(A.checkBadges(s, 2))).not.toContain('generalist');
+  for (const c of CHORES) s.played[c.game] = 1;
+  expect(ids(A.checkBadges(s, 3))).toContain('generalist');
 });
 
 test('reaching floor 10 without spending Stock Options; old saves never qualify', () => {

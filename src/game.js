@@ -200,6 +200,8 @@ export function createGame({ screen, input, audio }) {
     update(dt) {
       game.time += dt;
       if (game.state) S.tick(game.state, game.now());
+      // Paused (the menu, a paused mini-game): the trip, holiday, night shift and home office clocks stand still.
+      if (game.state && stack.some((sc) => sc.pausesClocks)) S.holdClocks(game.state, dt * 1000);
       badgeT += dt;
       if (game.state && badgeT > 0.5 && stack.some((sc) => sc.inTower)) {
         badgeT = 0;

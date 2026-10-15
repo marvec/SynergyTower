@@ -83,6 +83,27 @@ export const NIGHT_SHIFT_S = 10 * 60;
 export const NIGHT_BREWER_S = 2 * 60;
 export const NIGHT_COOLDOWN_MULT = 0.5;
 /**
+ * Home office (core/home.js): your manager on these floors sends you home for the day, once a day (for all four floors
+ * together), free. The stay lasts 10 minutes (wall clock, held while paused). A chore costs a cup and pays XP and a few paperclips (once
+ * per chore and stay, never KPI stars); the home brewer pours 3 cups (up to the maximum), ready again sooner the better
+ * you brew. The presence meter on your computer drains over `presenceS` of play (walking and chores, not the pause
+ * menu); running dry is a lapse, and `maxLapses` of them end the day early. Coming back without that clears the
+ * floor's station cooldowns.
+ */
+export const HOME = {
+  floors: [8, 18, 28, 38],
+  stayS: 10 * 60,
+  presenceS: 150,
+  maxLapses: 3,
+  calls: [1, 2], // video calls per stay, at least and at most
+  callWindow: [0.15, 0.85], // when they come, as a share of the stay's play time (stayS)
+  callS: 20, // to reach the computer once the boss calls
+  choreCoffee: 1,
+  choreSpMult: 0.4, // of an ordinary task's paperclips on that floor
+  brewCoffee: 3,
+  brewCooldownS: [60, 240, 180, 120], // by stars (a failed brew: try again in a minute)
+};
+/**
  * Conduct (core/conduct.js): every time the player asks a colleague out is a strike; HOLD_STRIKES strikes put them on
  * compliance hold until they take the training at HR. Failing it demotes.
  */

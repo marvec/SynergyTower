@@ -3,9 +3,10 @@
 import { createRng, hashString } from './rng.js';
 import * as D from '../data/curios.js';
 import { HOTEL_QUIPS } from '../data/vacation.js';
+import { HOME_QUIPS, HOME_FRIDGE } from '../data/home.js';
 
 /** Items that belong to the gameplay (focus brackets, prompt) or are people, never curios. */
-const isGameplay = (it) => it.task || it.activity || ['elevator', 'coffee', 'hr'].includes(it.interact) || it.terminal;
+const isGameplay = (it) => it.task || it.activity || it.chore || ['elevator', 'coffee', 'hr', 'computer'].includes(it.interact) || it.terminal;
 const NOT_FURNITURE = new Set(['hrrep', 'receptionist']);
 /** The hotel's reception desk is the concierge's (HotelScene talks), not a curio. */
 const HOTEL_PEOPLE = new Set(['reception']);
@@ -20,8 +21,8 @@ export function closeUpOf(fl, it) {
 }
 
 const quipKey = (fl, it) => (it === fl.myDesk ? 'mydesk' : it.type);
-/** The lines for an item: the vacation hotel has its own (a sofa there is not the meeting-room sofa). */
-const quipsOf = (fl, it) => (fl.hotel ? HOTEL_QUIPS[it.type === 'chairup' ? 'chair' : it.type] : D.QUIPS[quipKey(fl, it)]) || [];
+/** The lines for an item: the vacation hotel and your flat have their own (a sofa there is not the meeting-room sofa). */
+const quipsOf = (fl, it) => (fl.hotel ? HOTEL_QUIPS[it.type === 'chairup' ? 'chair' : it.type] : fl.home ? HOME_QUIPS[it.type] : D.QUIPS[quipKey(fl, it)]) || [];
 
 /** What poking a non-gameplay item does: a close-up kind, 'quip', or null (gameplay item, or nothing to say). */
 export function curioOf(fl, it) {
@@ -64,10 +65,11 @@ const BOX_COLORS = { box: ['#c94a3b', '#3b7bc9', '#e0e0e0', '#4caf50', '#d9902b'
  * A fridge: three door notes and 10 items on 3 shelves, one of them the ancient container that moves.
  * Items: { label, detail, shape, color, labelColor, shelf (0 top), ancient }.
  */
-export function fridgeContents(seed) {
+export function fridgeContents(seed, home = false) {
+  const src = home ? HOME_FRIDGE : { door: D.FRIDGE_DOOR, items: D.FRIDGE_ITEMS, ancient: D.FRIDGE_ANCIENT };
   const r = createRng(seed * 13 + 5);
-  const door = r.sample(D.FRIDGE_DOOR, 3);
-  const items = r.sample(D.FRIDGE_ITEMS, 9).map(([label, detail, shape], i) => ({
+  const door = r.sample(src.door, 3);
+  const items = r.sample(src.items, 9).map(([label, detail, shape], i) => ({
     label,
     detail,
     shape,
@@ -76,7 +78,7 @@ export function fridgeContents(seed) {
     shelf: i % 3,
     ancient: false,
   }));
-  const [label, detail] = r.pick(D.FRIDGE_ANCIENT);
+  const [label, detail] = r.pick(src.ancient);
   // The ancient one lives at the back of the bottom shelf, where nobody looks.
   items.push({ label, detail, shape: 'box', color: '#6f8a3a', labelColor: '#d8d0a8', shelf: 2, ancient: true });
   return { door, items };

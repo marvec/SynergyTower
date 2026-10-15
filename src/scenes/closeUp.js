@@ -109,9 +109,10 @@ const SHAPES = {
 };
 
 export class FridgeCloseUp extends CloseUp {
-  constructor(game, { seed, onClose }) {
-    super(game, { title: 'Office fridge', onClose });
-    this.f = Q.fridgeContents(seed);
+  /** home: your own fridge in the flat (core/home.js), with its own contents. */
+  constructor(game, { seed, onClose, home = false }) {
+    super(game, { title: home ? 'Your fridge' : 'Office fridge', onClose });
+    this.f = Q.fridgeContents(seed, home);
     this.caption = null; // { label, detail } of the last poked item
     this.blink = 0; // the ancient container's "look at you" animation
     this.layout();

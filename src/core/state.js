@@ -86,7 +86,7 @@ export const cooldownLeft = (s, key, now) => Math.max(0, (s.cooldowns[key] || 0)
 export const taskCost = (s, task) => (task.checkin && s.lobby === 'checkin' ? 0 : E.taskCoffeeCost(task.game));
 
 /** Takes coffee; a full pot starts its refill clock now. */
-function spendCoffee(s, n, now) {
+export function spendCoffee(s, n, now) {
   if (s.coffee.value >= coffeeMax(s)) s.coffee.updatedAt = now;
   s.coffee.value -= n;
 }
@@ -332,6 +332,14 @@ export function useCoffeeMachine(s, floor, now, { key = `coffee-machine-${floor}
   s.cooldowns[key] = now + cooldownS * 1000;
   s.stats.coffeeMachine = (s.stats.coffeeMachine || 0) + 1;
   return { ok: true, gained };
+}
+
+/** The timed stays that run on the wall clock: the client visit, the holiday, the night shift, the home office day. */
+const TIMED = ['trip', 'vacation', 'nightShift', 'home'];
+
+/** The game is paused (the menu, a paused mini-game): every timed stay under way ends `ms` later, so pausing costs no time. */
+export function holdClocks(s, ms) {
+  for (const k of TIMED) if (s[k]?.endsAt) s[k].endsAt += ms;
 }
 
 /** Fake purchase — no real payment. */

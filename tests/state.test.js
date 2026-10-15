@@ -201,14 +201,16 @@ test('games played counts distinct mini-game types per character, any result, an
   expect(S.gamesPlayed(loaded).played).toBe(1);
 });
 
-test('games played also counts the holiday activities: 33 office games + 8 at the hotel', async () => {
+test('games played also counts the holiday activities and the chores: 33 office games + 8 at the hotel + 6 at home', async () => {
   const { ACTIVITIES } = await import('../src/data/vacation.js');
+  const { CHORES } = await import('../src/data/home.js');
   const s = S.newGame({ playerName: 'Pat' }, 0);
-  expect(S.gamesPlayed(s).total).toBe(ALL_GAMES.length + ACTIVITIES.length);
-  expect(S.gamesPlayed(s).total).toBe(41);
+  expect(S.gamesPlayed(s).total).toBe(ALL_GAMES.length + ACTIVITIES.length + CHORES.length);
+  expect(S.gamesPlayed(s).total).toBe(47);
   s.played.swim = 1;
   s.played.inbox = 3;
-  expect(S.gamesPlayed(s).played).toBe(2);
+  s.played.laundry = 1;
+  expect(S.gamesPlayed(s).played).toBe(3);
 });
 
 test('complex games cost more coffee and cool down faster', () => {

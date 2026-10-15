@@ -115,6 +115,23 @@ export const SONGS = {
       'G5 - B5 - D6 - - - B5 - G5 - F5 - D5 -', 'C5 - - - - - - - . . . . . . . .',
     ],
   },
+  // Home office (core/home.js): lo-fi, laid back, a lazy boom-bap under soft jazzy chords.
+  homeoffice: {
+    bpm: 78, swing: 0.28, lead: 'triangle', leadVol: 0.16,
+    chords: ['Fmaj7', 'Em7', 'Dm7', 'Cmaj7', 'Fmaj7', 'Em7', 'Dm7', 'G7'],
+    bass: { steps: [0, 7, 10], tones: [0, 0, 2], len: 4 },
+    comp: { steps: [0, 6, 10], len: 3, vol: 0.04 },
+    drums: [
+      'k.h.s.h..k.hs.h.', 'k.h.s.h.k..hs.hh', 'k.h.s.h..k.hs.h.', 'k.h.s.hkk..hs.ho',
+      'k.h.s.h..k.hs.h.', 'k.h.s.h.k..hs.hh', 'k.h.s.h..k.hs.h.', 'k.h.s.h.k.k.s.ss',
+    ],
+    melody: [
+      'A4 - - - C5 - E5 - - - . . D5 - C5 -', 'B4 - - - - - G4 - - - . . . . . .',
+      'A4 - - - F4 - A4 - C5 - - - . . . .', 'B4 - - - G4 - - - E4 - - - . . . .',
+      'C5 - - - E5 - A5 - - - G5 - E5 - . .', 'G5 - - - - - E5 - D5 - - - . . . .',
+      'F5 - - - E5 - D5 - C5 - - - A4 - . .', 'B4 - - - - - D5 - - - - - . . . .',
+    ],
+  },
   fanfare: {
     bpm: 132, swing: 0, lead: 'square', leadVol: 0.14, once: true,
     chords: ['C', 'G', 'C'],

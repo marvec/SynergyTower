@@ -43,11 +43,19 @@ import sunbathe from './sunbathe.js';
 import cocktail from './cocktail.js';
 import massage from './massage.js';
 import sandcastle from './sandcastle.js';
+// Chores in your flat on a home office day (core/home.js): never assigned to office stations.
+import vacuum from './vacuum.js';
+import dishes from './dishes.js';
+import laundry from './laundry.js';
+import ironing from './ironing.js';
+import bath from './bath.js';
+import brew from './brew.js';
 
 export const MINIGAMES = Object.fromEntries(
   [
     inbox, compose, typing, spreadsheet, bingo, calendar, timing, memory, simon, math, quiz, order, whack, stealth, stocks, coffee, jargon,
     replyall, password, cables, orgchart, meeting, pitch, fridge, expense, frogger, karaoke, tailgate, defender, plant, chart, feedback, lostpw,
     review, compliance, sleep, buffet, beachball, swim, sunbathe, cocktail, massage, sandcastle,
+    vacuum, dishes, laundry, ironing, bath, brew,
   ].map((m) => [m.id, m]),
 );

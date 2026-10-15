@@ -5,6 +5,7 @@ import * as E from './core/economy.js';
 import * as CD from './core/conduct.js';
 import * as N from './core/nightShift.js';
 import * as AR from './core/archive.js';
+import * as HO from './core/home.js';
 import * as S from './core/state.js';
 import { MinigameScene } from './scenes/minigameScene.js';
 import { LIGHTING, VIEWS } from './engine/lighting.js';
@@ -128,6 +129,38 @@ export function installDebug(game) {
     if (!AR.archiveOffer(s, floor)) return `floor ${floor}: no offer, ${archiveBlock(s, floor)}`;
     fs.hrDesk('notReady');
     return `floor ${floor}: HR's archive offer`;
+  };
+
+  /**
+   * Debug: the home office again, as often as you like. __home() opens your manager's offer on the nearest home floor
+   * at or below your highest floor (8 at least), __home(28) on floor 28; __home('flat') / __home(18, 'flat') skips the
+   * offer, straight into your flat. Today's home office (and one under way) is reset first.
+   */
+  window.__home = async (a, b) => {
+    const s = game.state;
+    if (!s) return 'no career loaded';
+    const floors = HO.HOME.floors;
+    const below = floors.filter((f) => f <= s.maxFloor);
+    const floor = typeof a === 'number' ? a : below.at(-1) || floors[0];
+    const mode = typeof a === 'string' ? a : b;
+    if (!HO.isHomeFloor(floor)) return `the home office is offered on floors ${floors.join(', ')}: try __home(${floors[0]})`;
+    HO.resetHome(s);
+    s.maxFloor = Math.max(s.maxFloor, floor);
+    s.floor = floor;
+    if (mode === 'flat') {
+      const r = HO.startHome(s, floor, game.now());
+      if (!r.ok) return `floor ${floor}: no home office (${HO.homeBlock(s) || r.reason})`;
+      game.saveNow();
+      const { HomeScene } = await import('./scenes/home.js');
+      game.set(new HomeScene(game));
+      return `home, from floor ${floor}`;
+    }
+    game.saveNow();
+    const { FloorScene } = await import('./scenes/floorScene.js');
+    const fs = new FloorScene(game, floor);
+    game.set(fs);
+    if (fs.homeBoss) fs.askHome(fs.homeBoss);
+    return `floor ${floor}: home office offer`;
   };
 
   /** Why HR would not offer the archive task (for __archive): the first rule that says no. */

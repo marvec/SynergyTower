@@ -706,6 +706,8 @@ const stacker = (m) => (label, onClick, color) =>
   m.buttons.add({ x: m.x + 20, y: m.y + 22 + m.buttons.items.length * 22, w: m.w - 40, h: 18, label, onClick, color });
 
 export class PauseMenu extends Modal {
+  /** The timed stays (trip, holiday, night shift, home office) stand still while the menu is open (game.update). */
+  pausesClocks = true;
   constructor(game, { onQuit }) {
     super(game, { w: 200, h: menuH(features.tips ? 7 : 6), title: 'Menu' });
     this.onQuit = onQuit;

@@ -1,6 +1,6 @@
 # SynergyTower
 
-> SynergyTower is a free pixel-art browser game about climbing the corporate ladder. You start as a new hire at the bottom of a 40-floor office tower, walk each floor, do office chores as 41 short mini-games, earn paperclips (the office currency) and KPI stars, pass an HR performance review and get promoted floor by floor until you become CEO. It runs in any modern browser on desktop and mobile, needs no sign-up and works offline.
+> SynergyTower is a free pixel-art browser game about climbing the corporate ladder. You start as a new hire at the bottom of a 40-floor office tower, walk each floor, do office chores as 47 short mini-games, earn paperclips (the office currency) and KPI stars, pass an HR performance review and get promoted floor by floor until you become CEO. It runs in any modern browser on desktop and mobile, needs no sign-up and works offline.
 
 Play it at https://synergytower.co.uk/ . The game is drawn on an HTML canvas, so this file describes what the page itself cannot show as text.
 
@@ -16,18 +16,19 @@ The full illustrated guide, with a screenshot and description of every mini-game
 - Once a day a colleague with a blue speech bubble asks for a quick favour: the daily stand-up pays double paperclips, a cup of coffee and sometimes a Stock Option, with a bonus for 7 days in a row.
 - Business trips: floors 10 and 30 hide a secret, one-time opportunity (how to get it is for players to find out): a 3-minute pseudo-3D drive to a client against a checkpoint clock. The car survives four crashes (a damage gauge counts them); wreck it with a fifth or run late and the chance is gone; arrive and you get 15 minutes in the client's much larger office, where tasks pay double paperclips and the coffee brewers refill every 2 minutes.
 - Night shift: on floors 5, 15, 25 and 35 your manager offers a 10-minute night shift once a day. Everybody goes home, the office goes dark (a few flickering lamps, darker music), station cooldowns are halved and the coffee machine brews every 2 minutes; HR, floor quests, stand-ups and office events are closed until morning. The elevator offers to go home early.
+- Home office: on floors 8, 18, 28 and 38 your manager sends you home for the day, once a day, for 10 minutes in your own flat. Do the chores (vacuuming, dishes, laundry, ironing, a bath: a cup of coffee each, XP and a few paperclips, no KPI stars), brew your own coffee (3 cups) and keep the presence meter on your computer from running dry; the boss calls on video now and then. Three lapses and you are called back in; otherwise every station on that floor is ready when you return.
 - The lost folder: on floors 3, 13, 23 and 33, HR asks a player who is not promotion-ready yet to fetch a lost personnel folder from the dark basement archive (elevator button A) within 5 minutes. Handing it in makes the player promotion-ready (it grants exactly what is missing); HR asks only once per floor (declined or failed, the chance is gone), and a failed attempt costs nothing else.
 - Vacation: floor 20 hides a secret getaway (how to get it is for players to find out): 15 minutes at a tropical five-star resort with easy holiday activities instead of office work (sleeping in, a dinner buffet, pool ball, a tiki-bar cocktail, a massage, sunbathing, a sandcastle, swimming out to a buoy). Each one enjoyed sends you back with an extra coffee on top of a full pot.
 - Office conduct: on every floor one colleague has a coffee break chat. Every time you ask them out for a drink is a strike (the first answer is a polite no, then they get colder). Five strikes put the career on compliance hold (tasks, elevator and workstations taped off) until a Compliance & Ethics training quiz at HR: pass and the record is cleared, fail and you are demoted one floor and must pass that floor's HR review again (on the ground floor, failing gets you fired and ends the career). The strikes then start from zero, so it can happen again on any floor, but never with the colleague who reported you.
 - Random office events liven up the floors: fire drills (reach the fire exit), printer meltdowns, cake in the kitchen (beat a colleague to it) and surprise audits.
 - You get a desk to decorate with paperclip-bought knick-knacks and stationery; your things move with you, every floor sells a different selection plus its own "Nth Floor's Best Employee" trophy.
-- 37 badges (achievements) to collect on the badge wall.
+- 40 badges (achievements) to collect on the badge wall.
 - Up to 100 careers per browser, picked from a row of employee ID badges on the title screen.
 - Most other things in the office react when poked, adventure-game style: chairs, sofas and printers get a random comment (20+ per kind of furniture), the vending machine sells imaginary snacks that sometimes get stuck, the fridge opens on labelled lunches (and something old that moves), plants have worms and lost things in the soil, and the HR filing cabinets hold a personnel file for every colleague, and one about you.
 
 ## Mini-games
 
-Meeting Buzzword Bingo, Cable Spaghetti, Schedule the Meeting, Coffee Run, Write the Email, Calendar Defender, Expense Fraud Detective, 360 Feedback (find a colleague across the floor), Fridge Tetris, Coffee Crossing, Magic Chart, Inbox Triage, Jargon Decoder, PowerPoint Karaoke, Lost Password (search the floor's whiteboards), Expense Report, Meeting Survival, Name Badge Memory, Slide Deck Order, Org Chart Shuffle, Password Policy, Elevator Pitch, Desk Plant Survival, Corporate Quiz, Reply-All Apocalypse, Server Rack Sequence, Fix the Spreadsheet, Boss Alert, Quarterly Ticker, Badge Tailgate, Perfect Timing and more, plus 8 holiday activities for players to find (Counting Sheep, All You Can Eat, Pool Ball, Swim to the Buoy, Golden Brown, Pina Colada, Deep Tissue and Sandcastle): 41 mini-games in all. Every game supports keyboard and mouse.
+Meeting Buzzword Bingo, Cable Spaghetti, Schedule the Meeting, Coffee Run, Write the Email, Calendar Defender, Expense Fraud Detective, 360 Feedback (find a colleague across the floor), Fridge Tetris, Coffee Crossing, Magic Chart, Inbox Triage, Jargon Decoder, PowerPoint Karaoke, Lost Password (search the floor's whiteboards), Expense Report, Meeting Survival, Name Badge Memory, Slide Deck Order, Org Chart Shuffle, Password Policy, Elevator Pitch, Desk Plant Survival, Corporate Quiz, Reply-All Apocalypse, Server Rack Sequence, Fix the Spreadsheet, Boss Alert, Quarterly Ticker, Badge Tailgate, Perfect Timing and more, plus 8 holiday activities for players to find (Counting Sheep, All You Can Eat, Pool Ball, Swim to the Buoy, Golden Brown, Pina Colada, Deep Tissue and Sandcastle) and 6 home chores (Dust Buster, Squeaky Clean, Separate Cycles, Pressing Matters, Just Right and Home Brew): 47 mini-games in all. Every game supports keyboard and mouse.
 
 ## Commodore 64 version
 
@@ -47,7 +48,7 @@ SynergyTower also runs on a real or emulated Commodore 64: https://synergytower.
 ## Links
 
 - [Play SynergyTower](https://synergytower.co.uk/): the game
-- [How to play](https://synergytower.co.uk/how-to-play/): the complete guide: lobby check-in, coffee, KPI stars, promotions, bonuses, events, badges and all 41 mini-games with screenshots
+- [How to play](https://synergytower.co.uk/how-to-play/): the complete guide: lobby check-in, coffee, KPI stars, promotions, bonuses, events, badges and all 47 mini-games with screenshots
 - [Commodore 64 version](https://synergytower.co.uk/c64/): download page for the C64 port (D64 disk images)
 - [Source code](https://github.com/marvec/SynergyTower): GitHub repository with README
 - [Support the author](https://buymeacoffee.com/marvec): Buy Me a Coffee

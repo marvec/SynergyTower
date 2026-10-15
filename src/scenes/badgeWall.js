@@ -5,7 +5,7 @@ import { BADGES } from '../core/achievements.js';
 import { dayKey } from '../core/daily.js';
 import { Modal } from './overlays.js';
 
-// 37 badges: 8 columns make full rows and a last row of 5 (9 columns left a single badge on its own).
+// 40 badges: 8 columns make five full rows (9 columns would leave a lonely badge in the last row).
 export const COLS = 8;
 export const CW = 36;
 const CH = 28;

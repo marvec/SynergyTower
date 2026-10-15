@@ -44,6 +44,8 @@ import { fireCareer, FiredScene } from './fired.js';
 import { nightLighting, drawNight } from './nightLights.js';
 import * as N from '../core/nightShift.js';
 import { NIGHT_TEASERS, NIGHT_OFFER, NIGHT_AFTER, NIGHT_GOODBYE, NIGHT_REFUSALS, NIGHT_GO_HOME, NIGHT_SUMMARY, NIGHT_SUMMARY_TITLE, NIGHT_SUMMARY_LINES } from '../data/nightShift.js';
+import * as HO from '../core/home.js';
+import { HOME_TEASERS, HOME_OFFER, HOME_AFTER, HOME_REFUSALS, HOME_GOODBYE, HOME_FRIDGE, HOME_SUMMARY, HOME_SUMMARY_TITLE } from '../data/home.js';
 import { ASK_LINES, ASK_AGAIN_LINES, FIRST_NO, REPEAT_NO, FROSTY_LINES, GOSSIP_LINES, HR_CALL_LINES, HR_PASSED_LINES, HR_FAILED_LINES, HOLD_INTRO } from '../data/conduct.js';
 
 const SPEED = 4.4;
@@ -66,14 +68,16 @@ export class FloorScene {
   inTower = true;
   /**
    * fl: a prebuilt floor instead of the tower's (the client's office on a business trip, see clientOffice.js).
-   * nightSummary: the night shift that just ended here (finishNight), shown once as a card.
+   * nightSummary: the night shift that just ended here (finishNight), shown once as a card; homeSummary likewise for a
+   * day at home (scenes/home.js).
    */
-  constructor(game, floor, { arrival = 'elevator', fl = null, nightSummary = null } = {}) {
+  constructor(game, floor, { arrival = 'elevator', fl = null, nightSummary = null, homeSummary = null } = {}) {
     this.game = game;
     this.floorNo = floor;
     this.fl = fl || buildFloor(floor);
     this.foreign = !!(this.fl.client || this.fl.foreign); // a client's office or the hotel: no firing, events, stand-ups or trips
     this.nightSummary = nightSummary;
+    this.homeSummary = homeSummary;
     // A night shift under way here (a reload, an elevator ride, a warp): the floor is empty and dark from the start.
     const night = this.night;
     this.nightFade = night ? 1 : 0; // darkness, 0..1: grows during the walk-out, full once everyone has left
@@ -138,6 +142,9 @@ export class FloorScene {
     // Night shift (core/nightShift.js): on floors 5, 15, 25 and 35 the first colleague is your manager, who offers it.
     this.nightBoss = !this.foreign && N.isNightFloor(floor) ? this.npcs.find((n) => n.seed === this.fl.npcs[0]?.seed) || null : null;
     if (this.nightBoss) this.nightBoss.a.who.role = 'Your Manager';
+    // Home office (core/home.js): on floors 8, 18, 28 and 38 the first colleague is your manager, who sends you home.
+    this.homeBoss = !this.foreign && HO.isHomeFloor(floor) ? this.npcs.find((n) => n.seed === this.fl.npcs[0]?.seed) || null : null;
+    if (this.homeBoss) this.homeBoss.a.who.role = 'Your Manager';
     // Conduct (core/conduct.js): one colleague per tower floor gets the coffee break chat, with the drink question.
     const chat = this.foreign || night ? null : CD.chatSeed(this.fl, floor);
     this.chatNpc = chat == null ? null : this.npcs.find((n) => n.seed === chat) || null;
@@ -199,6 +206,7 @@ export class FloorScene {
       );
     }
     if (this.nightSummary) this.showNightSummary();
+    if (this.homeSummary) this.showHomeSummary();
   }
 
   resume() {
@@ -254,7 +262,12 @@ export class FloorScene {
   }
   camTarget() {
     const { fl } = this;
-    const x = Math.max(0, Math.min(fl.w * TILE - W, this.player.x * TILE - W / 2));
+    // A map smaller than the screen (your flat, core/home.js) stays centred below the HUD.
+    const mw = fl.w * TILE;
+    const mh = fl.h * TILE;
+    const view = H - HUD_H;
+    if (mw <= W && mh <= view) return { x: Math.round((mw - W) / 2), y: -HUD_H - Math.round((view - mh) / 2) };
+    const x = mw <= W ? Math.round((mw - W) / 2) : Math.max(0, Math.min(mw - W, this.player.x * TILE - W / 2));
     // Top limit: the tallest furniture in the first row (lift 26) plus its bobbing "!" marker and best-star dots
     // reach ~30 px above the map edge; keep all of that below the HUD.
     const y = Math.max(-HUD_H - TOP_MARGIN, Math.min(fl.h * TILE - H + 24, this.player.y * TILE - H / 2 - 6));
@@ -373,13 +386,17 @@ export class FloorScene {
       const shift = t.n === this.nightBoss ? N.nightStatus(s, this.floorNo, game.now()) : null;
       if (shift === 'available' && !q && !ev && !hold) return this.askNight(t.n);
       if (shift === 'blocked' || shift === 'available') return this.refuseNight(t.n); // available but a quest or event runs
+      const home = t.n === this.homeBoss ? HO.homeStatus(s, this.floorNo, game.now()) : null;
+      if (home === 'available' && !q && !ev && !hold) return this.askHome(t.n);
+      if (home === 'blocked' || home === 'available') return this.refuseHome(t.n);
       if (t.n === this.standupNpc && !q && !hold) return this.askStandup(t.n);
       if (t.n === this.chatNpc && !q && !ev) return this.openChat(t.n);
       const tripAfter = trip && trip !== 'available' && this.rng.chance(0.5) ? this.rng.pick(TRIP_AFTER[trip]) : null;
       const after =
         tripAfter ||
         (leave === 'today' && this.rng.chance(0.5) ? this.rng.pick(BOSS_AFTER) : null) ||
-        (shift === 'today' && this.rng.chance(0.5) ? this.rng.pick(NIGHT_AFTER) : null);
+        (shift === 'today' && this.rng.chance(0.5) ? this.rng.pick(NIGHT_AFTER) : null) ||
+        (home === 'today' && this.rng.chance(0.5) ? this.rng.pick(HOME_AFTER) : null);
       const line = q?.hintLine(t.n) || after || this.nextLine();
       a.say(line);
       game.sfx('blip');
@@ -722,6 +739,59 @@ export class FloorScene {
     );
   }
 
+  /** Your manager on floors 8, 18, 28 and 38 sends you home for the day (once a day, free). */
+  askHome(n) {
+    const game = this.game;
+    n.brain.talkPause = 6;
+    game.sfx('blip');
+    game.push(
+      new Dialog(game, {
+        title: `${n.id.name} · Home office`,
+        w: 330,
+        text: HOME_OFFER(HO.HOME.stayS / 60),
+        button: 'Not now',
+        action: { label: 'Work from home', onClick: () => this.startHome() },
+      }),
+    );
+  }
+
+  /** No home office right now: your manager says why. */
+  refuseHome(n) {
+    n.a.say(HOME_REFUSALS[HO.homeBlock(this.game.state) || 'busy'], 3.5);
+    this.game.sfx('blip');
+  }
+
+  async startHome() {
+    const game = this.game;
+    if (this.quest || this.event) return game.toast('Finish what you are doing first.', C.warn);
+    if (!HO.startHome(game.state, this.floorNo, game.now()).ok) return;
+    track('home_start', { floor: this.floorNo });
+    this.homeBoss?.a.say(HOME_GOODBYE, 3);
+    game.sfx('door');
+    game.saveNow();
+    const { HomeScene } = await import('./home.js');
+    game.set(new HomeScene(game));
+  }
+
+  /** Your manager hints at the home office now and then while today's is still on offer. */
+  updateHomeTease(dt) {
+    const n = this.homeBoss;
+    if (!n || n.brain.exit || n.a.bubble || this.quest || this.event) return;
+    if (Math.hypot(n.a.x - this.player.x, n.a.y - this.player.y) > 8) return;
+    this.teaseT -= dt;
+    if (this.teaseT > 0) return;
+    this.teaseT = 16;
+    if (HO.homeStatus(this.game.state, this.floorNo, this.game.now()) !== 'available') return;
+    n.a.say(Q.pickLine(HOME_TEASERS, (this.teaseMemo ||= {})), 4);
+  }
+
+  /** Back from a day at home: one card with how it went. */
+  showHomeSummary() {
+    const sum = this.homeSummary;
+    this.homeSummary = null;
+    this.game.push(new Dialog(this.game, { title: HOME_SUMMARY_TITLE[sum.result], w: 310, text: HOME_SUMMARY(sum) }));
+  }
+
   /** Now and then the account manager calls out the trip while the player is around (it is a secret, not a hidden one). */
   updateTripTease(dt) {
     const n = this.tripNpc;
@@ -777,7 +847,7 @@ export class FloorScene {
     const day = D.dayKey(now);
     if (this.standupNpc && this.standupDay === day && !this.standupNpc.brain.exit) return;
     // Not the account manager, your manager or the coffee-chat colleague: their own card would hide the favour.
-    const pool = this.npcs.filter((n) => !n.brain.exit && n !== this.tripNpc && n !== this.bossNpc && n !== this.nightBoss && n !== this.chatNpc);
+    const pool = this.npcs.filter((n) => !n.brain.exit && n !== this.tripNpc && n !== this.bossNpc && n !== this.nightBoss && n !== this.homeBoss && n !== this.chatNpc);
     let h = this.floorNo;
     for (const ch of day) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     this.standupNpc = pool.length ? createRng(h).pick(pool) : null;
@@ -1048,7 +1118,7 @@ export class FloorScene {
     };
     if (kind === 'fridge') {
       game.sfx('click');
-      game.push(new FridgeCloseUp(game, { seed, onClose: () => say(FRIDGE_LINES) }));
+      game.push(new FridgeCloseUp(game, { seed, home: !!fl.home, onClose: () => say(fl.home ? HOME_FRIDGE.lines : FRIDGE_LINES) }));
     } else if (kind === 'plant') {
       game.sfx('click');
       game.push(new PlantCloseUp(game, { seed, onClose: () => say(PLANT_LINES) }));
@@ -1264,6 +1334,7 @@ export class FloorScene {
     this.updateTripTease(dt);
     this.updateBossTease(dt);
     this.updateNightTease(dt);
+    this.updateHomeTease(dt);
     this.updateHrCall(dt);
     this.standupT -= dt;
     if (this.standupT <= 0) {
