@@ -42,3 +42,20 @@ test('Gift Wrapping: pressing in the band is 3 stars, idle or early is nothing',
     expect(play('giftwrap', () => ({ press: true }), seed)).toBeLessThan(0.35);
   }
 });
+const { dishesFor } = await import('../src/minigames/buffet.js');
+
+test('Photo Booth: holding the pose is 3 stars, idle is nothing', () => {
+  for (const seed of [1, 2, 3]) {
+    expect(play('photobooth', (p) => ({ hold: [KEYS[p.pose]] }), seed)).toBeGreaterThanOrEqual(0.85);
+    expect(play('photobooth', null, seed)).toBeLessThan(0.35);
+    expect(play('photobooth', () => ({ tap: KEYS }), seed)).toBeLessThan(0.35);
+  }
+});
+
+test('the buffet serves Christmas dishes at the party, the hotel\'s anywhere else', () => {
+  const xmas = dishesFor({ dept: 'party' }).map((d) => d.name);
+  expect(xmas).toContain('Turkey');
+  expect(xmas).toContain('Mince pie');
+  expect(dishesFor({ dept: 'exec' }).map((d) => d.name)).toContain('Lobster');
+  expect(dishesFor(undefined).map((d) => d.name)).toContain('Lobster');
+});

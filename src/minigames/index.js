@@ -52,6 +52,7 @@ import bath from './bath.js';
 import brew from './brew.js';
 // Christmas party (core/party.js): never assigned to office stations.
 import giftwrap from './giftwrap.js';
+import photobooth from './photobooth.js';
 
 export const MINIGAMES = Object.fromEntries(
   [
@@ -61,5 +62,6 @@ export const MINIGAMES = Object.fromEntries(
     vacuum, dishes, laundry, ironing, bath, brew,
     // Christmas party
     giftwrap,
+    photobooth,
   ].map((m) => [m.id, m]),
 );
