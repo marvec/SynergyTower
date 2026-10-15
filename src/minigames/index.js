@@ -54,6 +54,7 @@ import brew from './brew.js';
 import giftwrap from './giftwrap.js';
 import photobooth from './photobooth.js';
 import dance from './dance.js';
+import carols from './carols.js';
 
 export const MINIGAMES = Object.fromEntries(
   [
@@ -65,5 +66,6 @@ export const MINIGAMES = Object.fromEntries(
     giftwrap,
     photobooth,
     dance,
+    carols,
   ].map((m) => [m.id, m]),
 );

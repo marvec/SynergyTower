@@ -68,3 +68,39 @@ test('the buffet serves Christmas dishes at the party, the hotel\'s anywhere els
   expect(dishesFor({ dept: 'exec' }).map((d) => d.name)).toContain('Lobster');
   expect(dishesFor(undefined).map((d) => d.name)).toContain('Lobster');
 });
+
+const { melodyNotes, lanesFor, midiOf } = await import('../src/minigames/carols.js');
+const { SONGS } = await import('../src/data/music.js');
+const { CAROLS } = await import('../src/data/party.js');
+
+test('carol notes: tokens to times and lengths, three lanes over the pitches used', () => {
+  expect(midiOf('C4')).toBe(60);
+  expect(midiOf('F#5')).toBe(78);
+  expect(midiOf('-')).toBe(null);
+  const n = melodyNotes({ bpm: 120, melody: ['C5 - - - D5 - . . E5 - - - - - - -'] });
+  expect(n.map((x) => [x.t, x.dur, x.midi])).toEqual([[0, 0.5, 72], [0.5, 0.25, 74], [1, 1, 76]]);
+  for (const c of CAROLS) {
+    const notes = melodyNotes(SONGS[c.id]);
+    expect(notes.length).toBe(c.syllables.length);
+    const lane = lanesFor(notes);
+    expect(new Set(notes.map((x) => lane(x.midi))).size).toBe(3);
+  }
+});
+
+test('Carol Karaoke: staying on the note is 3 stars, idle or random is nothing', () => {
+  const target = (p) => {
+    const soon = p.notes.find((n) => p.time + 1 / 30 >= n.t && p.time + 1 / 30 < n.t + n.dur) || p.notes.find((n) => n.t > p.time);
+    return soon ? soon.lane : p.voice;
+  };
+  for (const seed of [1, 2, 3, 4]) {
+    const best = play('carols', (p) => {
+      const want = target(p);
+      if (p.voice < 0) return { tap: ['ArrowUp'] };
+      return { tap: want > p.voice ? ['ArrowUp'] : want < p.voice ? ['ArrowDown'] : [] };
+    }, seed);
+    expect(best).toBeGreaterThanOrEqual(0.85);
+    expect(play('carols', null, seed)).toBeLessThan(0.35);
+    let k = 0;
+    expect(play('carols', () => ({ tap: [++k % 7 === 0 ? 'ArrowUp' : k % 5 === 0 ? 'ArrowDown' : null].filter(Boolean) }), seed)).toBeLessThan(0.35);
+  }
+});
