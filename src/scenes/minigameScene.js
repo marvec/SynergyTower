@@ -12,6 +12,8 @@ import { completeNightTask } from '../core/nightShift.js';
 import { completeActivity, vacationLeft } from '../core/vacation.js';
 import { completeTraining } from '../core/conduct.js';
 import { completeChore, homeLeft, HOME } from '../core/home.js';
+import { completePartyActivity, partyLeft, sway, tipsyLevel } from '../core/party.js';
+import { reducedMotion } from '../engine/platform.js';
 import { fireCareer, FiredScene } from './fired.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { departmentForFloor, titleForFloor } from '../data/departments.js';
@@ -26,7 +28,8 @@ export class MinigameScene {
    * compliance hold: pass or be demoted, see core/conduct.js) or 'night' (a station on the night shift: the usual
    * rewards, half the cooldown, tallied for the shift's summary, see core/nightShift.js) or 'home' (a chore in your
    * flat: XP and a few paperclips once per chore and stay, never KPI stars; the coffee maker pours cups instead, see
-   * core/home.js). The result carries `playS`, the seconds of play (the home's presence meter drains by them).
+   * core/home.js) or 'party' (an activity at the Christmas party: free, paperclips once per activity and party, the
+   * Secret Santa gift; no XP, KPI stars or coffee, see core/party.js). The result carries `playS`, the seconds of play (the home's presence meter drains by them).
    */
   constructor(game, task, onDone, opts = {}) {
     this.game = game;
@@ -39,7 +42,7 @@ export class MinigameScene {
     const stats = { floor: this.floor, stars: s.starsByFloor[this.floor] || 0, title: titleForFloor(s.maxFloor) };
     const mod = MINIGAMES[task.game];
     this.mod = mod;
-    const dept = departmentForFloor(this.floor).id;
+    const dept = this.mode === 'party' ? 'party' : departmentForFloor(this.floor).id;
     this.inst = mod.create({
       difficulty: task.difficulty,
       rng: createRng((task.seed * 7919 + Date.now()) >>> 0),
@@ -59,7 +62,7 @@ export class MinigameScene {
     return this.phase === 'paused';
   }
   enter() {
-    this.game.audio.play(this.mode === 'vacation' ? 'tropical' : this.mode === 'home' ? 'homeoffice' : 'minigame');
+    this.game.audio.play(this.mode === 'vacation' ? 'tropical' : this.mode === 'home' ? 'homeoffice' : this.mode === 'party' ? 'xmasparty' : 'minigame');
     this.game.sfx('start');
   }
   update(dt) {
@@ -113,6 +116,7 @@ export class MinigameScene {
     if (this.mode === 'standup') return this.completeStandup(score);
     if (this.mode === 'vacation') return this.completeVacation(score);
     if (this.mode === 'home') return this.completeHome(score);
+    if (this.mode === 'party') return this.completeParty(score);
     const s = this.game.state;
     const before = { level: s.level };
     const trip = this.mode === 'trip';
@@ -221,6 +225,46 @@ export class MinigameScene {
     if (this.result.levelsGained) setTimeout(() => this.game.sfx('levelup'), 900);
     this.buttons.clear();
     this.buttons.add({ x: W / 2 - 50, y: H / 2 + 58, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  completeParty(score) {
+    const s = this.game.state;
+    this.result = completePartyActivity(s, this.task.game, score);
+    this.result.score = score;
+    track('party_activity', { game: this.task.game, stars: this.result.stars });
+    if (this.inst.song) this.game.audio.play('xmasparty'); // the carol is over: back to the party
+    this.game.markDirty();
+    this.game.saveNow();
+    this.phase = 'result';
+    this.t = 0;
+    this.revealed = 0;
+    this.game.sfx(this.result.stars > 0 ? 'good' : 'fail');
+    this.buttons.clear();
+    this.buttons.add({ x: W / 2 - 50, y: H / 2 + 58, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  renderPartyResult(g) {
+    const r = this.result;
+    const s = this.game.state;
+    dim(g, 0.65);
+    const x = W / 2 - 120;
+    const y = H / 2 - 82;
+    const titles = ['Party pooper', 'Merry', 'Festive', 'Life of the party!'];
+    panel(g, x, y, 240, 168, { title: titles[r.stars], titleColor: r.stars ? '#c8343a' : '#7a2b2b' });
+    drawStarsLarge(g, this.revealed, W / 2, y + 18);
+    drawText(g, `Score ${Math.round(r.score * 100)}%`, W / 2, y + 44, { align: 'center', color: C.dim });
+    let yy = y + 60;
+    if (r.first) {
+      icon(g, 'sp', x + 40, yy);
+      drawText(g, 'Christmas bonus', x + 52, yy, { color: C.dim });
+      drawText(g, `+${formatNum(r.sp)}`, x + 200, yy, { align: 'right', color: C.gold });
+      yy += 12;
+    } else {
+      drawText(g, r.stars ? 'Done tonight already: no bonus twice.' : 'Have another go: it pays at 1 star.', W / 2, yy, { align: 'center', color: r.stars ? C.dim : C.warn });
+      yy += 12;
+    }
+    if (r.gift) drawText(g, 'Secret Santa: a little tree for your desk!', W / 2, yy + 2, { align: 'center', color: C.good });
+    const left = partyLeft(s, this.game.now());
+    drawText(g, left > 0 ? `${formatTime(left)} left at the party` : 'The party is winding down', W / 2, y + 140, { align: 'center', color: C.dim });
+    this.buttons.render(g);
   }
   renderHomeResult(g) {
     const r = this.result;
@@ -334,7 +378,19 @@ export class MinigameScene {
     this.onDone?.(this.result);
   }
   render(g) {
+    // Tipsy at the party: the picture sways (not with reduced motion) and doubles at the third drink.
+    const tipsy = this.mode === 'party' && this.phase === 'play' ? tipsyLevel(this.game.state) : 0;
+    const o = tipsy && !reducedMotion() ? sway(tipsy, this.playT) : { x: 0, y: 0 };
+    g.save();
+    g.translate(o.x, o.y);
     this.inst.render(g);
+    g.restore();
+    if (tipsy >= 3) {
+      g.save();
+      g.globalAlpha = 0.22;
+      g.drawImage(g.canvas, 2, 1);
+      g.restore();
+    }
     if (this.phase === 'ready') {
       dim(g, 0.5);
       panel(g, W / 2 - 130, H / 2 - 45, 260, 90, { title: this.task.title });
@@ -346,7 +402,7 @@ export class MinigameScene {
     } else if (this.phase === 'paused') {
       dim(g, 0.6);
       panel(g, W / 2 - 110, H / 2 - 30, 220, 66, { title: 'Paused' });
-      const msg = { standup: 'Give up? The favour still counts.', vacation: 'Give up? You can try again later.', compliance: this.game.state?.maxFloor > 1 ? 'Give up? That counts as failing.' : "Give up? You'll be fired." }[this.mode] || 'Give up? Coffee is not refunded.';
+      const msg = { standup: 'Give up? The favour still counts.', vacation: 'Give up? You can try again later.', party: 'Give up? You can try again later.', compliance: this.game.state?.maxFloor > 1 ? 'Give up? That counts as failing.' : "Give up? You'll be fired." }[this.mode] || 'Give up? Coffee is not refunded.';
       drawText(g, msg, W / 2, H / 2 - 10, { align: 'center' });
       this.buttons.render(g);
     } else if (this.phase === 'result') {
@@ -355,6 +411,7 @@ export class MinigameScene {
       else if (this.mode === 'standup') this.renderStandupResult(g);
       else if (this.mode === 'vacation') this.renderVacationResult(g);
       else if (this.mode === 'home') this.renderHomeResult(g);
+      else if (this.mode === 'party') this.renderPartyResult(g);
       else this.renderResult(g);
     }
     drawText(g, 'Esc: pause', W - 4, H - 10, { align: 'right', color: 'rgba(255,255,255,0.4)' });

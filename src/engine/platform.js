@@ -139,3 +139,12 @@ export function haptic(kind = 'light') {
   const h = plugin('Haptics');
   if (h) return void h.impact({ style: kind === 'heavy' ? 'HEAVY' : kind === 'medium' ? 'MEDIUM' : 'LIGHT' }).catch(() => {});
 }
+
+/** The system asks for less motion (prefers-reduced-motion): no swaying views (the party's tipsy sway). */
+export function reducedMotion() {
+  try {
+    return !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
