@@ -70,6 +70,14 @@ function drawCharFrame(g, L, dir, f) {
   const y0 = 1 + bob * 0; // head top
   const S = L.skirt;
   const legs = L.tights || L.skin;
+  // A Santa hat (the Christmas party): a red cap over the hair, a white trim on the brow, the pompom on one side.
+  const hat = (look) => {
+    if (look.hat !== 'santa') return;
+    r(4, y0 - 1, 8, 3, O);
+    r(5, y0, 6, 1, '#d8343a');
+    r(4, y0 + 1, 8, 1, '#f4f1e8');
+    r(12, y0 - 1, 2, 2, '#f4f1e8');
+  };
   if (dir === 'down' || dir === 'up') {
     if (S) {
       // legs below the skirt
@@ -143,6 +151,7 @@ function drawCharFrame(g, L, dir, f) {
       r(5, y0 + 1, 6, 6, L.hair);
       if (L.hairStyle === 2) r(4, y0 + 1, 8, 8, L.hair), r(5, y0 + 8, 6, 1, L.hair);
     }
+    hat(L);
   } else {
     // left profile
     if (S) {
@@ -187,6 +196,7 @@ function drawCharFrame(g, L, dir, f) {
     px(6, y0 + 4, O);
     px(4, y0 + 5, L.skin);
     if (L.glasses) r(5, y0 + 4, 3, 1, '#1a1a22'), px(6, y0 + 4, '#8fd3ff');
+    hat(L);
   }
 }
 

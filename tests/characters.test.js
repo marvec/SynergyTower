@@ -152,3 +152,20 @@ test('every career has its own cast: the same seat, another person; cast 0 is th
     if (MEN_NAMES.includes(first)) expect(npcLook(seed, 'support', 777).skirt).toBeFalsy();
   }
 });
+
+test('a Santa hat: red with a white trim on the head, in every direction', () => {
+  const base = { ...npcLook(3, 'support'), skirt: undefined };
+  const pixelAt = (sheet, x, y) => sheet.get(`${x},${y}`);
+  made.length = 0;
+  bakeCharacter(base);
+  const plain = made[0].px;
+  made.length = 0;
+  bakeCharacter({ ...base, hat: 'santa' });
+  const hat = made[0].px;
+  for (let row = 0; row < 4; row++) {
+    const y = row * CHAR_H;
+    expect(pixelAt(hat, 7, y + 1)).toBe('#d8343a'); // the red cap, just above the head
+    expect(pixelAt(hat, 7, y + 2)).toBe('#f4f1e8'); // the white trim
+    expect(pixelAt(plain, 7, y + 2)).not.toBe('#f4f1e8');
+  }
+});
