@@ -2,7 +2,7 @@
 import { test, expect } from 'bun:test';
 import { SONGS } from '../src/data/music.js';
 import * as D from '../src/data/party.js';
-const ACTIVITY_GAMES = ['dance', 'giftwrap', 'carols', 'buffet', 'photobooth'];
+import { ACTIVITY_GAMES } from '../src/core/party.js';
 
 const notes = (song) => song.melody.flatMap((bar) => bar.trim().split(/\s+/)).filter((t) => /^[A-G][#b]?\d$/.test(t)).length;
 
