@@ -35,6 +35,15 @@ export function play(id, bot, seed = 1) {
   return inst.score;
 }
 
+test('Dance-Off: on the beat is 3 stars, standing still or mashing every key is nothing', () => {
+  for (const seed of [1, 2, 3]) {
+    const best = play('dance', (p) => ({ tap: p.notes.filter((n) => n.t <= p.time + 1 / 60 && n.t > p.time - 0.05).map((n) => KEYS[n.lane]) }), seed);
+    expect(best).toBeGreaterThanOrEqual(0.85);
+    expect(play('dance', null, seed)).toBeLessThan(0.35);
+    expect(play('dance', () => ({ tap: KEYS }), seed)).toBeLessThan(0.35);
+  }
+});
+
 test('Gift Wrapping: pressing in the band is 3 stars, idle or early is nothing', () => {
   for (const seed of [1, 2, 3]) {
     expect(play('giftwrap', (p) => ({ press: !p.paused && p.stage !== 'done' && p.level >= (p.band[0] + p.band[1]) / 2 }), seed)).toBeGreaterThanOrEqual(0.85);

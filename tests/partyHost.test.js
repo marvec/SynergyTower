@@ -11,9 +11,6 @@ const { MinigameScene } = await import('../src/scenes/minigameScene.js');
 const { MINIGAMES } = await import('../src/minigames/index.js');
 const PA = await import('../src/core/party.js');
 
-// The party games arrive in other tasks; until they are registered, any existing game stands in (the host does not care which).
-for (const id of ['giftwrap', 'dance', 'buffet']) MINIGAMES[id] ??= MINIGAMES.spreadsheet;
-
 const DEC10 = new Date(2026, 11, 10, 12).getTime();
 const played = [];
 const audio = { setMusic() {}, setSfx() {}, play: (n) => played.push(n), sfx() {}, unlock() {} };
