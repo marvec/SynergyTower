@@ -46,6 +46,7 @@ import * as N from '../core/nightShift.js';
 import { NIGHT_TEASERS, NIGHT_OFFER, NIGHT_AFTER, NIGHT_GOODBYE, NIGHT_REFUSALS, NIGHT_GO_HOME, NIGHT_SUMMARY, NIGHT_SUMMARY_TITLE, NIGHT_SUMMARY_LINES } from '../data/nightShift.js';
 import * as HO from '../core/home.js';
 import { HOME_TEASERS, HOME_OFFER, HOME_AFTER, HOME_REFUSALS, HOME_GOODBYE, HOME_FRIDGE, HOME_SUMMARY, HOME_SUMMARY_TITLE } from '../data/home.js';
+import { PARTY_SUMMARY, PARTY_SUMMARY_TITLE } from '../data/party.js';
 import { ASK_LINES, ASK_AGAIN_LINES, FIRST_NO, REPEAT_NO, FROSTY_LINES, GOSSIP_LINES, HR_CALL_LINES, HR_PASSED_LINES, HR_FAILED_LINES, HOLD_INTRO } from '../data/conduct.js';
 
 const SPEED = 4.4;
@@ -69,15 +70,16 @@ export class FloorScene {
   /**
    * fl: a prebuilt floor instead of the tower's (the client's office on a business trip, see clientOffice.js).
    * nightSummary: the night shift that just ended here (finishNight), shown once as a card; homeSummary likewise for a
-   * day at home (scenes/home.js).
+   * day at home (scenes/home.js) and partySummary for the Christmas party (scenes/party.js).
    */
-  constructor(game, floor, { arrival = 'elevator', fl = null, nightSummary = null, homeSummary = null } = {}) {
+  constructor(game, floor, { arrival = 'elevator', fl = null, nightSummary = null, homeSummary = null, partySummary = null } = {}) {
     this.game = game;
     this.floorNo = floor;
     this.fl = fl || buildFloor(floor);
     this.foreign = !!(this.fl.client || this.fl.foreign); // a client's office or the hotel: no firing, events, stand-ups or trips
     this.nightSummary = nightSummary;
     this.homeSummary = homeSummary;
+    this.partySummary = partySummary;
     // A night shift under way here (a reload, an elevator ride, a warp): the floor is empty and dark from the start.
     const night = this.night;
     this.nightFade = night ? 1 : 0; // darkness, 0..1: grows during the walk-out, full once everyone has left
@@ -94,8 +96,8 @@ export class FloorScene {
     this.npcs = this.fl.npcs
       .filter((n) => !fired[n.seed] && !night)
       .map((n) => {
-        const a = new Actor(npcLook(n.seed, this.fl.dept, cast), n.x, n.y);
-        const id = npcIdentity(n.seed, this.fl.dept, cast);
+        const a = new Actor(npcLook(n.seed, n.dept || this.fl.dept, cast), n.x, n.y);
+        const id = npcIdentity(n.seed, n.dept || this.fl.dept, cast);
         a.who = { name: id.name, role: id.role };
         return { a, brain: new NpcBrain(a, this.fl, n.seed), seed: n.seed, id };
       });
@@ -207,6 +209,7 @@ export class FloorScene {
     }
     if (this.nightSummary) this.showNightSummary();
     if (this.homeSummary) this.showHomeSummary();
+    if (this.partySummary) this.showPartySummary();
   }
 
   resume() {
@@ -790,6 +793,13 @@ export class FloorScene {
     const sum = this.homeSummary;
     this.homeSummary = null;
     this.game.push(new Dialog(this.game, { title: HOME_SUMMARY_TITLE[sum.result], w: 310, text: HOME_SUMMARY(sum) }));
+  }
+
+  /** Back from the Christmas party: one card with how it went. */
+  showPartySummary() {
+    const sum = this.partySummary;
+    this.partySummary = null;
+    this.game.push(new Dialog(this.game, { title: PARTY_SUMMARY_TITLE[sum.result] || PARTY_SUMMARY_TITLE.done, w: 320, text: PARTY_SUMMARY(sum) }));
   }
 
   /** Now and then the account manager calls out the trip while the player is around (it is a secret, not a hidden one). */
