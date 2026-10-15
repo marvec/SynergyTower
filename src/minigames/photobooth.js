@@ -1,5 +1,6 @@
 // Photo Booth (Christmas party): four shots. Each shows a pose card and counts down; hold that pose's arrow when the
-// flash fires (or tap its pad before it). The strip of four photos is the result.
+// flash fires (or tap its pad before it). A pose counts only if struck after its card showed, so holding one arrow
+// throughout is a stiff photo every time. The strip of four photos is the result.
 import { W, H, rect, drawText, header, timerBar, Floaters, Countdown, byDiff, finish } from '../engine/mgkit.js';
 import { isTouch } from '../engine/platform.js';
 
@@ -29,7 +30,7 @@ function figure(g, x, y, p) {
 export default {
   id: 'photobooth',
   name: 'Photo Booth',
-  help: 'Strike the pose on the card: hold its arrow key (or tap its pad) when the flash goes off. Four shots!',
+  help: 'Strike the pose on each card: press its arrow key once the card shows and hold it (or tap its pad) till the flash. Four shots!',
   create({ difficulty: d, rng, theme, sfx = () => {} }) {
     const wait = byDiff(d, 3, 2.2);
     const total = new Countdown(SHOTS * (wait + 1) + 4);
@@ -41,6 +42,7 @@ export default {
     let phase = 'count';
     let tap = -1;
     let good = 0;
+    const struck = new Set(); // the poses struck (arrow pressed, pad tapped) since this card showed
     const holding = (input) => {
       const k = KEYS.findIndex((key) => input.down(key));
       return k >= 0 ? k : tap;
@@ -58,15 +60,17 @@ export default {
         t += dt;
         if (input.pointer.clicked && input.pointer.y >= PAD.y) {
           const i = [0, 1, 2, 3].find((k) => input.pointer.x >= padX(k) && input.pointer.x < padX(k) + PAD.w);
-          if (i != null) tap = i;
+          if (i != null) (tap = i), phase === 'count' && struck.add(i);
         }
+        if (phase === 'count') KEYS.forEach((k, i) => input.pressed(k) && struck.add(i));
         if (phase === 'count' && t >= wait) {
           const pose = holding(input);
-          const ok = pose === poses[shot];
+          const stiff = pose === poses[shot] && !struck.has(pose);
+          const ok = pose === poses[shot] && !stiff;
           if (ok) good++;
-          strip.push(pose);
+          strip.push(ok ? pose : stiff ? -1 : pose);
           sfx(ok ? 'good' : 'bad');
-          fl.add(ok ? 'Perfect pose!' : 'Blinked!', W / 2, 60, ok ? '#5fd068' : '#e2504a');
+          fl.add(ok ? 'Perfect pose!' : stiff ? 'Too stiff! Strike it fresh' : 'Blinked!', W / 2, 60, ok ? '#5fd068' : '#e2504a');
           phase = 'flash';
           t = 0;
           tap = -1;
@@ -74,6 +78,8 @@ export default {
           shot++;
           t = 0;
           phase = 'count';
+          tap = -1;
+          struck.clear();
           if (shot >= SHOTS) return finish(inst, good / SHOTS);
         }
       },

@@ -61,8 +61,11 @@ export class MinigameScene {
   get pausesClocks() {
     return this.phase === 'paused';
   }
+  get music() {
+    return this.mode === 'vacation' ? 'tropical' : this.mode === 'home' ? 'homeoffice' : this.mode === 'party' ? 'xmasparty' : 'minigame';
+  }
   enter() {
-    this.game.audio.play(this.mode === 'vacation' ? 'tropical' : this.mode === 'home' ? 'homeoffice' : this.mode === 'party' ? 'xmasparty' : 'minigame');
+    this.game.audio.play(this.music);
     this.game.sfx('start');
   }
   update(dt) {
@@ -74,26 +77,19 @@ export class MinigameScene {
         this.t = 0;
         input.consumeKeys();
         input.consumeClick();
-        if (this.inst.song) this.game.audio.play(this.inst.song); // a game with its own song (Carol Karaoke) starts it now
+        this.playSong();
       }
       return;
     }
     if (this.phase === 'play') {
-      if (input.back()) {
-        this.phase = 'paused';
-        this.buildPause();
-        return;
-      }
+      if (input.back()) return this.pause();
       this.playT += dt;
       this.inst.update(dt, input);
       if (this.inst.done) this.complete(this.inst.score);
       return;
     }
     if (this.phase === 'paused') {
-      if (input.back()) {
-        this.phase = 'play';
-        return;
-      }
+      if (input.back()) return this.resumePlay();
       this.buttons.update(input, (n) => this.game.sfx(n));
       return;
     }
@@ -106,10 +102,30 @@ export class MinigameScene {
       this.buttons.update(input, (n) => this.game.sfx(n));
     }
   }
+  /**
+   * A game timed to a song (inst.song: Dance-Off, Carol Karaoke) restarts it at play start and on resuming, `playT`
+   * seconds in: the game's clock counts the same play time, so the song and the arrows or lyrics stay together.
+   */
+  playSong() {
+    if (this.inst.song) this.game.audio.play(this.inst.song, null, { restart: true, from: this.playT });
+  }
+  pause() {
+    this.phase = 'paused';
+    if (this.inst.song) this.game.audio.stop(); // it waits with the game
+    this.buildPause();
+  }
+  resumePlay() {
+    this.phase = 'play';
+    this.playSong();
+  }
+  giveUp() {
+    if (this.inst.song) this.game.audio.play(this.music); // the song stopped for the pause: the scene's music again
+    this.complete(0);
+  }
   buildPause() {
     this.buttons.clear();
-    this.buttons.add({ x: W / 2 - 90, y: H / 2 + 10, w: 85, h: 18, label: 'Keep going', onClick: () => (this.phase = 'play') });
-    this.buttons.add({ x: W / 2 + 5, y: H / 2 + 10, w: 85, h: 18, label: 'Give up', color: C.bad, onClick: () => this.complete(0) });
+    this.buttons.add({ x: W / 2 - 90, y: H / 2 + 10, w: 85, h: 18, label: 'Keep going', onClick: () => this.resumePlay() });
+    this.buttons.add({ x: W / 2 + 5, y: H / 2 + 10, w: 85, h: 18, label: 'Give up', color: C.bad, onClick: () => this.giveUp() });
   }
   complete(score) {
     if (this.mode === 'review') return this.completeReview(score);

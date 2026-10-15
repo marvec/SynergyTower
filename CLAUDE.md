@@ -281,12 +281,13 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   Guests are colleagues you know (`partyGuests`: tower NPCs of floors 1..maxFloor, by year and cast, never the fired, each
   with their own `dept`), the first 6 dance (`DanceBrain`, `Actor.hop`); Santa hats are the look field `hat: 'santa'`;
   the CEO's speech once per party (`party.speech`; yours if you are the CEO). Five activities (`ACTIVITY_GAMES`, MinigameScene
-  mode `'party'`, difficulty 0.3, free): `dance` (DJ booth), `giftwrap` (Secret Santa table), `carols` (stage, the host
-  plays `inst.song`), `buffet` (Christmas dishes for `theme.dept === 'party'`), `photobooth`; each pays
+  mode `'party'`, difficulty 0.3, free): `dance` (DJ booth), `giftwrap` (Secret Santa table), `carols` (stage), `buffet` (Christmas dishes for `theme.dept === 'party'`), `photobooth`; each pays
   `activityPay` (twice a 3-star task's paperclips on your highest floor) once per party at 1+ star, never XP, KPI stars or
-  coffee. The new games are not in `COUNTED_GAMES` or `GAME_TIER`. Gift wrapping at 1+ star gives the year's Secret Santa
+  coffee. A game timed to a song sets `inst.song` (`dance`: `xmasparty`, `carols`: the carol): the host restarts it with
+  `audio.play(song, null, { restart, from: playT })` when play starts or resumes and stops it while paused, so the song
+  and the game's clock agree (beat 0 sounds `SONG_LEAD` into play). The new games are not in `COUNTED_GAMES` or `GAME_TIER`. Gift wrapping at 1+ star gives the year's Secret Santa
   desk decoration `xmas-<year>` (`partyGiftId`, never in a shop, `needs: 'party'`). The bar (`PartyBar`, `src/scenes/partyBar.js`):
-  three drinks raise `party.tipsy` to `maxTipsy` (3), water sobers at once, one level wears off per `soberS` (120 s) of
+  three drinks raise `party.tipsy` to `maxTipsy` (3) (then the bartender refuses), water sobers at once, one level wears off per `soberS` (120 s) of
   party play time (`tickParty`); no reward: the hall and party mini-games sway (`sway`, not with `reducedMotion()`) and at 3
   show a double image. Leaving by the elevator doors or time up (`endParty`: `early`/`done`) goes back to the floor it
   started from with a summary card (`showPartySummary`); Continue resumes the hall while it lasts, else ends it with a toast.

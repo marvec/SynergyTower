@@ -44,6 +44,27 @@ test('Dance-Off: on the beat is 3 stars, standing still or mashing every key is 
   }
 });
 
+test('Dance-Off: confetti at every 10-combo, none without one', () => {
+  const inst = MINIGAMES.dance.create({ difficulty: 0.3, rng: createRng(1), theme, sfx: () => {} });
+  const input = createInput();
+  let combo = 0;
+  let burst = 0;
+  for (let t = 0; !inst.done && t < 60; t += 1 / 60) {
+    input.beginFrame();
+    const p = inst.peek();
+    for (const n of p.notes.filter((n) => n.t <= p.time + 1 / 60 && n.t > p.time - 0.05)) (input.keyDown(KEYS[n.lane]), input.keyUp(KEYS[n.lane]));
+    inst.update(1 / 60, input);
+    inst.render(g);
+    input.endFrame();
+    const q = inst.peek();
+    if (q.combo < 10) expect(q.confetti).toBe(0);
+    if (q.combo % 10 === 0 && q.combo > combo) expect(q.confetti).toBeGreaterThan(burst);
+    combo = q.combo;
+    burst = q.confetti;
+  }
+  expect(combo).toBeGreaterThanOrEqual(10);
+});
+
 test('Gift Wrapping: pressing in the band is 3 stars, idle or early is nothing', () => {
   for (const seed of [1, 2, 3]) {
     expect(play('giftwrap', (p) => ({ press: !p.paused && p.stage !== 'done' && p.level >= (p.band[0] + p.band[1]) / 2 }), seed)).toBeGreaterThanOrEqual(0.85);
@@ -53,11 +74,13 @@ test('Gift Wrapping: pressing in the band is 3 stars, idle or early is nothing',
 });
 const { dishesFor } = await import('../src/minigames/buffet.js');
 
-test('Photo Booth: holding the pose is 3 stars, idle is nothing', () => {
-  for (const seed of [1, 2, 3]) {
-    expect(play('photobooth', (p) => ({ hold: [KEYS[p.pose]] }), seed)).toBeGreaterThanOrEqual(0.85);
+test('Photo Booth: striking each pose is 3 stars; idle, mashing or holding one arrow throughout is nothing', () => {
+  for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
+    // Attentive: strikes the pose on each card once it shows (and lets go while the flash fires).
+    expect(play('photobooth', (p) => ({ hold: p.phase === 'count' ? [KEYS[p.pose]] : [] }), seed)).toBeGreaterThanOrEqual(0.85);
     expect(play('photobooth', null, seed)).toBeLessThan(0.35);
     expect(play('photobooth', () => ({ tap: KEYS }), seed)).toBeLessThan(0.35);
+    for (const k of KEYS) expect(play('photobooth', () => ({ hold: [k] }), seed), `${k} held, seed ${seed}`).toBeLessThan(0.35);
   }
 });
 

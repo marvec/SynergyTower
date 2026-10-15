@@ -51,6 +51,16 @@ test('the bar: three drinks, then only water; water sobers you up', async () => 
   expect(game.state.party.drinks).toBe(3);
 });
 
+test('the bar reopened after three drinks: the bartender refuses straight away', async () => {
+  const game = career();
+  PA.startParty(game.state, 12, DEC10);
+  for (let i = 0; i < 3; i++) PA.drink(game.state, 'punch');
+  const { BARTENDER } = await import('../src/data/party.js');
+  expect(new PartyBar(game, { bartender: null }).line).toBe(BARTENDER.enough);
+  PA.drink(game.state, 'water');
+  expect(new PartyBar(game, { bartender: null }).line).toBe('What can I get you?');
+});
+
 const { PartyScene, DanceBrain } = await import('../src/scenes/party.js');
 const { FloorScene } = await import('../src/scenes/floorScene.js');
 const { MinigameScene } = await import('../src/scenes/minigameScene.js');
@@ -159,6 +169,27 @@ test('in the window, a tower floor opens the invitation once a year; Go now star
   expect(game.state.party).toBeTruthy();
   expect(game.state.so).toBe(so + 1);
   expect(game.top).toBeInstanceOf(Dialog); // the CEO's speech in the hall
+});
+
+test('"Later" closes the invitation with a toast about the elevator\'s party button; "Go now" does not', async () => {
+  const spy = (game) => {
+    const said = [];
+    const toast = game.toast;
+    game.toast = (text, c) => (said.push(text), toast(text, c));
+    return said;
+  };
+  const game = career();
+  const said = spy(game);
+  game.set(new FloorScene(game, 12));
+  await tick(game, 1);
+  game.top.close(); // Later
+  expect(said.filter((t) => /elevator/i.test(t) && /party/i.test(t)).length).toBe(1);
+  const other = career(11);
+  const heard = spy(other);
+  other.set(new FloorScene(other, 11));
+  await tick(other, 1);
+  other.top.buttons.items.find((b) => b.label === 'Go now').onClick();
+  expect(heard.some((t) => /elevator/i.test(t))).toBe(false);
 });
 
 test('outside the window: no invitation and no party button in the elevator', async () => {

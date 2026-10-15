@@ -86,6 +86,8 @@ function generateHall() {
   fl.danceSpots = [[19.5, 10.5], [24.5, 10.5], [18.5, 13.5], [25.5, 13.5], [20.5, 15.5], [23.5, 15.5]].map(([x, y]) => ({ x, y }));
   fl.mingleSpots = [[12.5, 8.5], [31.5, 8.5], [10.5, 17.5], [33.5, 17.5], [17.5, 25.5], [28.5, 25.5], [35.5, 12.5], [8.5, 7.5]].map(([x, y]) => ({ x, y }));
   fl.walk = buildWalkable(fl);
+  // Behind the counter is the bartender's: nobody walks round its ends to stand there.
+  for (let y = bar.y; y < bar.y + bar.h; y++) for (let x = bar.x + bar.w; x < W - 1; x++) fl.walk[idx(x, y)] = 0;
   fl.dist = bfs(fl, fl.walk, DOOR_X, 1);
   return fl;
 }

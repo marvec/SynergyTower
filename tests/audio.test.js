@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { compileSong, noteToMidi } from '../src/engine/audio.js';
+import { compileSong, noteToMidi, createAudio, SONG_LEAD } from '../src/engine/audio.js';
 import { SONGS } from '../src/data/music.js';
 import { DEPARTMENTS } from '../src/data/departments.js';
 import { RADIO } from '../src/data/radio.js';
@@ -96,4 +96,51 @@ test('per-bar parts: bass lines, chord rhythms, drum arrays, no-chord bars and t
   expect(of('comp').map((e) => [e.step, e.len])).toEqual([[0, 4], [0, 4], [0, 4], [6, 1], [6, 1], [6, 1]]);
   expect(of('drum').map((e) => [e.step, e.drum])).toEqual([[0, 'k'], [20, 's']]);
   expect(of('lead').map((e) => [e.midi, e.len, e.vol])).toEqual([[72, 2, 0.1], [60, 2, 0.05]]);
+});
+
+// A WebAudio stand-in: every node takes any call; the clock is set by hand and the scheduler's interval is captured.
+function fakeAudio() {
+  const node = () => new Proxy({}, { get: (o, k) => (k in o ? o[k] : k === 'connect' ? (n) => n : k === 'then' ? undefined : ['gain', 'frequency'].includes(k) ? (o[k] = node()) : () => node()) });
+  const ctx = { currentTime: 10, sampleRate: 64, state: 'running', destination: node(), resume() {}, createBuffer: () => ({ getChannelData: () => new Float32Array(64) }) };
+  for (const k of ['createGain', 'createOscillator', 'createBufferSource', 'createBiquadFilter', 'createPeriodicWave']) ctx[k] = () => node();
+  const saved = [globalThis.AudioContext, globalThis.setInterval];
+  let pump = null;
+  globalThis.AudioContext = function () {
+    return ctx;
+  };
+  globalThis.setInterval = (fn) => ((pump = fn), 0);
+  const audio = createAudio();
+  audio.unlock();
+  [globalThis.AudioContext, globalThis.setInterval] = saved;
+  const run = (s) => {
+    ctx.currentTime += s;
+    pump();
+  };
+  return { audio, ctx, run };
+}
+
+test('play keeps a song that is already playing, unless asked to restart it (from a given second)', () => {
+  const { audio, run } = fakeAudio();
+  const step = 60 / SONGS.xmasparty.bpm / 4;
+  audio.play('xmasparty');
+  expect(audio.position).toMatchObject({ name: 'xmasparty', step: 0 });
+  expect(audio.position.at).toBeCloseTo(SONG_LEAD, 6); // beat 0 sounds SONG_LEAD after the call
+  run(1);
+  const on = audio.position.step;
+  expect(on).toBeGreaterThan(4);
+  audio.play('xmasparty'); // the hall asking again: the song plays on
+  expect(audio.position.step).toBe(on);
+  audio.play('xmasparty', null, { restart: true }); // from the top
+  expect(audio.position).toMatchObject({ name: 'xmasparty', step: 0 });
+  expect(audio.position.at).toBeCloseTo(SONG_LEAD, 6);
+  audio.play('xmasparty', null, { restart: true, from: 1.06 }); // part-way in: 1.06 s of the song is heard SONG_LEAD from now
+  const p = audio.position;
+  expect(p.step).toBe(Math.ceil(1.06 / step));
+  expect(p.at - (p.step * step - 1.06)).toBeCloseTo(SONG_LEAD, 6);
+  const loop = compileSong(SONGS.xmasparty).steps * step;
+  audio.play('xmasparty', null, { restart: true, from: loop + 1.06 }); // a looping song wraps around
+  expect(audio.position.step).toBe(p.step);
+  const jingle = compileSong(SONGS.fanfare).steps * (60 / SONGS.fanfare.bpm / 4);
+  audio.play('fanfare', 'xmasparty', { from: jingle + 1 }); // a one-shot past its end: straight on to the song after it
+  expect(audio.position).toMatchObject({ name: 'xmasparty', step: 0 });
 });

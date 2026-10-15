@@ -68,6 +68,9 @@ export function compileSong(song) {
   return { events, steps: bars * 16 };
 }
 
+/** Seconds from play() to the first step of the song (the scheduler's lead); a game timed to a song adds it. */
+export const SONG_LEAD = 0.05;
+
 export function createAudio() {
   let ctx = null;
   let master, musicGain, sfxGain, noiseBuf;
@@ -253,8 +256,12 @@ export function createAudio() {
       if (!timer) timer = setInterval(pump, 25);
       if (wanted && !current) api.play(wanted.name, wanted.after);
     },
-    /** Play a song (loops unless it's a one-shot). `after` = song to continue with after a one-shot. */
-    play(name, after = null) {
+    /**
+     * Play a song (loops unless it's a one-shot). `after` = song to continue with after a one-shot. A looping song that is
+     * already playing plays on, unless `restart`: then it starts again, `from` seconds into it (a game timed to the song
+     * restarts it when play starts or resumes; second `from` of the song sounds SONG_LEAD after the call).
+     */
+    play(name, after = null, { restart = false, from = 0 } = {}) {
       const song = SONGS[name];
       if (!song) return;
       if (!song.once) wanted = { name };
@@ -263,9 +270,20 @@ export function createAudio() {
         if (song.once && after) wanted = { name: after };
         return;
       }
-      if (current && current.name === name && !song.once) return;
-      compiledCache[name] ||= compileSong(song);
-      current = { name, song, compiled: compiledCache[name], step: 0, idx: 0, nextTime: ctx.currentTime + 0.05, after };
+      if (current && current.name === name && !song.once && !restart) return;
+      const compiled = (compiledCache[name] ||= compileSong(song));
+      const stepDur = 60 / song.bpm / 4;
+      const first = Math.max(0, Math.ceil(from / stepDur - 1e-6)); // the first whole step at or after `from`
+      const lead = SONG_LEAD + first * stepDur - Math.max(0, from);
+      if (song.once && first >= compiled.steps) {
+        current = null;
+        if (after) api.play(after);
+        return;
+      }
+      const step = first % compiled.steps;
+      let idx = compiled.events.findIndex((e) => e.step >= step);
+      if (idx < 0) idx = compiled.events.length;
+      current = { name, song, compiled, step, idx, nextTime: ctx.currentTime + lead, after };
     },
     stop() {
       current = null;
@@ -273,6 +291,10 @@ export function createAudio() {
     },
     get current() {
       return current?.name || null;
+    },
+    /** Where the scheduler stands: the song, its next step and the seconds until that step sounds (null: silence). */
+    get position() {
+      return current && ctx ? { name: current.name, step: current.step, at: current.nextTime - ctx.currentTime } : null;
     },
     setMusic(on) {
       musicOn = on;

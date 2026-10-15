@@ -31,6 +31,15 @@ test('the hall: every activity and the bar reachable from the doors; spots free 
   expect(buildPartyHall()).toBe(hall); // cached
 });
 
+test('nobody walks behind the bar counter: only the bartender stands there', () => {
+  const bar = hall.bar;
+  for (let y = bar.y; y < bar.y + bar.h; y++)
+    for (let x = bar.x + bar.w; x < hall.w - 1; x++) {
+      const i = y * hall.w + x;
+      expect(`${x},${y}: ${hall.walk[i]} ${hall.dist[i]}`).toBe(`${x},${y}: 0 -1`);
+    }
+});
+
 test('every piece of non-gameplay furniture in the hall has party lines of its own', () => {
   for (const it of hall.items) {
     const c = curioOf(hall, it);

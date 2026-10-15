@@ -38,3 +38,20 @@ test('confetti bursts, falls and is gone after a few seconds', () => {
   for (let i = 0; i < 300; i++) c.update(1 / 60);
   expect(c.count).toBe(0);
 });
+
+test('confetti fades out at the end of its life, and leaves the canvas alpha as it found it', () => {
+  let k = 0;
+  const c = new Confetti(() => ((k = (k * 9301 + 49297) % 233280) / 233280));
+  c.burst(240, 60, 40);
+  const alphas = [];
+  const g = { globalAlpha: 1, fillStyle: '', fillRect() { alphas.push(this.globalAlpha); } };
+  c.render(g);
+  expect(Math.min(...alphas)).toBe(1); // fresh bits are solid
+  for (let i = 0; i < 115; i++) c.update(1 / 60); // ~1.9 s: the shortest-lived bits (2 s) are in their last moments
+  alphas.length = 0;
+  c.render(g);
+  expect(alphas.length).toBeGreaterThan(0);
+  expect(Math.min(...alphas)).toBeLessThan(0.5);
+  expect(Math.max(...alphas)).toBeLessThanOrEqual(1);
+  expect(g.globalAlpha).toBe(1);
+});

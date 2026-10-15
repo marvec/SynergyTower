@@ -818,6 +818,7 @@ export class FloorScene {
         w: 330,
         text: PARTY_INVITE(s.corp.name, PA.PARTY.stayS / 60),
         button: 'Later',
+        onClose: ({ action }) => action || game.toast('Later, then: the elevator has a party button until you go.', C.gold),
         action: { label: 'Go now', color: '#d8343a', onClick: () => (track('party_invite', { action: 'go' }), this.startParty({ force })) },
       }),
     );

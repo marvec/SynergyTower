@@ -1,4 +1,5 @@
 // Confetti for the Christmas party (scenes/party.js): screen-space bits that burst upwards, flutter down and fade.
+const FADE_S = 0.6; // the last seconds of a bit's life, over which it fades out
 const COLORS = ['#e2504a', '#f2c14e', '#5fd068', '#5b8def', '#f29cd0', '#ffffff'];
 
 export class Confetti {
@@ -26,10 +27,13 @@ export class Confetti {
     this.bits = this.bits.filter((b) => b.life > 0 && b.y < 290);
   }
   render(g) {
+    const alpha = g.globalAlpha;
     for (const b of this.bits) {
+      g.globalAlpha = alpha * Math.min(1, b.life / FADE_S);
       g.fillStyle = b.c;
       g.fillRect(Math.round(b.x), Math.round(b.y), b.w, Math.sin(b.spin) > 0 ? 2 : 1);
     }
+    g.globalAlpha = alpha;
   }
   get count() {
     return this.bits.length;

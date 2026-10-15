@@ -11,7 +11,7 @@ export class PartyBar extends Modal {
   constructor(game, { bartender = null } = {}) {
     super(game, { w: 280, h: 150, title: `Bar · ${bartender?.who?.name || BARTENDER.name}` });
     this.bartender = bartender;
-    this.line = 'What can I get you?';
+    this.line = PA.tipsyLevel(game.state) >= PA.PARTY.maxTipsy ? BARTENDER.enough : 'What can I get you?';
   }
   build() {
     const s = this.game.state;

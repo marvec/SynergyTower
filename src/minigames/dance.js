@@ -1,8 +1,11 @@
 // Dance-Off (Christmas party, the DJ booth): arrows rise to the line on the beat of the party song; hit each with its
-// arrow key (or tap its pad) as it crosses. Perfect and good windows; a stray press costs half a note. About 40 s.
+// arrow key (or tap its pad) as it crosses. Perfect and good windows; a stray press costs half a note; confetti on every
+// 10-combo. About 40 s. The host restarts the song (inst.song) when play starts, so beat 0 sounds SONG_LEAD into the game.
 import { W, H, rect, drawText, header, timerBar, Floaters, Countdown, byDiff, clamp, finish } from '../engine/mgkit.js';
 import { isTouch } from '../engine/platform.js';
+import { SONG_LEAD } from '../engine/audio.js';
 import { SONGS } from '../data/music.js';
+import { Confetti } from '../scenes/confetti.js';
 
 const KEYS = ['ArrowLeft', 'ArrowDown', 'ArrowUp', 'ArrowRight'];
 const LANE_X = [180, 220, 260, 300];
@@ -37,9 +40,10 @@ export default {
     const beat = 60 / SONGS.xmasparty.bpm;
     const step = d >= 0.5 ? beat / 2 : beat;
     const notes = [];
-    for (let t = 2; t < SONG_S; t += step) if (rng.chance(byDiff(d, 0.6, 0.8))) notes.push({ t, lane: rng.int(0, 3), hit: null });
+    for (let k = 0; 2 + k * step < SONG_S; k++) if (rng.chance(byDiff(d, 0.6, 0.8))) notes.push({ t: 2 + k * step + SONG_LEAD, lane: rng.int(0, 3), hit: null });
     const total = new Countdown(SONG_S + 3);
     const fl = new Floaters();
+    const confetti = new Confetti(() => rng.next());
     let time = 0;
     let points = 0;
     let strays = 0;
@@ -61,16 +65,21 @@ export default {
       best = Math.max(best, combo);
       sfx(n.hit === 'perfect' ? 'good' : 'click');
       fl.add(n.hit === 'perfect' ? 'Perfect!' : 'Good', LANE_X[lane], LINE_Y + 22, n.hit === 'perfect' ? '#f2e14e' : '#ffffff');
-      if (combo % 10 === 0) fl.add(`${combo} combo!`, W / 2, 140, '#f29cd0');
+      if (combo % 10 === 0) {
+        fl.add(`${combo} combo!`, W / 2, 140, '#f29cd0');
+        confetti.burst(W / 2, 150, 30, 0.8);
+      }
     };
     const score = () => clamp((points - 0.5 * strays) / Math.max(1, notes.length), 0, 1);
 
     const inst = {
       done: false,
       score: 0,
-      peek: () => ({ time, notes: notes.filter((n) => n.hit === null).map((n) => ({ t: n.t, lane: n.lane })) }),
+      song: 'xmasparty',
+      peek: () => ({ time, combo, confetti: confetti.count, notes: notes.filter((n) => n.hit === null).map((n) => ({ t: n.t, lane: n.lane })) }),
       update(dt, input) {
         fl.update(dt);
+        confetti.update(dt);
         for (let i = 0; i < 4; i++) flash[i] = Math.max(0, flash[i] - dt);
         if (inst.done) return;
         time += dt;
@@ -89,7 +98,8 @@ export default {
       render(g) {
         rect(g, 0, 0, W, H, '#140f22');
         // The dance floor's lights behind the lanes, pulsing on the beat.
-        const pulse = Math.floor(time / beat) % 4;
+        const beats = Math.max(0, time - SONG_LEAD) / beat;
+        const pulse = Math.floor(beats) % 4;
         for (let i = 0; i < 8; i++) rect(g, i * 60, 200, 60, 70, i % 4 === pulse ? '#3a2a5a' : '#241a38');
         for (let i = 0; i < 4; i++) {
           rect(g, LANE_X[i] - 18, 30, 36, 190, '#1d1630');
@@ -106,7 +116,7 @@ export default {
           arrow(g, LANE_X[i], PAD.y + PAD.h / 2, i, '#f4f1e8');
         }
         // You and the DJ's rival, bouncing on the beat.
-        const hop = Math.abs(Math.sin((time / beat) * Math.PI)) * 6;
+        const hop = Math.abs(Math.sin(beats * Math.PI)) * 6;
         for (const [x, c] of [[70, '#d8343a'], [410, '#2f8a3a']]) {
           const y = Math.round(150 - hop);
           rect(g, x - 6, y, 12, 22, c);
@@ -121,6 +131,7 @@ export default {
         drawText(g, isTouch() ? 'Tap the pads' : 'Arrow keys', W / 2, 260, { align: 'center', color: '#8a80a0' });
         header(g, theme?.title || 'Dance-Off', `${Math.max(0, Math.ceil(SONG_S - time))} s`);
         timerBar(g, total.left, total.total);
+        confetti.render(g);
         fl.render(g);
       },
     };
