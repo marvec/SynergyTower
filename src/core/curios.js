@@ -3,10 +3,11 @@
 import { createRng, hashString } from './rng.js';
 import * as D from '../data/curios.js';
 import { HOTEL_QUIPS } from '../data/vacation.js';
+import { PARTY_QUIPS } from '../data/party.js';
 import { HOME_QUIPS, HOME_FRIDGE } from '../data/home.js';
 
 /** Items that belong to the gameplay (focus brackets, prompt) or are people, never curios. */
-const isGameplay = (it) => it.task || it.activity || it.chore || ['elevator', 'coffee', 'hr', 'computer'].includes(it.interact) || it.terminal;
+const isGameplay = (it) => it.task || it.activity || it.chore || ['elevator', 'coffee', 'hr', 'computer', 'bar'].includes(it.interact) || it.terminal;
 const NOT_FURNITURE = new Set(['hrrep', 'receptionist']);
 /** The hotel's reception desk is the concierge's (HotelScene talks), not a curio. */
 const HOTEL_PEOPLE = new Set(['reception']);
@@ -22,7 +23,7 @@ export function closeUpOf(fl, it) {
 
 const quipKey = (fl, it) => (it === fl.myDesk ? 'mydesk' : it.type);
 /** The lines for an item: the vacation hotel and your flat have their own (a sofa there is not the meeting-room sofa). */
-const quipsOf = (fl, it) => (fl.hotel ? HOTEL_QUIPS[it.type === 'chairup' ? 'chair' : it.type] : fl.home ? HOME_QUIPS[it.type] : D.QUIPS[quipKey(fl, it)]) || [];
+const quipsOf = (fl, it) => (fl.party ? PARTY_QUIPS[it.type === 'chairup' ? 'chair' : it.type] : fl.hotel ? HOTEL_QUIPS[it.type === 'chairup' ? 'chair' : it.type] : fl.home ? HOME_QUIPS[it.type] : D.QUIPS[quipKey(fl, it)]) || [];
 
 /** What poking a non-gameplay item does: a close-up kind, 'quip', or null (gameplay item, or nothing to say). */
 export function curioOf(fl, it) {
