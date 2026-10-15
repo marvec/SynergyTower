@@ -22,7 +22,6 @@ export class PartyBar extends Modal {
     DRINKS.forEach((d, i) => b.add({ x: this.x + 10 + i * 88, y: this.y + 80, w: 84, h: 18, label: d.label, color: '#8a2a3a', disabled: full, onClick: () => this.order(d.kind) }));
     b.add({ x: this.x + 10, y: this.y + 104, w: 128, h: 18, label: 'Water', color: '#2f6f8a', onClick: () => this.order('water') });
     b.add({ x: this.x + this.w - 138, y: this.y + 104, w: 128, h: 18, label: 'Back', onClick: () => this.close() });
-    b.columns = 3;
     b.focus = Math.min(f, b.items.length - 1);
   }
   order(kind) {

@@ -22,7 +22,7 @@ export class SetupScene {
     this.hair = 0;
     this.hairStyle = 0;
     this.skirt = false;
-    this.buttons = new ButtonSet({ columns: 0 });
+    this.buttons = new ButtonSet();
     this.error = '';
   }
   enter() {

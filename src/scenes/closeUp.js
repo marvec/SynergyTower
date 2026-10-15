@@ -2,7 +2,7 @@
 // filing cabinet.
 // Pure flavour: nothing here touches the economy or the save. Content comes from core/curios.js.
 import { W, H } from '../engine/screen.js';
-import { C, rect, panel, dim, stars, inRect } from '../engine/ui.js';
+import { C, rect, panel, dim, stars, inRect, arrowStep } from '../engine/ui.js';
 import { drawText, drawWrapped, measureText, wrapText } from '../engine/font.js';
 import * as Q from '../core/curios.js';
 import { PLANT_LOOKS, PLASTIC_LINE, VENDING_LINES as VL, VENDING_DISPLAY, VENDING_RETURN } from '../data/curios.js';
@@ -76,12 +76,11 @@ class CloseUp {
       return;
     }
     if (n) {
-      const step = (d) => {
-        this.sel = (this.sel + d + n) % n;
+      const next = input.pressedExact('Tab') ? (this.sel + 1) % n : arrowStep(input, spots, this.sel);
+      if (next >= 0 && next !== this.sel) {
+        this.sel = next;
         this.game.sfx('blip');
-      };
-      if (input.pressed('ArrowRight') || input.pressed('ArrowDown') || input.pressedExact('Tab')) step(1);
-      else if (input.pressed('ArrowLeft') || input.pressed('ArrowUp')) step(-1);
+      }
     }
     if (input.confirm() && n) {
       input.consumeKeys();

@@ -308,7 +308,6 @@ export class ElevatorPanel extends Modal {
         },
       });
     }
-    b.columns = cols;
     b.focus = Math.min(f, b.items.length - 1);
   }
   renderBody(g, x, y) {

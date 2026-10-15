@@ -160,11 +160,10 @@ export const inRect = (p, x, y, w, h) => p.x >= x && p.y >= y && p.x < x + w && 
  * add({ x, y, w, h, label, onClick, hotkey, disabled, color, icon, sub, draw }).
  */
 export class ButtonSet {
-  constructor({ keyboard = true, columns = 0 } = {}) {
+  constructor({ keyboard = true } = {}) {
     this.items = [];
     this.focus = 0;
     this.keyboard = keyboard;
-    this.columns = columns;
     this.hover = -1;
   }
   clear() {
@@ -197,16 +196,11 @@ export class ButtonSet {
       return true;
     }
     if (!this.keyboard || !this.items.length) return false;
-    const n = this.items.length;
-    const cols = this.columns || n;
-    const move = (d) => {
-      this.focus = (this.focus + d + n) % n;
+    const next = arrowStep(input, this.items, this.focus);
+    if (next >= 0 && next !== this.focus) {
+      this.focus = next;
       sfx?.('blip');
-    };
-    if (input.pressed('ArrowRight')) move(1);
-    else if (input.pressed('ArrowLeft')) move(-1);
-    else if (input.pressed('ArrowDown')) move(this.columns ? cols : 1);
-    else if (input.pressed('ArrowUp')) move(this.columns ? -cols : -1);
+    }
     if (input.confirm()) {
       const b = this.items[this.focus];
       if (b && !b.disabled) return this.fire(b, input, sfx);
@@ -223,6 +217,54 @@ export class ButtonSet {
   render(g) {
     this.items.forEach((b, i) => drawButton(g, b, this.keyboard && i === this.focus, i === this.hover));
   }
+}
+
+const ARROWS = [['ArrowRight', 1, 0], ['ArrowLeft', -1, 0], ['ArrowDown', 0, 1], ['ArrowUp', 0, -1]];
+
+/** The item the pressed arrow key moves to from items[from] (spatialStep), or -1 when no arrow was pressed. */
+export function arrowStep(input, items, from) {
+  for (const [key, dx, dy] of ARROWS) if (input.pressed(key)) return spatialStep(items, from, dx, dy);
+  return -1;
+}
+
+/**
+ * Arrow-key navigation over rects ({x, y, w, h}) by where they are on screen: the nearest item in direction (dx, dy),
+ * preferring items in line with the current one (overlapping it across the move), else the nearest one past its edge within 45 degrees.
+ * Past the last one it wraps to the far end of the same row or column. In a single row, up/down step through the list
+ * (down next, up previous), and left/right likewise in a single column; elsewhere a key with nowhere to go stays put.
+ */
+export function spatialStep(items, from, dx, dy) {
+  const n = items.length;
+  const a = items[from];
+  if (!a) return n ? 0 : -1;
+  const mid = (r) => [r.x + r.w / 2, r.y + r.h / 2];
+  const [ax, ay] = mid(a);
+  const inLine = (b) => (dx ? b.y < a.y + a.h && a.y < b.y + b.h : b.x < a.x + a.w && a.x < b.x + b.w);
+  const gap = (b) => (dx ? Math.max(b.y - (a.y + a.h), a.y - (b.y + b.h), 0) : Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), 0));
+  const cands = items.map((b, i) => {
+    const [bx, by] = mid(b);
+    // past: how far b's middle lies beyond the current item's leading edge
+    const past = dx ? (bx - ax) * dx - a.w / 2 : (by - ay) * dy - a.h / 2;
+    return { i, along: dx ? (bx - ax) * dx : (by - ay) * dy, past, across: dx ? Math.abs(by - ay) : Math.abs(bx - ax), line: inLine(b), gap: gap(b) };
+  }).filter((c) => c.i !== from);
+  // Nearest row (or column) first, then the item closest to the middle of the current one.
+  const nearest = (list) => {
+    const min = Math.min(...list.map((c) => c.along));
+    return list.filter((c) => c.along <= min + 2).sort((p, q) => p.across - q.across)[0].i;
+  };
+  const ahead = cands.filter((c) => c.along > 0.5 && (c.line || (c.past > 0 && c.past >= c.gap)));
+  const aheadInLine = ahead.filter((c) => c.line);
+  if (aheadInLine.length) return nearest(aheadInLine);
+  if (ahead.length) return ahead.sort((p, q) => p.along + 2 * p.gap - (q.along + 2 * q.gap))[0].i;
+  const behindInLine = cands.filter((c) => c.along < -0.5 && c.line).map((c) => ({ ...c, along: -c.along }));
+  if (behindInLine.length) {
+    const max = Math.max(...behindInLine.map((c) => c.along));
+    return behindInLine.filter((c) => c.along >= max - 2).sort((p, q) => p.across - q.across)[0].i;
+  }
+  // One row (for up/down) or one column (for left/right): no two items side by side along the other axis.
+  const apart = (p, q) => (dx ? p.y + p.h <= q.y || q.y + q.h <= p.y : p.x + p.w <= q.x || q.x + q.w <= p.x);
+  const single = items.every((p, i) => items.every((q, j) => i === j || apart(p, q)));
+  return single ? (from + (dx + dy > 0 ? 1 : -1) + n) % n : from;
 }
 
 const TOUCH_SLOP = 6; // game px around a button that a tap may miss by

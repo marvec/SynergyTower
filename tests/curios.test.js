@@ -204,7 +204,7 @@ test('fridge close-up: poking the ancient container shows its label and makes it
   const fr = new FridgeCloseUp(game, { seed: 5 });
   game.push(fr);
   const i = fr.boxes.findIndex((b) => b.it.ancient);
-  for (let k = 0; k < i; k++) frame(game, ['ArrowRight']);
+  for (let k = 0; k < i; k++) frame(game, ['Tab']);
   frame(game, [' ']);
   expect(fr.caption.ancient).toBe(true);
   expect(fr.blink).toBeGreaterThan(0);
@@ -273,7 +273,7 @@ test('a drawer with many folders scrolls to keep the selection visible', () => {
 const rolls = (...xs) => () => (xs.length ? xs.shift() : 0.5);
 const selectSlot = (game, vm, code) => {
   const i = vm.spots().findIndex((s) => s.code === code);
-  for (let k = 0; k < i; k++) frame(game, ['ArrowRight']);
+  for (let k = 0; k < i; k++) frame(game, ['Tab']);
   expect(vm.spots()[vm.sel].code).toBe(code);
 };
 const runFor = (game, s) => {

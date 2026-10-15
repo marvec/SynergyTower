@@ -114,6 +114,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - **Text uses the bitmap font** (`src/engine/font.js`). Any new non-ASCII character in a string needs a glyph;
   `tests/font.test.js` fails otherwise. Text is ~5 px per char at scale 1, so check that strings fit.
 - `input.down/pressed('ArrowUp')` also match WASD. Use `pressedExact` for letter hotkeys.
+- Arrow keys in `ButtonSet` dialogs and close-ups move by screen position (`spatialStep`/`arrowStep` in `src/engine/ui.js`: nearest
+  item that way, wrapping within the row or column), so any layout of buttons or spots works without a column count.
 - Economy numbers live only in `src/core/economy.js`. `tests/economy.test.js` checks that an average 2★ player can
   always afford the next floor, and `tests/pacing.test.js` simulates a 40-floor career for coffee pacing. Re-run both after
   tuning. Coffee cost and cooldown come from the game's complexity tier (`GAME_TIER`); give every new mini-game a tier.
