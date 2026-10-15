@@ -236,6 +236,27 @@ function turnstile(p, w, open) {
 }
 
 /** Each entry: (p, w, h, ctx) draws with origin = top-left of the footprint; `lift` = extra pixels above. */
+/** An archive cabinet filling its tile: four drawers with label cards; `open` pulls the second one out. */
+function archiveCabinet(p, open) {
+  p.box(0, 2, 16, 10, 28, '#7a808c', '#949aa6');
+  for (let i = 0; i < 4; i++) {
+    const y = -16 + i * 7;
+    p.r(1, y + 6, 14, 1, '#5a606c');
+    p.r(5, y + 2, 6, 3, '#e8e2c8');
+    p.r(7, y + 5, 2, 1, '#1a1a22');
+  }
+  if (!open) return;
+  // Drawer 2 pulled out (its front a little lower and lighter), folders showing in the gap above it.
+  p.r(1, -9, 14, 3, '#1a1a22');
+  p.r(2, -10, 2, 3, '#f4f6f8');
+  p.r(5, -11, 3, 4, '#e8c46a');
+  p.r(9, -10, 2, 3, '#f4f6f8');
+  p.r(12, -11, 2, 4, '#c8d4dc');
+  p.box(1, -1, 14, 2, 7, '#a4abb7', '#b4bbc7');
+  p.r(5, -4, 6, 3, '#e8e2c8');
+  p.r(7, -1, 2, 1, '#1a1a22');
+}
+
 const FURNITURE = {
   desk: { lift: 18, draw(p, w, h, k) {
     deskBase(p, w * 16, k.wood, k.woodD);
@@ -512,6 +533,14 @@ const FURNITURE = {
       p.r(3, -9 + i * 7, 10, 1, '#5a606c');
       p.r(7, -6 + i * 7, 2, 1, '#1a1a22');
     }
+  } },
+  // The archive's tall HR cabinets (core/archive.js), one per tile so they stand in long rows; tall enough to block light.
+  archivecab: { lift: 26, draw(p) {
+    archiveCabinet(p, false);
+  } },
+  // A cabinet already gone through: its second drawer left pulled out, papers sticking up.
+  archivecabopen: { lift: 26, draw(p) {
+    archiveCabinet(p, true);
   } },
   toilet: { lift: 14, draw(p) {
     p.r(0, -12, 2, 24, '#8a919d');
@@ -1136,6 +1165,7 @@ export function floorStyleForRoom(roomType, deptId) {
     case 'copy': return 'tile';
     case 'manager': return deptId === 'exec' ? 'parquet' : 'carpet';
     case 'hr': return 'parquet';
+    case 'archive': return 'corridor'; // the basement archive's bare concrete
     case 'special': return deptId === 'it' ? 'server' : deptId === 'exec' ? 'parquet' : 'carpet';
     default: return 'carpet';
   }

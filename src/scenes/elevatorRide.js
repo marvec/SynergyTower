@@ -67,6 +67,11 @@ export class ElevatorRide {
   async arrive() {
     if (this.leaving) return;
     this.leaving = true;
+    // Floor 0 is the basement archive (core/archive.js): down there from `from`, which is where it goes back up to.
+    if (this.to === 0) {
+      const { ArchiveScene } = await import('./archive.js');
+      return this.game.set(new ArchiveScene(this.game, this.from));
+    }
     const { FloorScene } = await import('./floorScene.js');
     this.game.set(new FloorScene(this.game, this.to, { arrival: 'elevator' }));
   }
@@ -81,7 +86,7 @@ export class ElevatorRide {
     rect(g, W / 2 - 40, 26, 80, 28, '#1a1a22');
     rect(g, W / 2 - 37, 29, 74, 22, '#0d1a0d');
     const dir = this.to > this.from ? '↑' : this.to < this.from ? '↓' : '·';
-    drawText(g, `${dir} ${this.shown}`, W / 2, 33, { align: 'center', scale: 2, color: '#f29c38' });
+    drawText(g, `${dir} ${this.shown || 'A'}`, W / 2, 33, { align: 'center', scale: 2, color: '#f29c38' }); // 0: the archive
     // Player inside.
     const look = this.game.playerLook();
     const sheet = characterSheet(look);

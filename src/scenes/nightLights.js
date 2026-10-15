@@ -28,14 +28,22 @@ export function nightLamps(fl, floor) {
     // Half a tile up: in this oblique view a ceiling lamp over the corridor sits nearer its far (upper) wall.
     for (let x = 4; x < fl.w - 2; x += 9) spots.push([x + 0.5, cy - 0.5, 28]);
   }
+  return lampsAt(spots, floor);
+}
+
+/**
+ * Lamps at `spots` ([x, y, r] in tiles), seeded by `key`: about a third of them flicker (at least one, never all), one
+ * or two of those blink and the rest waver (see nightLamps).
+ */
+export function lampsAt(spots, key) {
   const lamps = spots.map(([x, y, r], i) => {
-    const seed = hashString(`lamp:${floor}:${i}`);
+    const seed = hashString(`lamp:${key}:${i}`);
     return { x, y, r, seed, flicker: seed % 3 === 0 };
   });
-  if (lamps.length && !lamps.some((l) => l.flicker)) lamps[hashString(`lamp:${floor}`) % lamps.length].flicker = true;
+  if (lamps.length && !lamps.some((l) => l.flicker)) lamps[hashString(`lamp:${key}`) % lamps.length].flicker = true;
   if (lamps.length > 1 && lamps.every((l) => l.flicker)) lamps[0].flicker = false;
   const flickering = lamps.filter((l) => l.flicker);
-  const blinking = flickering.length >= 3 ? 1 + (hashString(`blink:${floor}`) % 2) : flickering.length - 1;
+  const blinking = flickering.length >= 3 ? 1 + (hashString(`blink:${key}`) % 2) : flickering.length - 1;
   flickering.forEach((l, i) => (l.flicker = i < blinking ? 'blink' : 'waver'));
   return lamps;
 }
@@ -57,6 +65,14 @@ const NIGHT_TINT = [0.8, 0.9, 1.25]; // the dark is a little blue
  * walls and tall furniture as occluders, and a small light that follows the player (`lighting.player`, moved each frame).
  */
 export function nightLighting(fl, floor) {
+  return darkLighting(fl, nightLamps(fl, floor));
+}
+
+/**
+ * Lighting for any dark floor (the night shift, the basement archive in scenes/archive.js): `lamps` as nightLamps gives
+ * them, `ambient` the base light, `config` a lighting config (LIGHTING or one derived from it).
+ */
+export function darkLighting(fl, lamps, { ambient = LIGHTING.ambient, config = LIGHTING } = {}) {
   const n = fl.w * fl.h;
   const wall = new Uint8Array(n);
   for (let i = 0; i < n; i++) wall[i] = fl.tiles[i] === T_WALL ? 1 : 0;
@@ -66,9 +82,9 @@ export function nightLighting(fl, floor) {
     if (!def || def.solid === false || (def.lift || 0) < TALL_LIFT) continue;
     for (let y = it.y; y < it.y + it.h; y++) for (let x = it.x; x < it.x + it.w; x++) opaque[y * fl.w + x] = 1;
   }
-  const lighting = new Lighting({ cols: fl.w, rows: fl.h, tile: TILE, opaque, wall, wallH: WALL_H });
-  lighting.setAmbient(LIGHTING.ambient, NIGHT_TINT);
-  for (const l of nightLamps(fl, floor)) {
+  const lighting = new Lighting({ cols: fl.w, rows: fl.h, tile: TILE, opaque, wall, wallH: WALL_H, config });
+  lighting.setAmbient(ambient, NIGHT_TINT);
+  for (const l of lamps) {
     const light = { x: l.x * TILE, y: l.y * TILE, r: l.r, ...LAMP };
     if (l.flicker === 'blink') light.level = (t) => lampLevel(l, t);
     if (l.flicker === 'waver') light.flicker = { seed: l.seed };

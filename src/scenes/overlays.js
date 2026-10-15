@@ -6,6 +6,7 @@ import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import * as C_ from '../core/conduct.js';
 import { taskCooldownMs } from '../core/nightShift.js';
+import { archiveOpen } from '../core/archive.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { titleForFloor, floorName, departmentForFloor } from '../data/departments.js';
 import { CHAR_W, CHAR_H } from '../engine/art.js';
@@ -222,7 +223,8 @@ export class ReviewCard extends Modal {
 }
 
 /** Shown when the HR desk is visited but no review is possible (not ready, already passed, wrong floor). */
-export function hrNotice(game, state) {
+/** HR's note on why there is no review now; onClose runs after it (the archive challenge's offer follows it). */
+export function hrNotice(game, state, onClose = null) {
   const s = game.state;
   const st = S.promotionStatus(s);
   let text;
@@ -236,15 +238,18 @@ export function hrNotice(game, state) {
     if (!st.checks.sp) missing.push(`- Keycard fee: ${formatNum(st.sp)}/${formatNum(st.fee)} paperclips`);
     text = `Reviews are by appointment only. Come back when you are promotion-ready:\n${missing.join('\n')}`;
   }
-  game.push(new Dialog(game, { title: 'HR Office', w: 300, text, button: 'Understood' }));
+  game.push(new Dialog(game, { title: 'HR Office', w: 300, text, button: 'Understood', onClose }));
 }
 
 // ------------------------------------------------------------------ elevator
 export class ElevatorPanel extends Modal {
-  constructor(game, { onPromote, onTravel }) {
-    super(game, { w: 320, h: 208, title: 'Elevator' });
+  /** onArchive: the A button down to the archive, shown only while the archive challenge's folder is down there. */
+  constructor(game, { onPromote, onTravel, onArchive = null }) {
+    const archive = !!onArchive && archiveOpen(game.state);
+    super(game, { w: 320, h: archive ? 226 : 208, title: 'Elevator' });
     this.onPromote = onPromote;
     this.onTravel = onTravel;
+    this.onArchive = archive ? onArchive : null;
   }
   build() {
     const s = this.game.state;
@@ -279,6 +284,15 @@ export class ElevatorPanel extends Modal {
           this.game.pop();
           if (here) this.game.toast(`You are already on floor ${fl}.`, C.dim);
           else this.onTravel(fl);
+        },
+      });
+    }
+    if (this.onArchive) {
+      b.add({
+        x: gx, y: this.y + 202, w: cols * (bw + 2) - 2, h: 14, label: 'A · Archive: fetch the lost folder', icon: 'folder', color: '#5a4a7a',
+        onClick: () => {
+          this.game.pop();
+          this.onArchive();
         },
       });
     }

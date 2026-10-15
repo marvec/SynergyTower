@@ -132,7 +132,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
   coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, vacation_start, vacation_activity {game, stars}, vacation_end {coffee, activities, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
-  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, night_start, night_end {sp, tasks, early}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
+  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, night_start, night_end {sp, tasks, early}, archive_start, archive_enter, archive_end {result: found|timeout|gave_up, left}, archive_handin {stars, levels, sp}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
   c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing. The apps send Umami events too, tagged `app-ios`/`app-android`.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
@@ -218,6 +218,20 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   "Go home early"; time up ends it once the floor is on top again; both lead to a new daytime `FloorScene` with a
   summary card (`nightSummary`). Not during a hold, trip or holiday, or before check-in. The title's Continue ends an
   expired shift (or one saved on another floor) with a toast.
+- **Archive challenge** (`src/core/archive.js`, `state.archive = { done, task }`, text in `src/data/archive.js`, settings in
+  `ARCHIVE`; `ambient: null` = the night shift's): on floors 3, 13, 23 and 33 (your highest, not promotion-ready, not asked there before, no hold/trip/holiday/night) HR's usual
+  "not promotion-ready" note (`hrNotice`, then `FloorScene.hrDesk`) is followed by an offer to fetch a lost folder.
+  Accepted, the `ElevatorPanel` shows an "A" button (`onArchive`, only while `archiveOpen`); `ElevatorRide` to floor 0 is
+  `ArchiveScene` (`src/scenes/archive.js`, a FloorScene subclass on the 40x28 `buildArchive()`: one room, rows of tall
+  `archivecab` cabinets that block light, the elevator at its usual spot). Lit by `darkLighting` (nightLights.js, the
+  night shift's code) with `ARCHIVE.ambient`, optional fog (`ARCHIVE.fog`). The folder's drawer is picked on accepting,
+  at least `minFolderDist` of the longest side from the elevator. Searching a drawer takes `searchS` standing still
+  (`it.opened` bakes the open sprite, a tick is drawn over the dark). The 5:00 clock (`timeLimitS`) is scene time (pauses with the
+  game, not wall-clock); time up or giving up at the elevator drops the task; HR asks once per floor (`asked`, set when the offer is shown, so
+  declining or failing is final); leaving with the folder
+  keeps it (`task.folder`, a HUD badge) until HR on that floor takes it (`handInFolder`: exactly the missing stars,
+  levels, paperclips, then the review as usual; `done[floor]` for good). A save made in the archive (`task.inside`)
+  fails on Continue (`resumeArchive`). The night shift and archive clocks share `FloorScene.drawClockPanel`.
 - **Office conduct** (`src/core/conduct.js`, `state.conduct`, text in `src/data/conduct.js`): on every tower floor one
   colleague (`CD.chatSeed`, never `fl.npcs[0]`; `FloorScene.chatNpc`, kept out of the stand-up pool) opens a `ChatCard`
   (overlays.js: Small talk / Ask for a drink / Bye, HR notes) instead of a bubble. Every ask is a strike (a colleague's
@@ -254,6 +268,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   offer on the nearest night floor at or below your highest one, or straight into the dark office.
 - `__light()` / `__light('levels', 6)` / `__light('mode', 'tile')` / `__light('fog', true)` / `__light('flash')`: the night
   lighting's settings; the backslash key cycles its view (final, unlit, the light buffer alone).
+- `__archive()` / `__archive(23)` / `__archive('down')` / `__archive(13, 'down')`: HR's archive offer again (forgets that
+  floor's offer; off an archive floor it goes to the next one up and makes it your highest), or straight down to A.
 - `__conduct()` / `__conduct(4)` / `__conduct('hold')`: the coffee break chat on this floor with a clean record, one ask away
   from the hold, or straight into the compliance hold.
 - `__vacation()`: floor 20 with the leave request open, free (no paperclips) and repeatable (resets today's holiday);

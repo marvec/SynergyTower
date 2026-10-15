@@ -98,6 +98,14 @@ export class TitleScene {
       const { ExteriorScene } = await import('./exterior.js');
       return this.game.set(new ExteriorScene(this.game));
     }
+    // Saved in the basement archive mid-search: that run counts as failed (its clock is not saved), back upstairs.
+    if (s.archive?.task?.inside) {
+      const A = await import('../core/archive.js');
+      A.resumeArchive(s);
+      this.game.saveNow();
+      this.game.set(new FloorScene(this.game, s.floor));
+      return this.game.toast('You lost track of time in the archive. The folder search is off for good.', C.warn);
+    }
     // A business trip under way: back to the client's office while its clock runs, else the visit is over.
     if (s.trip) {
       const T = await import('../core/trip.js');

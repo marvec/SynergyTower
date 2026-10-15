@@ -105,6 +105,8 @@ const ICONS = {
   book: { map: 'kkkkkk.|kbbbbkk|kbwwbkk|kbbbbkk|kbwwbkk|kbbbbkk|kkkkkk.', pal: { b: '#8ab4ff', w: '#e8e8f0' } },
   medal: { map: '.rr.bb.|..rbb..|..kkk..|.kyyyk.|.kywyk.|.kyyyk.|..kkk..', pal: { r: '#e2504a', b: '#2a6ad1', y: '#f2c14e', w: '#fff6c8' } },
   menu: { map: '.......|kkkkkkk|.......|kkkkkkk|.......|kkkkkkk|.......', pal: {} },
+  // The archive challenge's lost employee folder (core/archive.js).
+  folder: { map: 'kkk....|kyykkkk|kyyyyyk|kwwwwwk|kyyyyyk|kyyyyyk|kkkkkkk', pal: { y: '#e8c46a', w: '#fff6c8' } },
 };
 const iconCache = new Map();
 

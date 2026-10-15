@@ -72,7 +72,7 @@ export class Hud {
     rect(g, 7, 7, 7, 7, corp.light);
     rect(g, 9, 9, 3, 3, corp.dark);
     drawText(g, s.corp.name.slice(0, 18), 22, 3, { color: C.gold });
-    drawText(g, `F${s.floor} · ${titleForFloor(s.maxFloor)}`, 22, 12, { color: C.dim });
+    drawText(g, `${this.floorLabel || `F${s.floor}`} · ${titleForFloor(s.maxFloor)}`, 22, 12, { color: C.dim }); // floorLabel: the archive
 
     // Right, laid out right to left. Row 1: paperclips, KPI stars, level, Stock Options.
     // Row 2: games played, coffee, coffee timer. Every stat is clickable (see StatsDialog).

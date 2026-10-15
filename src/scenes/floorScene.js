@@ -38,6 +38,8 @@ import * as L from '../core/vacation.js'; // leave
 import { BOSS_TEASERS, BOSS_AFTER, VACATION_OFFER } from '../data/vacation.js';
 import { isTouch } from '../engine/platform.js';
 import * as CD from '../core/conduct.js';
+import * as A from '../core/archive.js';
+import { ARCHIVE_OFFER, ARCHIVE_WAITING, HANDIN_TITLE, HANDIN_TEXT } from '../data/archive.js';
 import { fireCareer, FiredScene } from './fired.js';
 import { nightLighting, drawNight } from './nightLights.js';
 import * as N from '../core/nightShift.js';
@@ -403,7 +405,7 @@ export class FloorScene {
     } else if (t.kind === 'elevator') {
       game.sfx('ding');
       if (night) return this.askGoHome();
-      game.push(new ElevatorPanel(game, { onPromote: () => this.promote(), onTravel: (f) => this.travel(f) }));
+      game.push(new ElevatorPanel(game, { onPromote: () => this.promote(), onTravel: (f) => this.travel(f), onArchive: () => this.goToArchive() }));
     } else if (t.kind === 'hr') {
       const r = S.reviewStatus(s, game.now());
       game.sfx('click');
@@ -413,13 +415,9 @@ export class FloorScene {
       } else if (hold) {
         this.hrRep?.say('Sit down. This will not take long. Well, it might.', 3);
         game.push(new Dialog(game, { title: 'HR Office · Compliance hold', w: 320, text: HOLD_INTRO(s.maxFloor), button: 'Later', action: { label: 'Start the training', color: C.goodBtn, onClick: () => this.startCompliance() } }));
-      } else if (['available', 'cooldown', 'coffee'].includes(r.state)) {
-        this.hrRep?.say('Have a seat. Let us talk about your growth.', 2.5);
-        game.push(new ReviewCard(game, () => this.startReview()));
-      } else {
-        this.hrRep?.say(r.state === 'passed' ? 'Congratulations again!' : 'Do you have an appointment?', 2.5);
-        hrNotice(game, r.state);
-      }
+      } else if (A.archiveTask(s)?.folder && A.archiveTask(s).floor === this.floorNo) {
+        this.handInFolder();
+      } else this.hrDesk(r.state);
     } else if (t.kind === 'terminal') {
       game.sfx('click');
       game.push(new TerminalScene(game, { floor: this.floorNo, ws: it.id, onWarp: (f) => this.warp(f) }));
@@ -442,6 +440,80 @@ export class FloorScene {
         game.toast(`The machine is brewing... ready in ${formatTime(r.left)}`, C.dim);
       }
     }
+  }
+
+  /**
+   * The HR desk as usual: the review when the player is ready, otherwise the note on what is missing. On floors 3, 13, 23
+   * and 33 that note is followed by the archive challenge (core/archive.js), or by a reminder while it is under way.
+   */
+  hrDesk(state) {
+    const game = this.game;
+    const s = game.state;
+    if (['available', 'cooldown', 'coffee'].includes(state)) {
+      this.hrRep?.say('Have a seat. Let us talk about your growth.', 2.5);
+      return game.push(new ReviewCard(game, () => this.startReview()));
+    }
+    this.hrRep?.say(state === 'passed' ? 'Congratulations again!' : 'Do you have an appointment?', 2.5);
+    let onClose = null;
+    if (state === 'notReady' && A.archiveOffer(s, this.floorNo)) onClose = () => this.offerArchive();
+    else if (state === 'notReady' && A.archiveOpen(s)) onClose = () => this.hrRep?.say(this.rng.pick(ARCHIVE_WAITING), 3.5);
+    hrNotice(game, state, onClose);
+  }
+
+  /** HR's favour: the lost folder in the archive, for a promotion-ready stamp. */
+  offerArchive() {
+    const game = this.game;
+    if (!A.archiveOffer(game.state, this.floorNo)) return;
+    A.markAsked(game.state, this.floorNo); // asked once per floor: declined, failed or done, it does not come back
+    game.markDirty();
+    this.hrRep?.say('Psst. One more thing...', 2.5);
+    game.push(
+      new Dialog(game, {
+        title: 'HR Office · A favour',
+        w: 320,
+        text: ARCHIVE_OFFER(A.ARCHIVE.timeLimitS),
+        button: 'No, thanks',
+        action: { label: 'Fetch the folder', onClick: () => this.acceptArchive() },
+      }),
+    );
+  }
+
+  acceptArchive() {
+    const game = this.game;
+    if (!A.acceptArchive(game.state, this.floorNo).ok) return;
+    track('archive_start', { floor: this.floorNo });
+    game.saveNow();
+    game.sfx('good');
+    this.hrRep?.say('The elevator, button A. Good luck down there.', 3.5);
+    game.toast('Take the elevator to A, the archive. The clock starts when you get there.', C.gold);
+  }
+
+  /** Down to the archive (the elevator's A button, while the task is on). */
+  async goToArchive() {
+    const game = this.game;
+    if (!A.archiveOpen(game.state)) return;
+    game.markDirty();
+    const { ElevatorRide } = await import('./elevatorRide.js');
+    game.set(new ElevatorRide(game, this.floorNo, 0));
+  }
+
+  /** The folder handed in: HR grants exactly what the promotion still lacks, then the review as usual. */
+  handInFolder() {
+    const game = this.game;
+    const s = game.state;
+    const r = A.handInFolder(s, this.floorNo);
+    if (!r.ok) return;
+    const st = S.promotionStatus(s);
+    const g = r.granted;
+    const lines = [];
+    if (g.stars) lines.push(`- KPI stars on this floor: +${g.stars} (${st.stars}/${st.quota})`);
+    if (g.levels) lines.push(`- Seniority level: +${g.levels} (Lv${st.level})`);
+    if (g.sp) lines.push(`- Keycard fee: +${formatNum(g.sp)} paperclips`);
+    track('archive_handin', { floor: this.floorNo, stars: g.stars, levels: g.levels, sp: g.sp });
+    game.saveNow();
+    game.sfx('levelup');
+    this.hrRep?.say('There it is! Legal will be thrilled.', 3);
+    game.push(new Dialog(game, { title: HANDIN_TITLE, w: 320, text: HANDIN_TEXT(lines), button: 'Continue', onClose: () => this.hrDesk(S.reviewStatus(s, game.now()).state) }));
   }
 
   /** The floor's coffee machine (a client's brewer refills sooner, see clientOffice.js; so does the night machine). */
@@ -1238,10 +1310,7 @@ export class FloorScene {
     this.view.desk = this.hasDesk ? K.myDesk(s) : null;
     const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : []), ...(this.receptionist ? [this.receptionist] : []), ...(this.event?.actors || [])];
     this.view.render(g, this.cam, [...actors, ...(this.quest?.props || [])]);
-    if (this.night) {
-      this.lighting ||= nightLighting(this.fl, this.floorNo);
-      drawNight(g, this.lighting, { fade: this.nightFade, cam: { x: Math.round(this.cam.x), y: Math.round(this.cam.y) }, player: this.player, t: this.time });
-    }
+    this.drawDark(g);
 
     g.save();
     g.translate(-Math.round(this.cam.x), -Math.round(this.cam.y));
@@ -1257,10 +1326,60 @@ export class FloorScene {
     this.drawPrompt(g, s, now);
     this.hud.render(g);
     if (CD.onHold(s)) this.drawHoldStrip(g);
-    if (this.night) this.drawNightClock(g, s, now);
+    // Timers under the HUD, top right; the archive's folder below them while it is carried.
+    let panelY = HUD_H + 3;
+    if (this.drawTimer(g, panelY)) panelY += 18;
+    if (A.carryingFolder(s)) this.drawFolderBadge(g, panelY);
     this.quest?.renderHud(g);
     this.event?.renderHud(g);
     if (this.banner > 0) this.drawBanner(g);
+  }
+
+  /** The night shift's darkness (the archive has its own, scenes/archive.js). */
+  drawDark(g) {
+    if (!this.night) return;
+    this.lighting ||= nightLighting(this.fl, this.floorNo);
+    drawNight(g, this.lighting, { fade: this.nightFade, cam: { x: Math.round(this.cam.x), y: Math.round(this.cam.y) }, player: this.player, t: this.time });
+  }
+
+  /** A clock panel under the HUD at y (the night shift's; the archive draws its own). True if one was drawn. */
+  drawTimer(g, y) {
+    if (!this.night) return false;
+    const s = this.game.state;
+    this.drawClockPanel(g, y, {
+      name: 'NIGHT SHIFT', color: '#9fb4ff', left: N.nightLeft(s, this.game.now()), total: E.NIGHT_SHIFT_S * 1000,
+      info: `${s.nightShift?.tasks || 0} done`, infoColor: C.dim,
+    });
+    return true;
+  }
+
+  /**
+   * A timer panel under the HUD (top right; toasts take the middle): a name, the time left and a short note, with a bar
+   * running down. `low` (default: under a minute) turns it red and blinking.
+   */
+  drawClockPanel(g, y, { name, color, left, total, info, infoColor, low = left < 60000 }) {
+    const t = formatTime(left);
+    const w = measureText(name) + measureText(t) + measureText(info) + 36;
+    const x = W - w - 4;
+    panel(g, x, y, w, 15, { fill: C.panelDark });
+    drawText(g, name, x + 6, y + 4, { color });
+    let cx = x + 10 + measureText(name);
+    icon(g, 'clock', cx, y + 4);
+    cx += 10;
+    if (!low || Math.floor(this.time * 3) % 2) drawText(g, t, cx, y + 4, { color: low ? C.bad : C.text });
+    cx += measureText(t) + 6;
+    drawText(g, info, cx, y + 4, { color: infoColor });
+    rect(g, x + 1, y + 13, Math.round((w - 2) * Math.min(1, left / total)), 1, low ? C.bad : color);
+  }
+
+  /** The archive's lost folder, carried until HR takes it (core/archive.js). */
+  drawFolderBadge(g, y) {
+    const text = 'LOST FOLDER';
+    const w = measureText(text) + 22;
+    const x = W - w - 4;
+    panel(g, x, y, w, 15, { fill: C.panelDark });
+    icon(g, 'folder', x + 5, y + 4);
+    drawText(g, text, x + 16, y + 4, { color: '#e8c46a' });
   }
 
   drawFocus(g, it) {
@@ -1379,27 +1498,6 @@ export class FloorScene {
     rect(g, x, y, w, 9, '#1a1a1a');
     for (const ex of [x, x + w - 5]) for (let i = 0; i < 5; i += 2) rect(g, ex + i, y, 1, 9, '#f2c230');
     drawText(g, text, cx, y + 1, { align: 'center', color: '#f2c230' });
-  }
-
-  /** The night shift's clock under the HUD (top right): time left, tasks done, a bar running down. */
-  drawNightClock(g, s, now) {
-    const left = N.nightLeft(s, now);
-    const t = formatTime(left);
-    const done = `${s.nightShift?.tasks || 0} done`;
-    const name = 'NIGHT SHIFT';
-    const w = measureText(name) + measureText(t) + measureText(done) + 36;
-    const x = W - w - 4; // right-aligned: toasts take the middle
-    const y = HUD_H + 3;
-    const low = left < 60000;
-    panel(g, x, y, w, 15, { fill: C.panelDark });
-    drawText(g, name, x + 6, y + 4, { color: '#9fb4ff' });
-    let cx = x + 10 + measureText(name);
-    icon(g, 'clock', cx, y + 4);
-    cx += 10;
-    if (!low || Math.floor(this.time * 3) % 2) drawText(g, t, cx, y + 4, { color: low ? C.bad : C.text });
-    cx += measureText(t) + 6;
-    drawText(g, done, cx, y + 4, { color: C.dim });
-    rect(g, x + 1, y + 13, Math.round((w - 2) * Math.min(1, left / (E.NIGHT_SHIFT_S * 1000))), 1, low ? C.bad : '#9fb4ff');
   }
 
   /** A blue speech bubble over the colleague with today's stand-up favour. */

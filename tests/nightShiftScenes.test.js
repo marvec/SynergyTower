@@ -261,8 +261,8 @@ test('the dark floor plays the night track, draws the clock and tapes off the qu
   const orig = fs.drawHoldTape.bind(fs);
   fs.drawHoldTape = (gg, cx, top, text) => (texts.push(text), orig(gg, cx, top, text));
   let clock = 0;
-  const oc = fs.drawNightClock.bind(fs);
-  fs.drawNightClock = (...a) => (clock++, oc(...a));
+  const oc = fs.drawClockPanel.bind(fs);
+  fs.drawClockPanel = (gg, y, o) => (clock += o.name === 'NIGHT SHIFT', oc(gg, y, o));
   fs.cam.x = 0;
   fs.cam.y = 0;
   fs.render(g2);

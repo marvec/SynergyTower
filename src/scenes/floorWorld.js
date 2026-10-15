@@ -273,7 +273,7 @@ export class FloorView {
           openAbove: !this.isWall(x, y - 1),
           openLeft: !this.isWall(x - 1, y),
           openRight: !this.isWall(x + 1, y),
-          window: y === 0 && x > 0 && x < fl.w - 1,
+          window: !fl.noWindows && y === 0 && x > 0 && x < fl.w - 1, // no windows in the basement archive
           tx: x,
         });
       }
@@ -287,7 +287,9 @@ export class FloorView {
       const open = it.type === 'turnstile' ? bakeFurniture('turnstileopen', it.w, it.h, this.kit) : null;
       // Your desk also bakes its tidy look; `desk` (set by the floor scene once it is yours) picks it.
       const mine = it === fl.myDesk ? bakeFurniture('mydesk', it.w, it.h, this.kit) : null;
-      return { it, baked, open, mine, solid: it.solid, lift: furnitureDef(it.type)?.lift || 0 };
+      // Archive cabinets also bake their searched look; `it.opened` (set by the archive scene) picks it.
+      const opened = it.type === 'archivecab' ? bakeFurniture('archivecabopen', it.w, it.h, this.kit) : null;
+      return { it, baked, open, mine, opened, solid: it.solid, lift: furnitureDef(it.type)?.lift || 0 };
     });
     this.gateOpen = false;
     this.desk = null; // { owned, show } of your desk on this floor, or null while it is not yours
@@ -355,7 +357,7 @@ export class FloorView {
   drawItem(g, s) {
     const { it } = s;
     const mine = s.mine && this.desk;
-    const baked = mine ? s.mine : this.gateOpen && s.open ? s.open : s.baked;
+    const baked = mine ? s.mine : this.gateOpen && s.open ? s.open : it.opened && s.opened ? s.opened : s.baked;
     if (!baked) return;
     const x = it.x * TILE + baked.ox;
     const y = it.y * TILE + baked.oy;

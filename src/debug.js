@@ -4,6 +4,8 @@ import * as V from './core/vacation.js';
 import * as E from './core/economy.js';
 import * as CD from './core/conduct.js';
 import * as N from './core/nightShift.js';
+import * as AR from './core/archive.js';
+import * as S from './core/state.js';
 import { MinigameScene } from './scenes/minigameScene.js';
 import { LIGHTING, VIEWS } from './engine/lighting.js';
 
@@ -91,6 +93,51 @@ export function installDebug(game) {
     if (mode === 'dark') return `floor ${floor}: night shift (${N.nightStatus(s, floor, game.now())})`;
     if (fs.nightBoss) fs.askNight(fs.nightBoss);
     return `floor ${floor}: night shift offer`;
+  };
+
+  /**
+   * Debug: the archive challenge (core/archive.js), as often as you like. HR offers it only on your highest floor, so
+   * like __night() this goes to an archive floor first: __archive() stays on this floor if it is one (and your highest),
+   * otherwise it takes the next one up (3, 13, 23, 33) and makes it your highest; __archive(23) picks one. The floor's
+   * offer is forgotten and HR makes it. __archive('down') / __archive(13, 'down') skips HR and rides straight down to A.
+   */
+  window.__archive = async (a1, a2) => {
+    const s = game.state;
+    if (!s) return 'no career loaded';
+    const floors = AR.ARCHIVE.floors;
+    const here = floors.includes(s.floor) && s.floor === s.maxFloor ? s.floor : null;
+    const floor = typeof a1 === 'number' ? a1 : here ?? (floors.find((f) => f >= s.maxFloor) || floors.at(-1));
+    const mode = typeof a1 === 'string' ? a1 : a2;
+    if (!floors.includes(floor)) return `the archive offer is on floors ${floors.join(', ')}: try __archive(${floors[0]})`;
+    s.maxFloor = Math.max(s.maxFloor, floor);
+    s.floor = floor;
+    const a = AR.archive(s);
+    a.task = null;
+    a.done = { ...a.done, [floor]: false };
+    a.asked = { ...a.asked, [floor]: false };
+    game.saveNow();
+    const { FloorScene } = await import('./scenes/floorScene.js');
+    const fs = new FloorScene(game, floor);
+    game.set(fs);
+    if (mode === 'down') {
+      const far = AR.folderDrawers(AR.buildArchive());
+      a.task = { floor, drawer: far[Math.floor(Math.random() * far.length)].id, inside: false, found: false, folder: false };
+      fs.goToArchive();
+      return `floor ${floor}: down to the archive (the folder is in drawer ${a.task.drawer})`;
+    }
+    if (!AR.archiveOffer(s, floor)) return `floor ${floor}: no offer, ${archiveBlock(s, floor)}`;
+    fs.hrDesk('notReady');
+    return `floor ${floor}: HR's archive offer`;
+  };
+
+  /** Why HR would not offer the archive task (for __archive): the first rule that says no. */
+  const archiveBlock = (s, floor) => {
+    if (floor !== s.maxFloor) return `floor ${s.maxFloor} is your highest`;
+    if (S.promotionStatus(s).ready) return 'you are promotion-ready already';
+    if (CD.onHold(s)) return 'compliance hold';
+    if (s.lobby !== 'done') return 'not checked in yet';
+    if (s.trip || s.vacation || s.nightShift) return 'a trip, holiday or night shift is under way';
+    return 'see archiveOffer in core/archive.js';
   };
 
   /**
