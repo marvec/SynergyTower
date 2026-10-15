@@ -1,6 +1,7 @@
 // Photo Booth (Christmas party): four shots. Each shows a pose card and counts down; hold that pose's arrow when the
-// flash fires (or tap its pad before it). A pose counts only if struck after its card showed, so holding one arrow
-// throughout is a stiff photo every time. The strip of four photos is the result.
+// flash fires (or tap its pad before it). A pose counts only if struck after the previous shot (an eager press during
+// the flash counts for the next card), so holding one arrow throughout is a stiff photo every time. The strip of four
+// photos is the result.
 import { W, H, rect, drawText, header, timerBar, Floaters, Countdown, byDiff, finish } from '../engine/mgkit.js';
 import { isTouch } from '../engine/platform.js';
 
@@ -9,6 +10,8 @@ const POSES = ['Wave left', 'Crouch', 'Hands up', 'Wave right'];
 const SHOTS = 4;
 const PAD = { y: 228, w: 96, h: 26, x0: 36, gap: 8 };
 const padX = (i) => PAD.x0 + i * (PAD.w + PAD.gap);
+/** The line over the pads: what to do, with keys or by touch. */
+export const HINT = { keys: 'Press the arrow once the card shows', touch: 'Tap the pose once the card shows' };
 
 /** A 20x34 figure striking pose p (-1 = standing), at x, y (feet). */
 function figure(g, x, y, p) {
@@ -42,7 +45,7 @@ export default {
     let phase = 'count';
     let tap = -1;
     let good = 0;
-    const struck = new Set(); // the poses struck (arrow pressed, pad tapped) since this card showed
+    const struck = new Set(); // the poses struck (arrow pressed, pad tapped) since the last shot fired
     const holding = (input) => {
       const k = KEYS.findIndex((key) => input.down(key));
       return k >= 0 ? k : tap;
@@ -51,7 +54,7 @@ export default {
     const inst = {
       done: false,
       score: 0,
-      peek: () => ({ pose: poses[Math.min(shot, SHOTS - 1)], phase, left: wait - t }),
+      peek: () => ({ pose: poses[Math.min(shot, SHOTS - 1)], next: poses[shot + 1] ?? null, phase, left: wait - t, flashT: phase === 'flash' ? t : 0 }),
       update(dt, input) {
         inst._input = input;
         fl.update(dt);
@@ -60,9 +63,9 @@ export default {
         t += dt;
         if (input.pointer.clicked && input.pointer.y >= PAD.y) {
           const i = [0, 1, 2, 3].find((k) => input.pointer.x >= padX(k) && input.pointer.x < padX(k) + PAD.w);
-          if (i != null) (tap = i), phase === 'count' && struck.add(i);
+          if (i != null) (tap = i), struck.add(i);
         }
-        if (phase === 'count') KEYS.forEach((k, i) => input.pressed(k) && struck.add(i));
+        KEYS.forEach((k, i) => input.pressed(k) && struck.add(i));
         if (phase === 'count' && t >= wait) {
           const pose = holding(input);
           const stiff = pose === poses[shot] && !struck.has(pose);
@@ -74,12 +77,11 @@ export default {
           phase = 'flash';
           t = 0;
           tap = -1;
+          struck.clear(); // from now on, presses are for the next card
         } else if (phase === 'flash' && t >= 1) {
           shot++;
           t = 0;
           phase = 'count';
-          tap = -1;
-          struck.clear();
           if (shot >= SHOTS) return finish(inst, good / SHOTS);
         }
       },
@@ -108,7 +110,7 @@ export default {
           rect(g, padX(i), PAD.y, PAD.w, PAD.h, tap === i ? '#f2e14e' : '#3a2a4a');
           drawText(g, POSES[i], padX(i) + PAD.w / 2, PAD.y + 9, { align: 'center', color: tap === i ? '#1a1a22' : '#f4f1e8' });
         }
-        drawText(g, isTouch() ? 'Tap the pose before the flash' : 'Hold the arrow key for the pose', W / 2, 218, { align: 'center', color: '#c8b8a8' });
+        drawText(g, isTouch() ? HINT.touch : HINT.keys, W / 2, 218, { align: 'center', color: '#c8b8a8' });
         header(g, theme?.title || 'Photo Booth', `Shot ${Math.min(shot + 1, SHOTS)}/${SHOTS}`);
         timerBar(g, total.left, total.total);
         fl.render(g);

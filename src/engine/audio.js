@@ -172,7 +172,8 @@ export function createAudio() {
         if (song.once) {
           const after = current.after;
           current = null;
-          if (after) setTimeout(() => api.play(after), 300);
+          // On to `after`, unless another song was asked for in the meantime (it set `wanted` and plays already).
+          if (after) setTimeout(() => !current && wanted?.name === after && api.play(after), 300);
           return;
         }
         current.step = 0;
@@ -264,12 +265,11 @@ export function createAudio() {
     play(name, after = null, { restart = false, from = 0 } = {}) {
       const song = SONGS[name];
       if (!song) return;
+      // `wanted`: the song to play once the music can (unlock): this one, or after a one-shot the song that follows it
+      // (none given: the one asked for before), on every path below.
       if (!song.once) wanted = { name };
-      else wanted = after ? { name: after } : wanted;
-      if (!ctx) {
-        if (song.once && after) wanted = { name: after };
-        return;
-      }
+      else if (after) wanted = { name: after };
+      if (!ctx) return;
       if (current && current.name === name && !song.once && !restart) return;
       const compiled = (compiledCache[name] ||= compileSong(song));
       const stepDur = 60 / song.bpm / 4;
@@ -291,6 +291,10 @@ export function createAudio() {
     },
     get current() {
       return current?.name || null;
+    },
+    /** The song to play once the music can: the one asked for, or the one after a one-shot. */
+    get wanted() {
+      return wanted?.name || null;
     },
     /** Where the scheduler stands: the song, its next step and the seconds until that step sounds (null: silence). */
     get position() {

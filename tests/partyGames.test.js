@@ -84,6 +84,29 @@ test('Photo Booth: striking each pose is 3 stars; idle, mashing or holding one a
   }
 });
 
+const { HINT: BOOTH_HINT } = await import('../src/minigames/photobooth.js');
+
+test('Photo Booth: the on-screen hint asks for a press once the card shows, on keys and on touch', () => {
+  for (const hint of [BOOTH_HINT.keys, BOOTH_HINT.touch]) {
+    expect(hint).not.toMatch(/^Hold/);
+    expect(hint).toMatch(/card/);
+    expect(hint.length * 5).toBeLessThanOrEqual(230); // fits over the pads
+  }
+  expect(BOOTH_HINT.keys).toMatch(/[Pp]ress/);
+  expect(BOOTH_HINT.touch).toMatch(/[Tt]ap/);
+});
+
+test('Photo Booth: an eager press of the next pose during the flash counts for that card', () => {
+  for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
+    // Lets go as the flash fires, then strikes the next pose before its card shows (and holds it through the countdown).
+    const eager = (p) => {
+      if (p.phase === 'count') return { hold: [KEYS[p.pose]] };
+      return { hold: p.next != null && p.flashT > 0.3 ? [KEYS[p.next]] : [] };
+    };
+    expect(play('photobooth', eager, seed), `seed ${seed}`).toBeGreaterThanOrEqual(0.85);
+  }
+});
+
 test('the buffet serves Christmas dishes at the party, the hotel\'s anywhere else', () => {
   const xmas = dishesFor({ dept: 'party' }).map((d) => d.name);
   expect(xmas).toContain('Turkey');

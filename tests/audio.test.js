@@ -144,3 +144,44 @@ test('play keeps a song that is already playing, unless asked to restart it (fro
   audio.play('fanfare', 'xmasparty', { from: jingle + 1 }); // a one-shot past its end: straight on to the song after it
   expect(audio.position).toMatchObject({ name: 'xmasparty', step: 0 });
 });
+
+test('wanted (the song to play once the music can) is the song after a one-shot, on every path play takes', () => {
+  const steps = compileSong(SONGS.fanfare).steps;
+  const past = steps * (60 / SONGS.fanfare.bpm / 4) + 1;
+  // Before the first gesture (no AudioContext yet): the song after the jingle, or the one before it.
+  const quiet = createAudio();
+  quiet.play('office');
+  expect(quiet.wanted).toBe('office');
+  quiet.play('fanfare');
+  expect(quiet.wanted).toBe('office');
+  quiet.play('fanfare', 'xmasparty');
+  expect(quiet.wanted).toBe('xmasparty');
+  // Playing: the same, whether the jingle plays or is already over (`from` past its end).
+  for (const from of [0, past]) {
+    const { audio } = fakeAudio();
+    audio.play('office');
+    audio.play('fanfare', null, { from });
+    expect(audio.wanted).toBe('office');
+    audio.play('fanfare', 'xmasparty', { from });
+    expect(audio.wanted).toBe('xmasparty');
+    expect(audio.current).toBe(from ? 'xmasparty' : 'fanfare');
+  }
+});
+
+test('a song asked for while a one-shot ends is not overridden by the one-shot\'s `after`', () => {
+  const { audio, run } = fakeAudio();
+  const timeouts = [];
+  const saved = globalThis.setTimeout;
+  globalThis.setTimeout = (fn) => (timeouts.push(fn), 0);
+  try {
+    audio.play('fanfare', 'xmasparty');
+    run(compileSong(SONGS.fanfare).steps * (60 / SONGS.fanfare.bpm / 4) + 1); // the jingle is over: `after` follows soon
+    expect(audio.current).toBe(null);
+    audio.play('office'); // meanwhile the scene asks for its song
+    for (const fn of timeouts) fn();
+    expect(audio.current).toBe('office');
+    expect(audio.wanted).toBe('office');
+  } finally {
+    globalThis.setTimeout = saved;
+  }
+});
