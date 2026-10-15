@@ -29,6 +29,8 @@ const ordinal = (n) => {
 
 /** A decoration by id: a catalogue item or a floor trophy ('trophy-<floor>'); null if unknown. */
 export function decorItem(id) {
+  const xm = /^xmas-(\d{4})$/.exec(id);
+  if (xm) return { id, name: `Christmas tree ${xm[1]}`, slot: 'left', cost: 0, needs: 'party', year: +xm[1] };
   const m = /^trophy-(\d+)$/.exec(id);
   if (m) {
     const floor = +m[1];
@@ -48,8 +50,8 @@ export function deskOffer(floor) {
   return [...open.filter((d) => picked.has(d)), decorItem(trophyId(floor))];
 }
 
-/** A trophy is earned: it needs its floor's KPI star quota. */
-export const decorUnlocked = (s, d) => d.needs !== 'quota' || (s.starsByFloor[d.floor] || 0) >= E.starQuota(d.floor);
+/** A trophy is earned: it needs its floor's KPI star quota. A party gift is only ever a gift. */
+export const decorUnlocked = (s, d) => (d.needs === 'party' ? myDesk(s).owned.includes(d.id) : d.needs !== 'quota' || (s.starsByFloor[d.floor] || 0) >= E.starQuota(d.floor));
 
 export function buyDecor(s, floor, id) {
   const d = decorItem(id);

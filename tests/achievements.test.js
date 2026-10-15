@@ -14,7 +14,7 @@ const ids = (list) => list.map((b) => b.id);
 
 test('badges have unique ids, names and descriptions that fit the wall', () => {
   expect(new Set(ids(A.BADGES)).size).toBe(A.BADGES.length);
-  expect(A.BADGES.length).toBe(40);
+  expect(A.BADGES.length).toBe(43);
   for (const b of A.BADGES) {
     expect(b.name.length).toBeLessThanOrEqual(24);
     expect(b.desc.length).toBeLessThanOrEqual(56);

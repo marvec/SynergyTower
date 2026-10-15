@@ -938,7 +938,23 @@ export function drawDeskDecor(g, id, x, y, w) {
   const L = x + 1;
   const R = x + W - 9;
   const M = x + W / 2 - 6; // the monitor's left edge; its top is at y - 14
-  switch (id.startsWith('trophy-') ? 'trophy' : id) {
+  switch (id.startsWith('trophy-') ? 'trophy' : id.startsWith('xmas-') ? 'xmas' : id) {
+    case 'xmas': {
+      // The Secret Santa gift: a little tree in a pot, its baubles in the year's colours.
+      const year = +id.slice(5);
+      const [b1, b2] = [['#e2504a', '#f2c14e'], ['#5b8def', '#f4f1e8'], ['#f29cd0', '#5fd068'], ['#f2c14e', '#b15cff']][year % 4];
+      r(L + 2, y - 3, 5, 3, '#8a4a2a');
+      r(L + 1, y - 7, 7, 4, '#2f8a3a');
+      r(L + 2, y - 10, 5, 3, '#2f8a3a');
+      r(L + 3, y - 12, 3, 2, '#2f8a3a');
+      r(L + 4, y - 14, 1, 2, '#f2e14e');
+      r(L + 2, y - 6, 1, 1, b1);
+      r(L + 6, y - 5, 1, 1, b2);
+      r(L + 3, y - 9, 1, 1, b2);
+      r(L + 5, y - 8, 1, 1, b1);
+      r(L + 4, y - 11, 1, 1, b1);
+      break;
+    }
     case 'notes':
       r(M, y - 14, 3, 3, '#f2e14e');
       r(M + 9, y - 13, 3, 3, '#f29cd0');
