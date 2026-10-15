@@ -749,6 +749,232 @@ const FURNITURE = {
     p.r(11, 1, 2, 6, '#ffffff');
     p.r(6, 0, 2, 2, '#ffffff');
   } },
+  // ------------------------------------------------ the Christmas party hall (core/partyHall.js)
+  stage: { lift: 14, draw(p, w, h) {
+    const W = w * 16;
+    const D = (h || 2) * 16;
+    p.box(0, 0, W, D, 6, '#7a4a30', '#4a2c1c');
+    for (let y = -1; y < D - 6; y += 4) p.r(1, y, W - 2, 1, '#6a3e28'); // planks
+    p.r(W / 2 - 22, -4, 44, D - 8, '#a8242a'); // the red carpet
+    p.r(W / 2 - 22, -4, 44, 1, '#c8343a');
+    p.r(W / 2 - 22, D - 5, 44, 1, '#7a1a20');
+    p.r(W / 2 - 22, -4, 1, D - 8, '#f2c14e');
+    p.r(W / 2 + 21, -4, 1, D - 8, '#f2c14e');
+    for (let x = 6; x < W - 6; x += 10) { // footlights along the front edge
+      p.r(x, D - 5, 5, 2, '#f2e14e');
+      p.r(x + 1, D - 6, 3, 1, '#fff6c8');
+    }
+    for (const x of [1, W - 8]) { // drapes at the back corners
+      p.r(x, -14, 7, 16, '#8a1a22');
+      for (let i = 1; i < 7; i += 2) p.r(x + i, -13, 1, 15, '#a8242a');
+      p.r(x, 2, 7, 2, '#f2c14e');
+    }
+    p.r(0, -14, W, 2, '#f2c14e'); // gold valance
+    for (let x = 4; x < W - 4; x += 8) p.r(x, -12, 4, 2, '#d8343a');
+  } },
+  micstand: { lift: 18, draw(p) {
+    p.r(4, 11, 8, 2, 'rgba(0,0,0,0.25)');
+    p.r(4, 9, 8, 3, '#1a1a22'); // tripod foot
+    p.r(5, 10, 6, 1, '#4a4f5c');
+    p.r(7, -12, 2, 21, '#1a1a22'); // the pole
+    p.r(7, -12, 1, 21, '#4a4f5c');
+    p.r(5, -18, 6, 7, '#1a1a22'); // the microphone
+    p.r(6, -17, 4, 5, '#9aa1ad');
+    p.r(6, -17, 4, 1, '#d4d8de');
+    p.r(7, -16, 1, 3, '#6a707c');
+    p.r(6, -11, 4, 1, '#d8343a'); // a bit of tinsel
+    p.r(5, -10, 1, 2, '#f2c14e');
+    p.r(10, -10, 1, 2, '#2f8a3a');
+  } },
+  djbooth: { lift: 20, draw(p, w) {
+    const W = w * 16;
+    for (const x of [0, W - 9]) { // speaker stacks at both ends
+      p.r(x, -18, 9, 30, '#1a1a22');
+      p.r(x + 1, -17, 7, 28, '#2b2e38');
+      p.r(x + 3, -15, 3, 3, '#12121a');
+      p.r(x + 2, -9, 5, 5, '#12121a');
+      p.r(x + 3, -8, 3, 3, '#4a4f5c');
+      p.px(x + 4, -7, '#8a8f9c');
+    }
+    p.box(9, 2, W - 18, 14, 9, '#2a2238', '#1a1626');
+    for (let x = 12; x < W - 12; x += 3) p.r(x, 9, 2, 2, ['#e2504a', '#5fd068', '#5b8def', '#f2e14e'][((x - 12) / 3) % 4]); // LED strip
+    for (const x of [13, W - 29]) { // the turntables
+      p.r(x, -6, 16, 10, '#3a3a48');
+      p.r(x + 1, -5, 14, 8, '#4a4a5a');
+      p.r(x + 2, -5, 9, 8, '#12121a');
+      p.r(x + 4, -3, 5, 4, '#1a1a22');
+      p.r(x + 5, -2, 3, 2, '#e2504a');
+      p.r(x + 12, -4, 1, 6, '#c8ccd4'); // tonearm
+    }
+    p.r(W / 2 - 7, -6, 14, 10, '#2b2e38'); // the mixer
+    p.r(W / 2 - 6, -5, 12, 8, '#3a3a48');
+    for (let i = 0; i < 4; i++) p.r(W / 2 - 5 + i * 3, -4, 1, 4, '#12121a'), p.px(W / 2 - 5 + i * 3, -3 + (i % 3), '#f2f2f2');
+    p.px(W / 2 - 4, 1, '#5fd068');
+    p.px(W / 2 + 2, 1, '#e2504a');
+    p.r(W / 2 - 10, -9, 3, 3, '#e2504a'); // the headphones
+    p.r(W / 2 - 10, -8, 1, 1, '#12121a');
+  } },
+  partybar: { lift: 14, draw(p, w, h) {
+    const D = (h || 8) * 16;
+    p.box(0, 0, 16, D, 14, '#7a5236', '#4a301e');
+    for (let y = 8; y < D - 14; y += 10) p.r(2, y - 6, 4, 8, '#5a3a24'), p.r(2, y - 6, 4, 1, '#8a6246'); // panelling
+    p.r(1, -13, 3, D - 14, '#d9b25c'); // the brass rail
+    p.r(1, -13, 1, D - 14, '#f2dc8a');
+    p.r(12, -13, 3, D - 14, '#3a2418'); // the back shelf
+    for (let y = 2; y < D - 18; y += 16) {
+      const c = ['#c8e4f4', '#d8343a', '#2f8a3a', '#f2c14e'][((y - 2) >> 4) % 4];
+      p.r(5, y - 4, 3, 4, '#c8e4f4'); // a glass
+      p.r(5, y - 4, 3, 1, '#ffffff');
+      p.r(6, y, 1, 2, '#c8e4f4');
+      p.r(12, y - 9, 3, 9, '#1a1a22'); // a bottle
+      p.r(13, y - 8, 1, 7, c);
+      p.r(13, y - 12, 1, 3, '#1a1a22');
+      p.r(9, y + 4, 2, 4, '#f4f1e8'); // a napkin, folded
+    }
+    for (let y = 4; y < D - 18; y += 8) p.px(2, y - 9, y % 16 ? '#d8343a' : '#2f8a3a'); // tinsel on the rail
+  } },
+  punchbowl: { lift: 14, draw(p, w) {
+    const W = w * 16;
+    p.box(0, 3, W, 13, 8, '#f4f1e8', '#d8d2c4');
+    p.r(1, 12, W - 2, 2, '#d8343a'); // the cloth's hem
+    p.r(9, -4, 14, 6, '#1a1a22'); // the bowl
+    p.r(10, -3, 12, 5, '#c8e4f4');
+    p.r(10, -1, 12, 3, '#e2504a');
+    p.r(11, -1, 4, 1, '#ff8a80');
+    p.r(11, -4, 10, 1, '#ffffff');
+    p.r(13, -7, 2, 4, '#c8ccd4'); // the ladle
+    p.r(13, -8, 5, 1, '#c8ccd4');
+    for (const x of [3, 5]) p.r(x, -2, 2, 3, '#f4f1e8'), p.px(x, -2, '#d8343a'); // cups
+    p.r(25, -2, 3, 3, '#2f8a3a'); // holly
+    p.px(26, -3, '#d8343a');
+    p.px(27, -3, '#d8343a');
+  } },
+  xmastree: { lift: 46, draw(p, w, h) {
+    const W = w * 16;
+    const cx = W / 2;
+    const D = (h || 2) * 16;
+    p.r(cx - 20, D - 6, 40, 4, 'rgba(0,0,0,0.22)');
+    p.r(cx - 3, D - 18, 6, 8, '#4a2c1c'); // trunk
+    const tiers = [[-42, -25, 2, 11], [-30, -8, 4, 16], [-14, 12, 6, 22]];
+    for (const [y0, y1, a, b] of tiers) {
+      for (let y = y0; y < y1; y++) {
+        const hw = Math.round(a + ((b - a) * (y - y0)) / (y1 - y0));
+        p.r(cx - hw, y, hw * 2, 1, '#1f6e2c');
+        p.r(cx - hw, y, hw, 1, '#2f8a3a');
+        p.r(cx - hw, y, 1, 1, '#14501e');
+        p.r(cx + hw - 1, y, 1, 1, '#14501e');
+        if ((y + hw) % 5 === 0) p.r(cx - hw + 2, y, hw, 1, '#47a853');
+      }
+      for (let x = -b; x < b; x += 4) p.r(cx + x, y1, 4, 1, (x / 4) % 2 ? '#14501e' : '#1f6e2c'); // ragged hem
+    }
+    for (const [x0, y0, x1, y1] of [[-4, -32, 6, -22], [-10, -16, 11, -4], [-17, 0, 12, 10]]) { // gold garlands
+      for (let i = 0; i <= 10; i++) {
+        const t = i / 10;
+        p.px(Math.round(cx + x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t + Math.sin(t * Math.PI) * 3), '#f2c14e');
+      }
+    }
+    const balls = [[-3, -34, '#e2504a'], [4, -26, '#5b8def'], [-7, -20, '#f2e14e'], [8, -17, '#e2504a'], [-13, -6, '#5b8def'], [2, -9, '#f29cd0'],
+      [14, -2, '#f2e14e'], [-6, 2, '#e2504a'], [-17, 8, '#f29cd0'], [7, 6, '#5b8def'], [17, 10, '#e2504a'], [-1, 9, '#f4f1e8']];
+    for (const [x, y, c] of balls) {
+      p.r(cx + x, y, 3, 3, c);
+      p.px(cx + x, y, shade(c, 0.5)); // the highlight
+      p.px(cx + x + 2, y + 2, shade(c, -0.35));
+    }
+    for (const [x, y] of [[-5, -28], [7, -12], [-10, -1], [10, 8], [-15, 12], [1, -37]]) p.px(cx + x, y, '#fff6c8'); // fairy lights
+    // The star on top.
+    p.r(cx - 1, -50, 2, 8, '#f2c14e');
+    p.r(cx - 4, -47, 8, 2, '#f2c14e');
+    p.r(cx - 3, -49, 6, 6, '#f2e14e');
+    p.r(cx - 1, -48, 2, 3, '#fff6c8');
+    // The pot, and a few presents.
+    p.r(cx - 7, D - 12, 14, 9, '#1a1a22');
+    p.r(cx - 6, D - 11, 12, 7, '#a8242a');
+    p.r(cx - 6, D - 11, 12, 1, '#d8343a');
+    p.r(cx - 6, D - 8, 12, 1, '#f2c14e');
+    for (const [x, y, c] of [[-20, D - 8, '#5b8def'], [12, D - 7, '#f2c14e'], [17, D - 5, '#d8343a']]) {
+      p.r(cx + x, y, 8, 6, '#1a1a22');
+      p.r(cx + x + 1, y + 1, 6, 4, c);
+      p.r(cx + x + 3, y + 1, 2, 4, '#f4f1e8');
+      p.r(cx + x + 1, y + 2, 6, 1, '#f4f1e8');
+    }
+  } },
+  santatable: { lift: 16, draw(p, w) {
+    const W = w * 16;
+    p.box(0, 3, W, 13, 8, '#d8343a', '#a8242a');
+    p.r(1, 12, W - 2, 2, '#f4f1e8'); // white fur trim
+    for (let x = 2; x < W - 2; x += 4) p.px(x, 13, '#1a1a22');
+    p.r(1, -5, W - 2, 1, '#f4f1e8');
+    for (const [x, y, bw, bh, c] of [[4, 3, 11, 9, '#2f8a3a'], [17, 2, 9, 11, '#f2e14e'], [28, 4, 10, 8, '#5b8def'], [8, -4, 7, 6, '#d8343a'], [31, -3, 6, 5, '#f29cd0']]) {
+      p.r(x - 1, y - bh - 1, bw + 2, bh + 1, '#1a1a22');
+      p.r(x, y - bh, bw, bh, c);
+      p.r(x, y - bh, bw, 1, shade(c, 0.35));
+      p.r(x + Math.floor(bw / 2) - 1, y - bh, 2, bh, '#f4f1e8');
+      p.r(x, y - bh + Math.floor(bh / 2), bw, 1, '#f4f1e8');
+      p.r(x + Math.floor(bw / 2) - 2, y - bh - 2, 2, 2, '#f4f1e8'); // the bow
+      p.r(x + Math.floor(bw / 2) + 1, y - bh - 2, 2, 2, '#f4f1e8');
+    }
+    p.r(W - 10, -1, 8, 4, '#d8343a'); // a Santa hat
+    p.r(W - 6, -4, 4, 4, '#d8343a');
+    p.r(W - 11, 2, 10, 2, '#f4f1e8');
+    p.r(W - 3, -5, 3, 3, '#f4f1e8');
+  } },
+  photobooth: { lift: 20, draw(p, w, h) {
+    const W = w * 16;
+    const D = (h || 2) * 16;
+    p.box(0, D - 12, W, 12, 32, '#4a3a5c', '#2a1d36'); // the booth's body: roof on top, the front below
+    for (let x = 3; x < W - 3; x += 4) p.r(x, -3, 2, 2, x % 8 ? '#f2e14e' : '#fff6c8'); // marquee bulbs along the roof's front edge
+    p.r(2, D - 30, W - 4, 8, '#d8343a'); // the sign band
+    for (let i = 0; i < 5; i++) p.r(W / 2 - 17 + i * 7, D - 28, 5, 4, '#fff6c8'); // PHOTO, in blocks
+    p.r(W / 2 - 17, D - 28, 5, 1, '#f2c14e');
+    p.r(6, D - 20, W - 24, 20, '#12121a'); // the opening
+    p.r(8, D - 20, W - 28, 20, '#d8343a'); // the curtain
+    for (let x = 9; x < W - 20; x += 4) p.r(x, D - 20, 1, 20, '#a8242a'), p.r(x + 2, D - 20, 1, 20, '#e2504a');
+    p.r(W / 2 - 8, D - 20, 3, 20, '#12121a'); // the gap in the curtain
+    p.r(W / 2 - 9, D - 4, 2, 4, '#4a4f5c');
+    p.r(W / 2 - 6, D - 4, 2, 4, '#4a4f5c');
+    p.r(8, D - 20, W - 28, 2, '#f2c14e'); // the rail
+    p.r(W - 14, D - 22, 10, 22, '#1a1a22'); // the camera panel
+    p.r(W - 12, D - 20, 6, 6, '#3a3a48');
+    p.r(W - 11, D - 19, 4, 4, '#8fd3ff');
+    p.px(W - 10, D - 18, '#ffffff');
+    p.r(W - 12, D - 11, 6, 3, '#2f8a3a'); // the coin slot and a button
+    p.r(W - 10, D - 6, 2, 2, '#e2504a');
+    p.r(2, -9, W - 4, 3, '#2f8a3a'); // garland on the roof
+    for (let x = 5; x < W - 4; x += 9) p.r(x, -9, 3, 3, '#d8343a');
+    p.r(W / 2 - 1, -19, 2, 10, '#f2c14e'); // a star on a stick
+    p.r(W / 2 - 4, -16, 8, 2, '#f2c14e');
+    p.r(W / 2 - 2, -18, 4, 5, '#f2e14e');
+  } },
+  partytable: { lift: 12, draw(p, w) {
+    const W = w * 16;
+    p.box(0, 4, W, 12, 8, '#f4f1e8', '#d8d2c4');
+    p.r(1, 13, W - 2, 2, '#d8343a'); // the cloth's red hem
+    for (const x of [4, W - 10]) { // plates
+      p.r(x, -2, 7, 4, '#c8ccd4');
+      p.r(x + 1, -2, 5, 3, '#ffffff');
+    }
+    p.r(W / 2 - 4, -3, 8, 6, '#2f8a3a'); // the centrepiece: holly with a candle
+    p.r(W / 2 - 3, -4, 6, 2, '#47a853');
+    p.px(W / 2 - 3, -2, '#d8343a');
+    p.px(W / 2 + 2, 0, '#d8343a');
+    p.r(W / 2 - 1, -9, 2, 6, '#f4f1e8');
+    p.r(W / 2 - 1, -11, 2, 2, '#f2c14e');
+    p.px(W / 2, -12, '#fff6c8');
+  } },
+  poinsettia: { lift: 14, draw(p) {
+    p.r(3, 6, 10, 9, '#1a1a22'); // foil-wrapped pot
+    p.r(4, 7, 8, 7, '#d9b25c');
+    p.r(4, 7, 8, 1, '#f2dc8a');
+    p.r(4, 10, 8, 1, '#a8862f');
+    p.r(1, -4, 14, 10, '#1f6e2c'); // leaves
+    p.r(2, -5, 12, 9, '#2f8a3a');
+    for (const [x, y, w, h] of [[1, -9, 5, 5], [10, -9, 5, 5], [6, -11, 4, 5], [0, -3, 5, 5], [11, -3, 5, 5], [4, -6, 8, 6]]) {
+      p.r(x, y, w, h, '#a8242a'); // bracts
+      p.r(x + 1, y + 1, w - 2, h - 2, '#d8343a');
+      p.px(x + 1, y + 1, '#ff6a60');
+    }
+    for (const [x, y] of [[7, -4], [8, -3], [6, -3]]) p.px(x, y, '#f2e14e');
+  } },
   tikibar: { lift: 30, draw(p, w) {
     const W = w * 16;
     p.box(0, 3, W, 10, 12, '#d9b25c', '#a77b52');
@@ -1211,6 +1437,13 @@ export function drawFloorTile(g, style, x, y, tx, ty, carpet) {
         if (vert) r(x + i * 4, y, 1, 16, '#7f5533');
         else r(x, y + i * 4, 16, 1, '#7f5533');
       }
+      break;
+    }
+    case 'dancefloor': {
+      // Glossy panels; the colour comes from the party's disco lights (scenes/partyLights.js).
+      r(x, y, 16, 16, '#14111c');
+      r(x + 1, y + 1, 14, 14, (tx + ty) % 2 ? '#3a3050' : '#2a2238');
+      r(x + 2, y + 2, 6, 1, '#4a4064');
       break;
     }
     // Outdoors at the vacation hotel (core/hotel.js, `fl.ground`).
