@@ -50,6 +50,8 @@ import laundry from './laundry.js';
 import ironing from './ironing.js';
 import bath from './bath.js';
 import brew from './brew.js';
+// Christmas party games (scenes/party.js): never assigned to office stations.
+import photobooth from './photobooth.js';
 
 export const MINIGAMES = Object.fromEntries(
   [
@@ -57,5 +59,7 @@ export const MINIGAMES = Object.fromEntries(
     replyall, password, cables, orgchart, meeting, pitch, fridge, expense, frogger, karaoke, tailgate, defender, plant, chart, feedback, lostpw,
     review, compliance, sleep, buffet, beachball, swim, sunbathe, cocktail, massage, sandcastle,
     vacuum, dishes, laundry, ironing, bath, brew,
+    // Christmas party
+    photobooth,
   ].map((m) => [m.id, m]),
 );

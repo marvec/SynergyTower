@@ -16,12 +16,25 @@ const DISHES = [
   { name: 'Ice cream', a: '#f4f1e8', b: '#7fc4ff' },
   { name: 'Pizza', a: '#f2c14e', b: '#c74634' },
 ];
+// The Christmas party's buffet (theme.dept 'party', scenes/party.js).
+const XMAS_DISHES = [
+  { name: 'Turkey', a: '#b8763a', b: '#f2d9a0' },
+  { name: 'Mince pie', a: '#c89a5a', b: '#8a4a2a' },
+  { name: 'Gingerbread', a: '#a0622e', b: '#f4f1e8' },
+  { name: 'Pudding', a: '#5a2a1a', b: '#2f8a3a' },
+  { name: 'Sprouts', a: '#5fa048', b: '#3a7a2a' },
+  { name: 'Stollen', a: '#f4f1e8', b: '#d8343a' },
+  { name: 'Candy cane', a: '#f4f1e8', b: '#d8343a' },
+  { name: 'Roast potatoes', a: '#e2b85a', b: '#b8863a' },
+];
+export const dishesFor = (theme) => (theme?.dept === 'party' ? XMAS_DISHES : DISHES);
 
 export default {
   id: 'buffet',
   name: 'All You Can Eat',
   help: 'Move your plate with the mouse or the arrow keys and touch the dishes on the buffet to eat them. Everything is included!',
   create({ rng, theme, sfx = () => {} }) {
+    const dishes = dishesFor(theme);
     const total = new Countdown(30);
     const fl = new Floaters();
     const plate = { x: W / 2, y: AREA.y + AREA.h / 2 };
@@ -36,7 +49,7 @@ export default {
         const y = rng.int(AREA.y + 16, AREA.y + AREA.h - 16);
         if (Math.hypot(x - plate.x, y - plate.y) < 60) continue;
         if (items.some((o) => Math.hypot(o.x - x, o.y - y) < 36)) continue;
-        items.push({ x, y, d: rng.pick(DISHES), age: 0 });
+        items.push({ x, y, d: rng.pick(dishes), age: 0 });
         return;
       }
     };
