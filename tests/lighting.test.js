@@ -70,7 +70,7 @@ test('a wall\'s front face is lit from the room it faces, not from behind', () =
   expect(px(fromSouth.compute(out(), 0, 0), 160, faceY)).toBeGreaterThan(0);
 });
 
-test('the outer wall reaches above the floor\'s first row and is lit there too, up to its top and no higher', () => {
+test('the outer wall reaches above the floor\'s first row and its front is lit there too; its top (the building\'s edge) and above stay dark', () => {
   const wall = new Uint8Array(COLS * ROWS);
   for (let x = 0; x < COLS; x++) wall[x] = 1; // row 0: the outer wall, 12 + 12 px tall front, its top 16 px above that
   const L = new Lighting({ cols: COLS, rows: ROWS, tile: T, opaque: wall, wall, wallH: 12, outerRise: 12, config: cfg({ dither: false, ambient: 0 }) });
@@ -80,7 +80,7 @@ test('the outer wall reaches above the floor\'s first row and is lit there too, 
   const at = (y) => px(b, 160, y - cy);
   expect(at(10)).toBeGreaterThan(0); // the front, on its own row
   expect(at(-4)).toBeGreaterThan(0); // the front's raised part
-  expect(at(-20)).toBeGreaterThan(0); // the wall's top
+  expect(at(-20)).toBe(0); // the wall's top: outside, no lamp in the room reaches it
   expect(at(-30)).toBe(0); // above the wall: outside the floor
 });
 

@@ -24,6 +24,8 @@ export const VIEWS = ['final', 'unlit', 'light'];
 // Thresholds in [0, 1), spread so a level between two shades turns into an even pixel pattern.
 const BAYER = Float32Array.from([0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], (v) => (v + 0.5) / 16);
 const FACE = 0x8000; // owner flag: the pixel is a wall's front face (it faces south)
+const ROOF = 0x4000; // owner flag: the outer wall's top, the building's edge: no lamp inside reaches it, only the ambient
+const TILE_OF = ~(FACE | ROOF);
 
 /** Light reaching a pixel, by distance as a share of the radius (0..1). */
 const FALLOFF = {
@@ -104,7 +106,7 @@ export class Lighting {
 
   /**
    * Which tile each world pixel shows, so a wall's pixels drawn over the row above still belong to the wall: tile index + 1
-   * (0 = outside the floor), with FACE set on a wall's front face.
+   * (0 = outside the floor), with FACE set on a wall's front face and ROOF on the outer wall's top.
    */
   buildOwners(wall, wallH, outerRise) {
     const { cols, rows, tile, pw, ph, top } = this;
@@ -122,6 +124,7 @@ export class Lighting {
             if (!isWall(tx, r) || py < r * tile - frontH(r) || py >= (r + 1) * tile) continue;
             v = r * cols + tx + 1;
             if (py >= (r + 1) * tile - frontH(r) && !isWall(tx, r + 1)) v |= FACE;
+            else if (r === 0 && py < tile - frontH(r)) v |= ROOF;
             break;
           }
         }
@@ -239,8 +242,8 @@ export class Lighting {
       let i = ((py - oy) * bw + (x0 - ox)) * 3;
       for (let px = x0; px < x1; px++, i += 3) {
         const o = owner[row + px];
-        if (!o) continue;
-        const t = (o & ~FACE) - 1;
+        if (!o || o & ROOF) continue;
+        const t = (o & TILE_OF) - 1;
         if (!(vis[t] & (o & FACE ? 2 : 1))) continue;
         let dx, dy;
         if (perTile) {
@@ -347,7 +350,7 @@ export class Lighting {
         let bl = frame[i * 3 + 2] + ab + fl;
         if (sight) {
           const o = inRow && wx >= 0 && wx < pw ? owner[(wy + top) * pw + wx] : 0;
-          const tIdx = (o & ~FACE) - 1;
+          const tIdx = (o & TILE_OF) - 1;
           if (!o || !sight[tIdx]) r = g = bl = o && this.seen[tIdx] ? fog : 0;
         }
         if (fade < 1) {
