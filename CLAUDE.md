@@ -133,6 +133,8 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - SEO: meta/Open Graph/JSON-LD and a screen-reader/crawler text block (`.sr-only`) live in `src/index.html`; crawler files
   are `public/robots.txt`, `sitemap.xml` and `llms.txt` (update its facts and game list when content changes).
   `public/og-image.png` (1200×630) is the title screen at 2.5× with the bottom 18 px cropped, captured from the dev server.
+  Re-take it when the title changes (e.g. the game count) and bump its `?v=` in the meta tags of `src/index.html` and
+  `public/how-to-play/index.html`: link previews (Slack, Discord, Facebook, LinkedIn) cache the image by URL.
 - Player guide: `public/how-to-play/index.html`, a static page (no bundling) linked as "Read more..." from the How to play
   dialog (`howToDialog` in overlays.js). Keep its facts in step with economy.js and the features (numbers, controls, game
   list). Screenshots in `img/` are canvas grabs (`canvas.toDataURL()` at 480×270, scaled 2× nearest-neighbour to 960×540)
