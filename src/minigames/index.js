@@ -55,6 +55,8 @@ import giftwrap from './giftwrap.js';
 import photobooth from './photobooth.js';
 import dance from './dance.js';
 import carols from './carols.js';
+// The roof (core/roof.js): a cigarette with the smokers, never assigned to office stations.
+import cigarette from './cigarette.js';
 
 export const MINIGAMES = Object.fromEntries(
   [
@@ -67,5 +69,7 @@ export const MINIGAMES = Object.fromEntries(
     photobooth,
     dance,
     carols,
+    // The roof
+    cigarette,
   ].map((m) => [m.id, m]),
 );

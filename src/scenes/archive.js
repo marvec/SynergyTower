@@ -16,6 +16,8 @@ import { darkLighting, lampsAt, drawNight } from './nightLights.js';
 import { Dialog } from './overlays.js';
 
 const URGENT_TINT = [1.5, 0.55, 0.5]; // the basement's dark turns red in the last seconds
+const LABEL_REACH = 3.5; // tiles: cabinet numbers are readable this close (the player's light)
+const SIGN_REACH = 5; // and the row signs at the rows' ends
 
 export class ArchiveScene extends FloorScene {
   /** from: the floor the player came down from, and goes back up to. */
@@ -156,8 +158,44 @@ export class ArchiveScene extends FloorScene {
     drawNight(g, this.lighting, { fade: 1, cam: { x: Math.round(this.cam.x), y: Math.round(this.cam.y) }, player: this.player, t: this.time });
   }
 
+  /**
+   * Row letters at both ends of each cabinet row and numbers on the cabinet tops (core/archive.js drawerLabel), readable
+   * only in the player's light: they fade in within a few tiles.
+   */
+  drawLabels(g) {
+    const p = this.player;
+    const fade = (x, y, r) => Math.max(0, Math.min(1, (r - Math.hypot(x - p.x, y - p.y)) / 1.5));
+    for (const it of this.fl.drawers) {
+      const a = fade(it.x + 0.5, it.y + 0.5, LABEL_REACH);
+      if (a <= 0) continue;
+      g.globalAlpha = a;
+      const { n } = A.drawerLabel(it);
+      const top = this.view.itemTop(it);
+      drawText(g, String(n), it.x * TILE + 8, top + 3, { align: 'center', color: '#e8e2c8' });
+      g.globalAlpha = 1;
+    }
+    for (const y of A.CABINET_ROWS) {
+      const row = this.fl.drawers.filter((d) => d.y === y);
+      const { row: letter } = A.drawerLabel(row[0]);
+      for (const it of [row[0], row.at(-1)]) {
+        const left = it === row[0];
+        const sx = left ? it.x - 1 : it.x + 1;
+        const a = fade(sx + 0.5, y + 0.5, SIGN_REACH);
+        if (a <= 0) continue;
+        g.globalAlpha = a;
+        const x = sx * TILE + 3;
+        const ty = this.view.itemTop(it) + 4;
+        rect(g, x - 1, ty - 1, 12, 11, C.border);
+        rect(g, x, ty, 10, 9, '#e8c46a');
+        drawText(g, letter, x + 5, ty + 1, { align: 'center', color: C.ink });
+        g.globalAlpha = 1;
+      }
+    }
+  }
+
   /** The drawer being searched gets a progress bar; once the folder is found, the elevator gets a marker. */
   drawMarkers(g) {
+    this.drawLabels(g);
     // Drawn over the darkness, so the searched cabinets stay told apart even where no lamp reaches.
     for (const it of this.fl.drawers) if (it.opened) icon(g, 'check', it.x * TILE + 4, this.view.itemTop(it) - 2);
     const sr = this.search;

@@ -1,7 +1,7 @@
 // Assigns mini-game tasks to station furniture on a generated floor.
 import { createRng } from './rng.js';
 import { generateFloor, buildWalkable, bfs, isItemReachable, STATION_GAMES } from './floorgen.js';
-import { stationCount } from './economy.js';
+import { stationCount, ROOF } from './economy.js';
 import { taskTitle } from '../data/taskTitles.js';
 import { ACTIVITIES } from '../data/vacation.js';
 import { CHORES } from '../data/home.js';
@@ -12,9 +12,11 @@ export const ALL_GAMES = [
   'replyall', 'password', 'cables', 'orgchart', 'meeting', 'pitch', 'fridge', 'expense', 'frogger',
   'karaoke', 'tailgate', 'defender', 'plant', 'chart', 'feedback', 'lostpw',
 ];
+/** The roof's own mini-game (core/roof.js): a cigarette with the smokers. */
+export const ROOF_GAMES = ['cigarette'];
 /** Every kind of mini-game the "games played" counter, the title and the Generalist badge count: the station games plus
- *  the holiday activities at the vacation hotel and the chores at home (not the HR review). */
-export const COUNTED_GAMES = [...ALL_GAMES, ...ACTIVITIES.map((a) => a.game), ...CHORES.map((c) => c.game)];
+ *  the holiday activities at the vacation hotel, the chores at home and the roof's cigarette (not the HR review). */
+export const COUNTED_GAMES = [...ALL_GAMES, ...ACTIVITIES.map((a) => a.game), ...CHORES.map((c) => c.game), ...ROOF_GAMES];
 
 /** Furniture with a computer on it, in order of preference for the terminal. */
 const TERMINAL_TYPES = ['desk', 'headsetdesk', 'tradingdesk', 'reception', 'bossdesk'];
@@ -135,5 +137,31 @@ function planFloor(floor, usage) {
   free.sort((a, b) => DESK_TYPES.indexOf(a.type) - DESK_TYPES.indexOf(b.type) || a.id - b.id);
   const myDesk = free[0] || null;
 
-  return { ...fl, walk, dist, tasks: chosen, npcs, myDesk };
+  // The roof floors' fire-escape window (core/roof.js), also picked without the RNG.
+  const fireEscape = ROOF.floors.includes(floor) ? pickFireEscape(fl, walk, dist, floor) : null;
+
+  return { ...fl, walk, dist, tasks: chosen, npcs, myDesk, fireEscape };
+}
+
+/** Rooms a smoker sneaks out from, best first; any other room with an outer window will do. */
+const ESCAPE_ROOMS = ['kitchen', 'copy', 'restroom', 'meeting'];
+
+/**
+ * The fire-escape window: an outer-wall window (row 0, not the elevator lobby: see FloorView.hasWindow) with a reachable
+ * free tile below it. Best in a kitchen or copy room; among those, one picked by the floor number. { x, y: 0 } or null.
+ */
+function pickFireEscape(fl, walk, dist, floor) {
+  const spots = [];
+  for (let x = 1; x < fl.w - 1; x++) {
+    const below = fl.w + x;
+    const room = fl.rooms[fl.roomOf[below]];
+    if (fl.tiles[x] !== 1 || !walk[below] || dist[below] < 0 || !room || room.type === 'elevator') continue;
+    if (!walk[below + fl.w]) continue; // room to stand in front of it
+    const rank = ESCAPE_ROOMS.indexOf(room.type);
+    spots.push({ x, rank: rank < 0 ? ESCAPE_ROOMS.length : rank });
+  }
+  if (!spots.length) return null;
+  const best = Math.min(...spots.map((p) => p.rank));
+  const pool = spots.filter((p) => p.rank === best);
+  return { x: pool[(floor * 7) % pool.length].x, y: 0 };
 }

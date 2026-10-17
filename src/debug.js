@@ -7,6 +7,7 @@ import * as N from './core/nightShift.js';
 import * as AR from './core/archive.js';
 import * as HO from './core/home.js';
 import * as PA from './core/party.js';
+import * as RF from './core/roof.js';
 import * as S from './core/state.js';
 import { MinigameScene } from './scenes/minigameScene.js';
 import { LIGHTING, VIEWS } from './engine/lighting.js';
@@ -122,10 +123,9 @@ export function installDebug(game) {
     const fs = new FloorScene(game, floor);
     game.set(fs);
     if (mode === 'down') {
-      const far = AR.folderDrawers(AR.buildArchive());
-      a.task = { floor, drawer: far[Math.floor(Math.random() * far.length)].id, inside: false, found: false, folder: false };
+      a.task = { floor, drawer: AR.archiveDrawer(s, floor), inside: false, found: false, folder: false };
       fs.goToArchive();
-      return `floor ${floor}: down to the archive (the folder is in drawer ${a.task.drawer})`;
+      return `floor ${floor}: down to the archive (the folder is in ${AR.drawerLabel(AR.buildArchive().items[a.task.drawer]).text})`;
     }
     if (!AR.archiveOffer(s, floor)) return `floor ${floor}: no offer, ${archiveBlock(s, floor)}`;
     fs.hrDesk('notReady');
@@ -185,6 +185,51 @@ export function installDebug(game) {
     await fs.startParty({ force: true });
     if (mode === 'tipsy') for (let i = 0; i < PA.PARTY.maxTipsy; i++) PA.drink(s, 'punch');
     return mode === 'tipsy' ? 'at the party, three drinks in' : 'at the party';
+  };
+
+  /**
+   * Debug: the roof (core/roof.js). __roof() puts you at the fire-escape window of the nearest roof floor at or below
+   * your highest one (2 at least; it becomes reachable), __roof(22) on floor 22; __roof('up') / __roof(12, 'up') goes
+   * straight onto the roof; __roof('guard') sends the facilities guard out now (going up first if needed). The guard's
+   * "closed for today" is lifted first. On the roof, __roof('day') / ('dusk') / ('night') sets the sky (null: the clock).
+   */
+  window.__roof = async (a, b) => {
+    const s = game.state;
+    if (!s) return 'no career loaded';
+    const floors = RF.ROOF.floors;
+    const mode = typeof a === 'string' ? a : b;
+    const { RoofScene } = await import('./scenes/roof.js');
+    if (['day', 'dusk', 'night'].includes(mode) || a === null) {
+      if (!(game.top instanceof RoofScene)) return 'go up first: __roof(\'up\')';
+      game.top.sky = mode || null;
+      return `the sky: ${mode || 'local time'}`;
+    }
+    if (mode === 'guard' && game.top instanceof RoofScene) {
+      game.top.spawnGuard();
+      return 'the guard is out';
+    }
+    const here = floors.includes(s.floor) ? s.floor : null;
+    const floor = typeof a === 'number' ? a : here ?? (floors.filter((f) => f <= s.maxFloor).at(-1) || floors[0]);
+    if (!floors.includes(floor)) return `the fire escape is on floors ${floors.join(', ')}: try __roof(${floors[0]})`;
+    const r = RF.roof(s);
+    r.closedDay = null;
+    r.on = null;
+    s.maxFloor = Math.max(s.maxFloor, floor);
+    s.floor = floor;
+    if (mode === 'up' || mode === 'guard') {
+      const ok = RF.enterRoof(s, floor, game.now());
+      if (!ok.ok) return `no roof: ${ok.reason}`;
+      game.saveNow();
+      const rs = new RoofScene(game, floor);
+      game.set(rs);
+      if (mode === 'guard') rs.spawnGuard();
+      return mode === 'guard' ? `on the roof from floor ${floor}, the guard is out` : `on the roof from floor ${floor}`;
+    }
+    game.saveNow();
+    const { FloorScene } = await import('./scenes/floorScene.js');
+    game.set(new FloorScene(game, floor, { arrival: 'roof' }));
+    const why = RF.roofBlock(s, game.now());
+    return `floor ${floor}: at the fire-escape window${why ? ` (stuck: ${why})` : ''}`;
   };
 
   /** Why HR would not offer the archive task (for __archive): the first rule that says no. */

@@ -4,6 +4,9 @@ import * as E from './economy.js';
 import { COUNTED_GAMES, buildFloor } from './tasks.js';
 import { DEPARTMENTS } from '../data/departments.js';
 
+/** The pay telescope's sights (core/roof.js EGGS; listed here too, so badges need not import the roof). */
+export const ROOF_EGGS = ['hotel', 'client', 'balloon', 'waver', 'rival'];
+
 const ev = (s, kind) => s.stats.events?.[kind] || 0;
 const desk = (s) => s.desk || { owned: [], show: {} };
 const isTrophy = (id) => /^trophy-/.test(id || '');
@@ -46,6 +49,10 @@ export const BADGES = [
   { id: 'partyanimal', name: 'Party Animal', desc: 'Go to the office Christmas party.', icon: 'star', test: (s) => (s.stats.parties || 0) >= 1 },
   { id: 'tipsy', name: 'Tipsy', desc: 'Have 3 drinks at one Christmas party.', icon: 'coffee', test: (s) => (s.stats.partyTipsy || 0) >= 1 },
   { id: 'designated', name: 'Designated Driver', desc: 'No drinks at the party, 1+ star at every activity.', icon: 'check', test: (s) => (s.stats.partyDesignated || 0) >= 1 },
+  { id: 'freshair', name: 'Fresh Air', desc: `Say no to a cigarette on the roof ${E.ROOF.freshAir} times.`, icon: 'check', test: (s) => (s.roof?.declined || 0) >= E.ROOF.freshAir },
+  { id: 'networker', name: 'Smoke Break Networker', desc: 'Get a tip from the smokers on the roof.', icon: 'book', test: (s) => Object.keys(s.roof?.hints || {}).length >= 1 },
+  { id: 'spotter', name: 'Spotter', desc: 'Spot every sight through the pay telescope.', icon: 'star', test: (s) => ROOF_EGGS.every((e) => s.roof?.spotted?.[e]) },
+  { id: 'nottoday', name: 'Not Today', desc: 'Slip out of sight once the roof guard has seen you.', icon: 'up', test: (s) => (s.roof?.escapes || 0) >= 1 },
   { id: 'decorate', name: 'Home Office', desc: 'Put a decoration on your desk.', icon: 'sp', test: (s) => Object.values(desk(s).show).some(Boolean) },
   { id: 'designer', name: 'Interior Designer', desc: `Collect ${E.DESK_COLLECTOR} desk decorations.`, icon: 'sp', test: (s) => desk(s).owned.filter((id) => !isTrophy(id)).length >= E.DESK_COLLECTOR },
   { id: 'trophy', name: 'Best Employee', desc: "Put a floor's Best Employee trophy on your desk.", icon: 'star', test: (s) => isTrophy(desk(s).show.right) },

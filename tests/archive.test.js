@@ -92,7 +92,7 @@ test('the archive fills a floor plan: walls round it, the elevator where every f
   expect(fl.items.filter((it) => it.task || it.interact || it.terminal).map((it) => it.interact)).toEqual(['elevator']);
 });
 
-test('the folder is always far from the elevator (60% of the longest side), in a random drawer', () => {
+test('the folder is always far from the elevator (60% of the longest side), in a drawer fixed per career and floor', () => {
   const fl = A.buildArchive();
   const far = A.folderDrawers(fl);
   expect(far.length).toBeGreaterThan(5);
@@ -101,7 +101,9 @@ test('the folder is always far from the elevator (60% of the longest side), in a
   const picked = new Set();
   for (let i = 0; i < 40; i++) {
     const s = fresh(3);
+    s.cast = i + 1; // fixed per career (and floor): other careers, other drawers
     expect(A.acceptArchive(s, 3).ok).toBe(true);
+    expect(s.archive.task.drawer).toBe(A.archiveDrawer(s, 3));
     const it = fl.items[s.archive.task.drawer];
     expect(it.drawer).toBe(true);
     expect(A.elevatorDistance(fl, it)).toBeGreaterThanOrEqual(min);
@@ -113,7 +115,7 @@ test('the folder is always far from the elevator (60% of the longest side), in a
 test('the task: accept, down, find, up; a failure takes it away for good on that floor', () => {
   const s = fresh(3);
   expect(A.archiveOpen(s)).toBe(false);
-  A.acceptArchive(s, 3, () => 0);
+  A.acceptArchive(s, 3);
   expect(A.archiveOpen(s)).toBe(true);
   expect(A.archiveOffer(s, 3)).toBe(false); // one at a time
   expect(A.enterArchive(s)).toBe(true);

@@ -7,17 +7,18 @@
 //   asked       HR has made the offer on that floor (accepted or not): it never comes again there
 //   done        the folder was handed in on that floor
 //   task.floor  the floor it was accepted on (always the career's highest floor then); the folder goes back there
-//   task.drawer the drawer (item id on buildArchive()) holding the folder, picked when the task is accepted
+//   task.drawer the drawer (item id on buildArchive()) holding the folder: archiveDrawer, fixed per career and floor
+//               (the roof's smokers know it beforehand), stored when the task is accepted
 //   task.inside true while the player is in the archive. Saved like that, a reload counts as the run failing
 //               (the clock lives in the scene, not the save): see resumeArchive.
 //   task.found  the folder is in hand, still in the archive (until the elevator)
 //   task.folder true once the folder is out of the archive: then the A button is gone and HR takes it
 import * as E from './economy.js';
-import { promotionStatus } from './state.js';
+import { promotionStatus, castOf } from './state.js';
 import { onHold } from './conduct.js';
 import { createPlanner, buildWalkable, bfs, FLOOR_W, FLOOR_H } from './floorgen.js';
 import { DEPARTMENTS } from '../data/departments.js';
-import { createRng } from './rng.js';
+import { createRng, hashString } from './rng.js';
 
 /** Everything tunable about the archive challenge. */
 export const ARCHIVE = {
@@ -70,12 +71,20 @@ export function markAsked(s, floor) {
   a.asked = { ...a.asked, [floor]: true };
 }
 
-/** Accepts the task on `floor` (offered there, so marked as asked): the folder is put in a far drawer (rng picks which). */
-export function acceptArchive(s, floor, rng = Math.random) {
+/**
+ * The drawer the folder lost on `floor` is in: one of the far drawers, fixed by the career's cast and the floor, so a
+ * smoker on the roof below (core/roof.js archiveHint) can name it before HR has even asked.
+ */
+export function archiveDrawer(s, floor) {
+  const far = folderDrawers(buildArchive());
+  return far[hashString(`folder:${castOf(s)}:${floor}`) % far.length].id;
+}
+
+/** Accepts the task on `floor` (offered there, so marked as asked): the folder is in its drawer (archiveDrawer). */
+export function acceptArchive(s, floor) {
   if (!canTakeArchive(s, floor)) return { ok: false };
   markAsked(s, floor);
-  const far = folderDrawers(buildArchive());
-  archive(s).task = { floor, drawer: far[Math.floor(rng() * far.length)].id, inside: false, found: false, folder: false };
+  archive(s).task = { floor, drawer: archiveDrawer(s, floor), inside: false, found: false, folder: false };
   return { ok: true };
 }
 
@@ -212,6 +221,15 @@ export function elevatorDistance(fl, it) {
 export function folderDrawers(fl) {
   const min = ARCHIVE.minFolderDist * Math.max(fl.w, fl.h);
   return fl.drawers.filter((it) => elevatorDistance(fl, it) >= min);
+}
+
+const ROW_LETTERS = 'ABCDEFGH';
+/** A cabinet's row letter (A at the top) and its number in the row (1 at the left): { row, n, text: 'Row C, cabinet 7' }. */
+export function drawerLabel(it) {
+  const i = CABINET_ROWS.indexOf(it.y);
+  const n = buildArchive().drawers.filter((d) => d.y === it.y && d.x <= it.x).length;
+  const row = ROW_LETTERS[i] || '?';
+  return { row, n, text: `Row ${row}, cabinet ${n}` };
 }
 
 /** The archive's ceiling lights, in tiles: a sparse grid over the aisles (the lighting decides which flicker). */

@@ -74,6 +74,17 @@ function drawCharFrame(g, L, dir, f) {
   const legs = L.tights || L.skin;
   // A Santa hat (the Christmas party): a red cap over the hair, a white trim on the brow, the pompom on one side.
   const hat = (look) => {
+    if (look.hat === 'cap') {
+      // A security cap (the roof's facilities guard): navy crown, a badge, the peak towards the facing side.
+      r(4, y0 - 1, 8, 3, O);
+      r(5, y0, 6, 1, '#2b3550');
+      r(4, y0 + 1, 8, 1, '#1a2238');
+      px(8, y0, '#f2c230');
+      if (dir === 'down') r(4, y0 + 2, 8, 1, '#1a2238');
+      else if (dir === 'left') r(2, y0 + 1, 3, 1, '#1a2238');
+      else if (dir === 'right') r(11, y0 + 1, 3, 1, '#1a2238');
+      return;
+    }
     if (look.hat !== 'santa') return;
     r(4, y0 - 1, 8, 3, O);
     r(5, y0, 6, 1, '#d8343a');
@@ -1152,6 +1163,172 @@ const FURNITURE = {
     p.r(4, -10, 8, 8, '#6a8aa8');
     p.r(5, -8, 6, 4, '#f29cd0');
   } },
+  // ---- the roof (core/roof.js)
+  ladderhead: { lift: 24, draw(p) {
+    // The fire escape's ladder head, its rails curving over the parapet.
+    const RUST = '#a5492e';
+    const RUST_D = '#6e2f1e';
+    p.r(2, -22, 2, 36, RUST_D);
+    p.r(12, -22, 2, 36, RUST_D);
+    p.r(3, -22, 1, 36, RUST);
+    p.r(13, -22, 1, 36, RUST);
+    p.r(2, -24, 4, 2, RUST);
+    p.r(10, -24, 4, 2, RUST);
+    for (let y = -18; y < 14; y += 5) p.r(4, y, 8, 1, RUST);
+    p.r(1, 12, 14, 2, '#1a1a22');
+  } },
+  telescope: { lift: 22, draw(p) {
+    // A coin-operated viewer, municipal green, on a post.
+    const G = '#3f7f5f';
+    const GD = '#2a5a42';
+    p.r(5, 11, 7, 3, '#1a1a22');
+    p.r(7, -6, 3, 17, METAL_D);
+    p.r(8, -6, 1, 17, METAL);
+    p.r(2, -17, 13, 11, '#1a1a22');
+    p.r(3, -16, 11, 9, G);
+    p.r(3, -16, 11, 2, shade(G, 0.3));
+    p.r(3, -9, 11, 2, GD);
+    p.r(1, -15, 3, 5, '#1a1a22');
+    p.r(13, -15, 3, 5, '#1a1a22');
+    p.r(4, -13, 2, 2, '#9fd3f0');
+    p.r(11, -13, 2, 2, '#9fd3f0');
+    p.r(7, -12, 3, 1, '#c9a227');
+  } },
+  cradle: { lift: 26, draw(p, w) {
+    // The window cleaners' cradle on its davit arms, hanging over the parapet: the platform with its yellow rail.
+    const W = w * 16;
+    const Y = '#f2c230';
+    const YD = '#b08a18';
+    for (const x of [4, W - 6]) {
+      p.r(x, -24, 3, 34, '#1a1a22');
+      p.r(x + 1, -24, 1, 34, METAL);
+    }
+    p.r(4, -25, W - 7, 3, '#1a1a22');
+    p.r(5, -24, W - 9, 1, METAL);
+    p.r(12, -22, 1, 14, '#2b2e38');
+    p.r(W - 13, -22, 1, 14, '#2b2e38');
+    p.box(8, 2, W - 16, 10, 8, '#c8ccd4', '#9aa1ad');
+    p.r(8, -9, W - 16, 2, '#1a1a22');
+    p.r(9, -9, W - 18, 1, Y);
+    for (let x = 9; x < W - 8; x += 8) p.r(x, -8, 1, 4, YD);
+    p.r(W / 2 - 6, 6, 12, 3, '#3a3f48');
+    p.r(W / 2 - 5, 6, 10, 1, '#5a6070');
+  } },
+  roofshack: { lift: 32, draw(p, w, h) {
+    // The stairwell head: concrete, a flat roof with a vent, the steel roof door with its warning sign.
+    const W = w * 16;
+    const D = h * 16;
+    p.box(0, 2, W, D - 4, 30, '#8a8e96', '#a8acb4');
+    p.r(6, -24, 10, 6, '#6a707c');
+    p.r(7, -25, 8, 2, '#9aa1ad');
+    const fy = D - 32; // the front face's top
+    const dx = Math.round(W / 2) - 8;
+    p.r(dx - 1, fy + 4, 18, 30 - 5, '#1a1a22');
+    p.r(dx, fy + 5, 16, 30 - 6, '#5a6a7a');
+    p.r(dx, fy + 5, 16, 1, '#7a8a9a');
+    p.r(dx + 12, fy + 17, 2, 2, '#c8ccd4');
+    p.r(dx + 3, fy + 8, 10, 6, '#f2c230');
+    p.r(dx + 4, fy + 9, 8, 4, '#1a1a22');
+    p.r(dx + 5, fy + 10, 6, 2, '#f2c230');
+    p.r(W - 14, fy + 6, 6, 4, '#f4f1e8');
+    p.r(W - 13, fy + 7, 4, 1, '#c94a3b');
+  } },
+  acunit: { lift: 24, draw(p, w) {
+    // An air-conditioning unit: a grey box, the fan on top (spun by FloorView), louvres on the front.
+    const W = w * 16;
+    p.box(0, 6, W, 16, 22, '#c8ccd2', '#a4aab2');
+    p.r(6, -14, W - 12, 12, '#1a1a22');
+    p.r(7, -13, W - 14, 10, '#3a3f48');
+    for (let y = 10; y < 28; y += 3) p.r(3, y, W - 6, 1, '#868c96');
+    p.r(W - 6, 22, 3, 3, '#5fd068');
+  } },
+  watertank: { lift: 34, draw(p, w) {
+    // A water tank on four legs, wooden staves and steel hoops, a cone roof. It stands on a deck on the legs: the back
+    // pair's feet sit higher up the footprint than the front pair's.
+    const W = w * 16;
+    const LEG = ['#3a3028', '#4a4038'];
+    for (const x of [13, W - 16]) p.r(x, 16, 3, 16, LEG[1]);
+    p.r(13, 26, W - 26, 2, LEG[0]);
+    for (const x of [4, W - 7]) p.r(x, 16, 3, 28, LEG[0]);
+    p.r(4, 32, W - 8, 2, LEG[0]);
+    p.r(5, 30, 1, 2, LEG[1]);
+    p.r(2, 12, W - 4, 5, '#1a1a22');
+    p.r(3, 13, W - 6, 3, '#5a4a3c');
+    p.r(3, -22, W - 6, 34, '#1a1a22');
+    p.r(4, -21, W - 8, 32, '#9a6b42');
+    for (let x = 7; x < W - 6; x += 5) p.r(x, -21, 1, 32, '#7f5533');
+    for (const y of [-16, -4, 7]) p.r(4, y, W - 8, 2, '#5a606c');
+    p.r(6, -30, W - 12, 9, '#1a1a22');
+    p.r(7, -29, W - 14, 7, '#6a707c');
+    p.r(12, -33, W - 24, 4, '#1a1a22');
+    p.r(13, -32, W - 26, 2, '#868c96');
+    p.r(4, -21, 3, 32, shade('#9a6b42', 0.15));
+  } },
+  antenna: { lift: 72, draw(p) {
+    // The antenna mast with its cross bars and a warning light (blinked by FloorView).
+    p.r(5, 10, 6, 4, '#1a1a22');
+    p.r(7, -68, 2, 80, '#1a1a22');
+    p.r(7, -68, 1, 80, METAL);
+    for (const [y, w] of [[-60, 12], [-44, 10], [-28, 8]]) p.r(8 - w / 2, y, w, 1, METAL_D);
+    p.r(3, -50, 3, 6, '#d8dfe8');
+    p.r(11, -36, 3, 6, '#d8dfe8');
+    p.r(6, -72, 4, 4, '#7a2020');
+  } },
+  roofbench: { lift: 12, draw(p, w) {
+    const W = w * 16;
+    p.r(2, 4, 2, 10, '#2b2e38');
+    p.r(W - 4, 4, 2, 10, '#2b2e38');
+    p.box(0, 2, W, 8, 6, '#a77b52', '#7a5536');
+    for (let x = 0; x < W; x += 6) p.r(x, -3, 1, 6, '#7a5536');
+    p.r(0, -12, W, 6, '#1a1a22');
+    p.r(1, -11, W - 2, 2, '#b98a5a');
+    p.r(1, -8, W - 2, 1, '#a77b52');
+  } },
+  sandbucket: { lift: 10, draw(p) {
+    p.r(3, -2, 10, 14, '#1a1a22');
+    p.r(4, -1, 8, 12, '#c94a3b');
+    p.r(4, -1, 8, 2, '#e8d498');
+    p.r(4, 3, 8, 1, '#a33b3b');
+    p.r(5, -2, 2, 1, '#f4f1e8');
+    p.r(8, -1, 2, 1, '#f4f1e8');
+    p.r(10, -2, 1, 1, '#e8a04a');
+    p.r(5, -6, 1, 4, '#6a707c');
+    p.r(10, -6, 1, 4, '#6a707c');
+    p.r(5, -7, 6, 1, '#6a707c');
+  } },
+  pigeons: { lift: 6, solid: false, draw(p) {
+    // Two pigeons, minding their own business.
+    for (const [x, y, flip] of [[2, 6, 0], [9, 10, 1]]) {
+      p.r(x, y, 5, 3, '#8a8f9a');
+      p.r(x + 1, y + 3, 1, 1, '#e8a04a');
+      p.r(x + 3, y + 3, 1, 1, '#e8a04a');
+      const hx = flip ? x - 2 : x + 4;
+      p.r(hx, y - 2, 3, 3, '#6a707c');
+      p.r(flip ? hx - 1 : hx + 3, y - 1, 1, 1, '#e8a04a');
+      p.r(hx + 1, y + 1, 1, 1, '#6aa88a');
+      p.r(flip ? x + 4 : x, y + 1, 1, 1, '#5a606c');
+    }
+  } },
+  beehive: { lift: 18, draw(p) {
+    // A beehive: stacked white boxes with a sloped lid, the landing board, a company logo sticker.
+    p.box(2, 4, 12, 9, 16, '#f2e8c8', '#e8d8a8');
+    p.r(3, 1, 10, 1, '#c8b888');
+    p.r(3, -5, 10, 1, '#c8b888');
+    p.r(1, -14, 14, 3, '#1a1a22');
+    p.r(2, -13, 12, 1, '#8a6a4a');
+    p.r(5, 10, 6, 2, '#1a1a22');
+    p.r(6, 10, 4, 1, '#3a3028');
+    p.r(6, -2, 4, 3, '#2a6ad1');
+  } },
+  rooflamp: { lift: 22, draw(p) {
+    // A lamp post: a slim pole, a lamp head (lit at night by the roof's lighting).
+    p.r(5, 11, 6, 3, '#1a1a22');
+    p.r(7, -18, 2, 30, '#2b2e38');
+    p.r(7, -18, 1, 30, METAL_D);
+    p.r(3, -22, 10, 4, '#1a1a22');
+    p.r(4, -21, 8, 2, '#3a3f48');
+    p.r(5, -19, 6, 1, '#f2e8b0');
+  } },
   swimladder: { lift: 18, draw(p, w) {
     const W = w * 16;
     p.r(3, -4, 2, 20, '#c8ccd4');
@@ -1497,6 +1674,23 @@ export function drawFloorTile(g, style, x, y, tx, ty, carpet) {
       }
       break;
     }
+    // The roof (core/roof.js): gravel and paving slabs.
+    case 'gravel': {
+      r(x, y, 16, 16, (tx + ty) % 2 ? '#8a8c90' : '#86888c');
+      for (let i = 0; i < 9; i++) {
+        const n = noiseAt(tx * 9 + i, ty * 5 + i, 12);
+        r(x + Math.floor(n * 16), y + Math.floor(noiseAt(tx + i, ty * 2, 13) * 16), 1, 1, n < 0.35 ? '#6e7074' : n < 0.7 ? '#a2a4a8' : '#9a948a');
+      }
+      break;
+    }
+    case 'roofslab': {
+      r(x, y, 16, 16, '#b4b2aa');
+      r(x, y, 16, 1, '#9a988f');
+      r(x, y, 1, 16, '#9a988f');
+      r(x + 8, y + 1, 1, 15, '#a8a69d');
+      if (noiseAt(tx, ty, 14) < 0.2) r(x + 3, y + 10, 3, 1, '#9a988f');
+      break;
+    }
     default: {
       // carpet
       r(x, y, 16, 16, carpet[(tx + ty) % 2]);
@@ -1534,7 +1728,7 @@ export function floorStyleForRoom(roomType, deptId) {
  */
 export function drawWallTile(g, x, y, opts) {
   const { r } = P(g);
-  const { top, front, openBelow, openAbove, openLeft, openRight, window: win, tx, outer, night } = opts;
+  const { top, front, openBelow, openAbove, openLeft, openRight, window: win, tx, outer, night, butts } = opts;
   const fh = WALL_H + (outer ? OUTER_RISE : 0);
   const ty = y - fh;
   const th = outer && !openBelow ? 16 + OUTER_RISE : 16;
@@ -1554,6 +1748,13 @@ export function drawWallTile(g, x, y, opts) {
       // The sill.
       r(x, fy + fh - 8, 16, 1, shade(front, 0.35));
       r(x, fy + fh - 7, 16, 1, shade(front, -0.15));
+      // The fire-escape window (core/roof.js): cigarette butts on its sill.
+      if (butts) {
+        r(x + 3, fy + fh - 9, 2, 1, '#f4f1e8');
+        r(x + 5, fy + fh - 9, 1, 1, '#e8a04a');
+        r(x + 9, fy + fh - 9, 2, 1, '#e8e2c8');
+        r(x + 12, fy + fh - 9, 1, 1, '#6a707c');
+      }
     }
   }
 }

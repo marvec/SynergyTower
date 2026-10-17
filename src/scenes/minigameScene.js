@@ -13,6 +13,7 @@ import { completeActivity, vacationLeft } from '../core/vacation.js';
 import { completeTraining } from '../core/conduct.js';
 import { completeChore, homeLeft, HOME } from '../core/home.js';
 import { completePartyActivity, partyLeft, sway, tipsyLevel } from '../core/party.js';
+import { completeSmoke } from '../core/roof.js';
 import { reducedMotion } from '../engine/platform.js';
 import { fireCareer, FiredScene } from './fired.js';
 import { MINIGAMES } from '../minigames/index.js';
@@ -29,7 +30,8 @@ export class MinigameScene {
    * rewards, half the cooldown, tallied for the shift's summary, see core/nightShift.js) or 'home' (a chore in your
    * flat: XP and a few paperclips once per chore and stay, never KPI stars; the coffee maker pours cups instead, see
    * core/home.js) or 'party' (an activity at the Christmas party: free, paperclips once per activity and party, the
-   * Secret Santa gift; no XP, KPI stars or coffee, see core/party.js). The result carries `playS`, the seconds of play (the home's presence meter drains by them).
+   * Secret Santa gift; no XP, KPI stars or coffee, see core/party.js) or 'roof' (a cigarette with the smokers on the roof:
+   * free, pays nothing, counts as played, see core/roof.js). The result carries `playS`, the seconds of play (the home's presence meter drains by them).
    */
   constructor(game, task, onDone, opts = {}) {
     this.game = game;
@@ -62,7 +64,7 @@ export class MinigameScene {
     return this.phase === 'paused';
   }
   get music() {
-    return this.mode === 'vacation' ? 'tropical' : this.mode === 'home' ? 'homeoffice' : this.mode === 'party' ? 'xmasparty' : 'minigame';
+    return this.mode === 'vacation' ? 'tropical' : this.mode === 'home' ? 'homeoffice' : this.mode === 'party' ? 'xmasparty' : this.mode === 'roof' ? 'rooftop' : 'minigame';
   }
   enter() {
     this.game.audio.play(this.music);
@@ -134,6 +136,7 @@ export class MinigameScene {
     if (this.mode === 'vacation') return this.completeVacation(score);
     if (this.mode === 'home') return this.completeHome(score);
     if (this.mode === 'party') return this.completeParty(score);
+    if (this.mode === 'roof') return this.completeRoof(score);
     const s = this.game.state;
     const before = { level: s.level };
     const trip = this.mode === 'trip';
@@ -242,6 +245,33 @@ export class MinigameScene {
     if (this.result.levelsGained) setTimeout(() => this.game.sfx('levelup'), 900);
     this.buttons.clear();
     this.buttons.add({ x: W / 2 - 50, y: H / 2 + 58, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  completeRoof(score) {
+    const s = this.game.state;
+    this.result = completeSmoke(s, this.task.game, score);
+    track('roof_smoke', { stars: this.result.stars });
+    this.game.markDirty();
+    this.game.saveNow();
+    this.phase = 'result';
+    this.t = 0;
+    this.revealed = 0;
+    this.game.sfx(this.result.stars > 0 ? 'good' : 'fail');
+    this.buttons.clear();
+    this.buttons.add({ x: W / 2 - 50, y: H / 2 + 44, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  renderRoofResult(g) {
+    const r = this.result;
+    dim(g, 0.65);
+    const x = W / 2 - 120;
+    const y = H / 2 - 70;
+    const titles = ['Coughing fit', 'Not bad', 'Smooth', 'Old pro'];
+    panel(g, x, y, 240, 140, { title: titles[r.stars], titleColor: r.stars ? '#8a5a3a' : '#7a2b2b' });
+    drawStarsLarge(g, this.revealed, W / 2, y + 18);
+    drawText(g, `Score ${Math.round(r.score * 100)}%`, W / 2, y + 44, { align: 'center', color: C.dim });
+    drawText(g, 'Smoking pays nothing: no paperclips,', W / 2, y + 62, { align: 'center' });
+    drawText(g, 'no XP, no KPI stars. Just gossip.', W / 2, y + 74, { align: 'center' });
+    drawText(g, 'Your lungs would like a word.', W / 2, y + 90, { align: 'center', color: C.dim });
+    this.buttons.render(g);
   }
   completeParty(score) {
     const s = this.game.state;
@@ -419,7 +449,7 @@ export class MinigameScene {
     } else if (this.phase === 'paused') {
       dim(g, 0.6);
       panel(g, W / 2 - 110, H / 2 - 30, 220, 66, { title: 'Paused' });
-      const msg = { standup: 'Give up? The favour still counts.', vacation: 'Give up? You can try again later.', party: 'Give up? You can try again later.', compliance: this.game.state?.maxFloor > 1 ? 'Give up? That counts as failing.' : "Give up? You'll be fired." }[this.mode] || 'Give up? Coffee is not refunded.';
+      const msg = { standup: 'Give up? The favour still counts.', vacation: 'Give up? You can try again later.', party: 'Give up? You can try again later.', roof: 'Put it out? Nothing lost.', compliance: this.game.state?.maxFloor > 1 ? 'Give up? That counts as failing.' : "Give up? You'll be fired." }[this.mode] || 'Give up? Coffee is not refunded.';
       drawText(g, msg, W / 2, H / 2 - 10, { align: 'center' });
       this.buttons.render(g);
     } else if (this.phase === 'result') {
@@ -429,6 +459,7 @@ export class MinigameScene {
       else if (this.mode === 'vacation') this.renderVacationResult(g);
       else if (this.mode === 'home') this.renderHomeResult(g);
       else if (this.mode === 'party') this.renderPartyResult(g);
+      else if (this.mode === 'roof') this.renderRoofResult(g);
       else this.renderResult(g);
     }
     drawText(g, 'Esc: pause', W - 4, H - 10, { align: 'right', color: 'rgba(255,255,255,0.4)' });

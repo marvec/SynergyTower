@@ -29,7 +29,7 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 | Content | `src/data/` | Pure data: departments/titles/NPC lines, corp colours, task titles, music, `mg-*.js` mini-game content. |
 | Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit. |
 | Scenes | `src/scenes/` | title → setup → exterior → floor ⇄ (overlays, mini-game host, elevator ride) → ending. |
-| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review, + `compliance`, the compliance training, + 8 holiday activities for the vacation hotel + 6 home office chores + 4 Christmas party activities: `dance`, `giftwrap`, `carols`, `photobooth`), registered in `src/minigames/index.js`. |
+| Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review, + `compliance`, the compliance training, + 8 holiday activities for the vacation hotel + 6 home office chores + 4 Christmas party activities: `dance`, `giftwrap`, `carols`, `photobooth` + the roof's `cigarette`), registered in `src/minigames/index.js`. |
 
 - `src/game.js` holds the game context: state, the scene stack (`push`/`pop`/`set`; overlays set `opaque = false`), the
   pause rule for timed stays (while a scene with `pausesClocks` is on the stack, the PauseMenu or a paused mini-game,
@@ -124,7 +124,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   `floorWorld.js`). Interacting shows `SPONSOR_PITCH` / `adPitch` from `src/data/sponsors.js`, with an "Advertise here"
   button that opens the feedback form on the `sponsor` topic.
 - HUD stats are clickable: `Hud.hits` (rebuilt every render) opens `StatsDialog` (`src/scenes/statsDialog.js`) on the matching
-  tab. "Games played" = distinct mini-games in `state.played` out of `COUNTED_GAMES` (tasks.js: the 33 station games plus the 8 holiday activities and the 6 home chores, ordinary games for the title's count of 47, the Generalist badge, the player guide, `llms.txt` and the page metadata; any result counts; `S.gamesPlayed`).
+  tab. "Games played" = distinct mini-games in `state.played` out of `COUNTED_GAMES` (tasks.js: the 33 station games plus the 8 holiday activities, the 6 home chores and the roof's cigarette (`ROOF_GAMES`), ordinary games for the title's count of 48, the Generalist badge, the player guide, `llms.txt` and the page metadata; any result counts; `S.gamesPlayed`).
 - Feedback form: `openFeedback(context)` in `src/engine/feedback.js` is a DOM overlay (title link, ☰ menu, posters) with
   topics (task idea, bug, sponsorship, other; email required for sponsorship). It lazy-loads
   reCAPTCHA v3 (the only external script) and POSTs to `api/feedback.js`, a Vercel Function (project `well-be/synergy-tower`,
@@ -143,7 +143,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 - Analytics: `src/engine/analytics.js` (cookieless, production domain only): Cloudflare Web Analytics for visits, Umami for
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
   coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, vacation_start, vacation_activity {game, stars}, vacation_end {coffee, activities, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
-  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, night_start, night_end {sp, tasks, early}, archive_start, archive_enter, archive_end {result: found|timeout|gave_up, left}, archive_handin {stars, levels, sp}, home_start, home_chore {game, stars}, home_call {answered}, home_end {result: done|early|sent_back, lapses, chores}, party_invite {action: shown|go}, party_start, party_activity {game, stars}, party_drink {kind}, party_end {result: done|early, activities, sp, drinks}, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
+  so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, night_start, night_end {sp, tasks, early}, archive_start, archive_enter, archive_end {result: found|timeout|gave_up, left}, archive_handin {stars, levels, sp}, home_start, home_chore {game, stars}, home_call {answered}, home_end {result: done|early|sent_back, lapses, chores}, party_invite {action: shown|go}, party_start, party_activity {game, stars}, party_drink {kind}, party_end {result: done|early, activities, sp, drinks}, roof_enter, roof_smoke {stars}, roof_decline, roof_hint {floor}, roof_telescope, roof_spotted {what}, roof_cradle, roof_caught, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
   c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing. The apps send Umami events too, tagged `app-ios`/`app-android`.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
@@ -303,6 +303,37 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   Badges: Party Animal, Tipsy, Designated Driver (`stats.parties/partyTipsy/partyDesignated`). Furniture quips: `PARTY_QUIPS`
   (`fl.party`). Console: `__party()` (this year's party again, the invitation on your floor, any date), `__party('hall')`
   straight in, `__party('tipsy')` in with three drinks.
+- **The roof** (prompt `docs/roof-prompt.md`, a secret level; `src/core/roof.js`, settings `E.ROOF` (economy.js), text in
+  `src/data/roof.js`): one roof for the whole tower. On floors 2, 12, 22 and 32 one outer-wall window is the fire escape
+  (`fl.fireEscape = { x, y: 0 }`, picked in `planFloor` without the RNG, best in a kitchen or copy room; cigarette butts on
+  its sill via `drawWallTile` `butts`). It is a curio-like target (`FloorScene.fireEscape`, in `curioTargets`: no focus
+  brackets or prompt) that runs `useFireEscape`: `roofBlock` (hold, no badge, `away` = trip/holiday/night shift/home
+  office/party/inside the archive, `closed` = caught today) makes the player say a `STUCK_LINES` line, else `enterRoof`
+  (`state.roof.on = { floor }`) and `RoofClimb` (`scenes/roofClimb.js`, the ladder, a floor counter, skippable) to
+  `RoofScene` (`scenes/roof.js`, a `foreign` FloorScene subclass on the 40x28 `buildRoof()`: gravel/`roofslab` ground, a
+  low parapet (`outer` off), props with `ROOF_QUIPS` (`fl.roof`), the sky and skyline drawn in `drawBackdrop` (a FloorScene
+  hook) by local time, `skyMode`: day, dusk 18-20 h, night 20-6 h with `darkLighting` and roof lamps, the sky redrawn over
+  the lighting; the camera looks up near the top; song `rooftop`). One colleague on the floor (`FloorScene.roofNpc`) now
+  and then gives a smoker away (`ROOF_TEASERS`). Up there: `smokersFor` (3-4 colleagues of the floor below, by cast,
+  never the fired; `SmokerBrain` keeps them at the bench) open `SmokersCard` (Small talk / Take one / No thanks / Bye):
+  small talk is gossip (the next office event, the station that frees up soonest, the party in December), "Take one" is
+  the `cigarette` mini-game (MinigameScene mode `'roof'`, `completeSmoke`: free, pays nothing, counted in `COUNTED_GAMES`),
+  "No thanks" counts for Fresh Air. After a cigarette, or "No thanks" plus small talk, a smoker confesses the **archive
+  tip** (`archiveHint`: the next floor up is an archive floor whose folder can still be fetched): the drawer is
+  `archiveDrawer(s, floor)` (core/archive.js, fixed by cast and floor; `acceptArchive` uses it, a task already running keeps
+  its `task.drawer`), named by `drawerLabel` ("Row C, cabinet 7"; the archive shows row signs and cabinet numbers in the
+  player's light, `ArchiveScene.drawLabels`); `noteHint` keeps it in `state.roof.hints`. The pay telescope
+  (`scenes/telescope.js`, `ROOF.telescopeSp` a look of `telescopeS`) pans a parallax panorama with five sights (`EGGS`:
+  the hotel, the client's office, a balloon, a waver, the rival tower), spotted by a click or, with Space, once the
+  crosshair is in line with it (`sightInLine`: same x, any height, as the view only turns sideways) and it is big enough (`spot`, Spotter badge). The cradle (`scenes/cradle.js`) rides down the facade past every floor's windows to the
+  floor you came from; the ladder climbs back down. Both land with `FloorScene` `arrival: 'roof'` (in front of the
+  window). The facilities guard comes out of the roof door every `guardEveryS` of roof time for `guardOutS`, walking a few
+  `fl.patrol` stops (sometimes the bench, for a smoke): `guardSees` (within `guardSight` in his field of view, or
+  `guardNear` all round, `lineClear` over `fl.opaque` = the parapet and `it.tall` props) shows a "?" and after
+  `guardGraceS` catches you (`catchOnRoof`: `closedDay` = today, a card, back on the floor by the elevator, no HR strike);
+  out of sight in time is an escape (Not Today). `state.roof = { visits, on, closedDay, spotted, hints, smokes, declined,
+  escapes, caught }`. Continue on a save made up there (`roof.on`) resumes at that floor's window. Badges: Fresh Air,
+  Smoke Break Networker, Spotter, Not Today (the guide does not list them, like the trip's and the holiday's).
 - Reminders: opt-in browser notifications ("Reminders" in Menu > Settings (`SettingsMenu`), offered once via `offerReminders` when a task card
   is closed for lack of coffee). `src/core/reminders.js` (pure, reusable by a native app) lists what finishes while away;
   `src/engine/reminders.js` schedules the soonest one when the tab is hidden and fires only if the tab is still hidden.
@@ -333,6 +364,9 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   from the hold, or straight into the compliance hold.
 - `__party()` / `__party('hall')` / `__party('tipsy')`: the Christmas party again on any date (resets this year's), the
   invitation on your floor, straight into the hall, or into the hall three drinks in.
+- `__roof()` / `__roof(22)` / `__roof('up')` / `__roof(12, 'up')` / `__roof('guard')`: at the fire-escape window of the nearest
+  roof floor (the guard's "closed today" lifted), straight onto the roof, or the guard out now; on the roof
+  `__roof('day' | 'dusk' | 'night')` fixes the sky (`__roof(null)`: the local time again).
 - `__vacation()`: floor 20 with the leave request open, free (no paperclips) and repeatable (resets today's holiday);
   `__vacation('hotel')` goes straight to the hotel, also free.
   Dev server only: it lives in `src/debug.js`, which `main.js` imports unless `__DEV__` is false; the production build

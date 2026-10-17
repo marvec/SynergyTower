@@ -98,6 +98,14 @@ export class TitleScene {
       const { ExteriorScene } = await import('./exterior.js');
       return this.game.set(new ExteriorScene(this.game));
     }
+    // Saved on the roof: back at the fire-escape window of the floor it was reached from.
+    if (s.roof?.on) {
+      const RF = await import('../core/roof.js');
+      const floor = RF.resumeRoof(s);
+      this.game.saveNow();
+      this.game.set(new FloorScene(this.game, floor, { arrival: 'roof' }));
+      return this.game.toast('You climbed back down the fire escape.', C.dim);
+    }
     // The Christmas party under way: back to the hall while its clock runs (whatever the date), else it is over.
     if (s.party) {
       const PA = await import('../core/party.js');

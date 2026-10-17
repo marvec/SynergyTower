@@ -132,6 +132,23 @@ export const SONGS = {
       'F5 - - - E5 - D5 - C5 - - - A4 - . .', 'B4 - - - - - D5 - - - - - . . . .',
     ],
   },
+  // The roof (scenes/roof.js): a lazy smoke-break bossa over the city, plenty of air between the phrases.
+  rooftop: {
+    bpm: 86, swing: 0.22, lead: 'triangle', leadVol: 0.15,
+    chords: ['Dm7', 'G7', 'Cmaj7', 'Am7', 'Dm7', 'G7', 'Em7', 'A7'],
+    bass: { steps: [0, 6, 8, 14], tones: [0, 2, 0, 2], len: 3 },
+    comp: { steps: [0, 3, 6, 10, 13], len: 2, vol: 0.035 },
+    drums: [
+      'k..r..r.k.r..r..', 'k..r..r.k.r..rh.', 'k..r..r.k.r..r..', 'k..r..r.k.r.hr.o',
+      'k..r..r.k.r..r..', 'k..r..r.k.r..rh.', 'k..r..r.k.r..r..', 'k..r..r.k.k.r.r.',
+    ],
+    melody: [
+      'A4 - - - . . C5 - E5 - - - D5 - . .', 'B4 - - - - - . . F5 - E5 - D5 - . .',
+      'E5 - - - - - . . G4 - B4 - D5 - C5 -', 'C5 - - - . . . . . . A4 - C5 - E5 -',
+      'F5 - - - E5 - D5 - - - . . C5 - . .', 'B4 - - - D5 - F5 - - - . . . . . .',
+      'G5 - - - E5 - - - D5 - B4 - . . . .', 'C#5 - - - - - - - E5 - - - - - . .',
+    ],
+  },
   // The Christmas party (scenes/party.js): an original, upbeat tune; Dance-Off (minigames/dance.js) is timed to its bpm.
   xmasparty: {
     bpm: 120, swing: 0, lead: 'pulse25', leadVol: 0.14,

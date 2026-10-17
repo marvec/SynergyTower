@@ -110,6 +110,27 @@ export const HOME = {
  */
 export const PARTY = { month: 11, fromDay: 6, toDay: 23, stayS: 10 * 60, bonusSo: 1, spMult: 2, difficulty: 0.3, guests: 14, dancers: 6, maxTipsy: 3, soberS: 120 };
 /**
+ * The roof (core/roof.js), a secret level for the whole tower: a fire-escape window on these floors leads up. The pay
+ * telescope costs telescopeSp paperclips a look of telescopeS seconds. The facilities guard comes out of the roof door
+ * every guardEveryS (random, in that range) of roof time and patrols for guardOutS; he catches a player within
+ * guardSight tiles in his line of sight (in front of him; guardNear all round) once guardGraceS have passed with his "?".
+ * freshAir: the "No thanks" answers the Fresh Air badge needs. The cigarette mini-game runs at difficulty.
+ */
+export const ROOF = {
+  floors: [2, 12, 22, 32],
+  telescopeSp: 20,
+  telescopeS: 45,
+  guardEveryS: [60, 180],
+  guardOutS: [30, 60],
+  guardSight: 4.5,
+  guardNear: 1.8,
+  guardCone: 0.35, // the cosine of half his field of view (about 140 degrees)
+  guardGraceS: 0.9,
+  guardSpeed: 2,
+  freshAir: 5,
+  difficulty: 0.3,
+};
+/**
  * Conduct (core/conduct.js): every time the player asks a colleague out is a strike; HOLD_STRIKES strikes put them on
  * compliance hold until they take the training at HR. Failing it demotes.
  */

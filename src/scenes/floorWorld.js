@@ -331,7 +331,8 @@ export class FloorView {
         openRight: !this.isWall(x + 1, y),
         window: y === 0 && this.hasWindow(x),
         night: this.nightWindows,
-        outer: y === 0 && !hedge,
+        outer: y === 0 && !hedge && !fl.roof, // the roof's parapet is as low as any wall
+        butts: y === 0 && fl.fireEscape?.x === x,
         tx: x,
       });
     }
@@ -441,6 +442,21 @@ export class FloorView {
     const y = it.y * TILE + baked.oy;
     g.drawImage(baked.canvas, x, y);
     if (mine) for (const id of Object.values(this.desk.show || {})) if (id) drawDeskDecor(g, id, it.x * TILE, it.y * TILE, it.w);
+    if (it.type === 'acunit') {
+      // The fan on top turns: a blade across the grille, four positions.
+      const k = Math.floor(this.time * 10 + it.id) % 4;
+      const cx = it.x * TILE + it.w * 8;
+      const cy = it.y * TILE + 6 - 22 + 9;
+      g.fillStyle = '#868c96';
+      if (k === 0) g.fillRect(cx - 7, cy, 14, 1);
+      else if (k === 2) g.fillRect(cx, cy - 4, 1, 9);
+      else for (let i = -4; i <= 4; i++) g.fillRect(cx + (k === 1 ? i : -i), cy + Math.round(i * 0.9), 1, 1);
+    } else if (it.type === 'antenna') {
+      if (Math.floor(this.time * 1.5) % 2) {
+        g.fillStyle = '#ff5a4a';
+        g.fillRect(it.x * TILE + 6, it.y * TILE - 72, 4, 4);
+      }
+    }
     if (it.type === 'serverrack') {
       const t = Math.floor(this.time * 6 + it.id * 3);
       for (let i = 0; i < 6; i++) {

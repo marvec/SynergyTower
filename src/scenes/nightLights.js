@@ -70,9 +70,10 @@ export function nightLighting(fl, floor) {
 
 /**
  * Lighting for any dark floor (the night shift, the basement archive in scenes/archive.js): `lamps` as nightLamps gives
- * them, `ambient` the base light, `config` a lighting config (LIGHTING or one derived from it).
+ * them, `ambient` the base light, `config` a lighting config (LIGHTING or one derived from it), `outerRise` how much
+ * taller the top row's wall stands (0 on the roof, whose parapet is as low as any wall).
  */
-export function darkLighting(fl, lamps, { ambient = LIGHTING.ambient, config = LIGHTING } = {}) {
+export function darkLighting(fl, lamps, { ambient = LIGHTING.ambient, config = LIGHTING, outerRise = OUTER_RISE } = {}) {
   const n = fl.w * fl.h;
   const wall = new Uint8Array(n);
   for (let i = 0; i < n; i++) wall[i] = fl.tiles[i] === T_WALL ? 1 : 0;
@@ -82,7 +83,7 @@ export function darkLighting(fl, lamps, { ambient = LIGHTING.ambient, config = L
     if (!def || def.solid === false || (def.lift || 0) < TALL_LIFT) continue;
     for (let y = it.y; y < it.y + it.h; y++) for (let x = it.x; x < it.x + it.w; x++) opaque[y * fl.w + x] = 1;
   }
-  const lighting = new Lighting({ cols: fl.w, rows: fl.h, tile: TILE, opaque, wall, wallH: WALL_H, outerRise: OUTER_RISE, config });
+  const lighting = new Lighting({ cols: fl.w, rows: fl.h, tile: TILE, opaque, wall, wallH: WALL_H, outerRise, config });
   lighting.setAmbient(ambient, NIGHT_TINT);
   for (const l of lamps) {
     const light = { x: l.x * TILE, y: l.y * TILE, r: l.r, ...LAMP };

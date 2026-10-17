@@ -48,6 +48,8 @@ import * as HO from '../core/home.js';
 import { HOME_TEASERS, HOME_OFFER, HOME_AFTER, HOME_REFUSALS, HOME_GOODBYE, HOME_FRIDGE, HOME_SUMMARY, HOME_SUMMARY_TITLE } from '../data/home.js';
 import * as PA from '../core/party.js';
 import { PARTY_SUMMARY, PARTY_SUMMARY_TITLE, PARTY_INVITE, PARTY_REFUSALS } from '../data/party.js';
+import * as RF from '../core/roof.js';
+import { STUCK_LINES, ROOF_TEASERS } from '../data/roof.js';
 import { ASK_LINES, ASK_AGAIN_LINES, FIRST_NO, REPEAT_NO, FROSTY_LINES, GOSSIP_LINES, HR_CALL_LINES, HR_PASSED_LINES, HR_FAILED_LINES, HOLD_INTRO } from '../data/conduct.js';
 
 const SPEED = 4.4;
@@ -90,7 +92,10 @@ export class FloorScene {
     this.view.setNight(night); // dark outside the windows
     const e = this.fl.entrance;
     // fl.arrive: a floor whose way in is not in the bottom wall (the vacation hotel's front door is at the top).
-    const spawn = arrival === 'entrance' && e ? this.fl.arrive || { x: e.x + e.w / 2 - 0.1, y: this.fl.h - 2.2 } : { x: 19.9, y: 2.6 };
+    // arrival 'roof': back in through the fire-escape window (core/roof.js), in front of it.
+    const fe = this.fl.fireEscape;
+    const spawn =
+      arrival === 'roof' && fe ? { x: fe.x + 0.5, y: fe.y + 1.6 } : arrival === 'entrance' && e ? this.fl.arrive || { x: e.x + e.w / 2 - 0.1, y: this.fl.h - 2.2 } : { x: 19.9, y: 2.6 };
     this.player = new Actor(game.playerLook(), spawn.x, spawn.y);
     this.player.dir = arrival === 'entrance' && !this.fl.arrive ? 'up' : 'down';
     const fired = game.state.fired || {};
@@ -153,6 +158,10 @@ export class FloorScene {
     const chat = this.foreign || night ? null : CD.chatSeed(this.fl, floor);
     this.chatNpc = chat == null ? null : this.npcs.find((n) => n.seed === chat) || null;
     this.chatMemos = new Map(); // line list → pickLine memo, so answers come at random without repeats
+    // The roof (core/roof.js): on floors 2, 12, 22 and 32 one outer window is the fire escape (a curio-like target, no
+    // focus brackets), and the last colleague now and then gives the smokers away.
+    this.fireEscape = !this.foreign && fe ? { kind: 'fireescape', it: { x: fe.x, y: fe.y, w: 1, h: 1, top: -8 } } : null;
+    this.roofNpc = this.fireEscape && !night ? this.npcs.filter((n) => n.seed !== this.fl.npcs[0]?.seed && n !== this.chatNpc).at(-1) || null : null;
     this.hrCallT = 2;
     this.teaseT = 5;
     this.hud = new Hud(game, {
@@ -310,7 +319,9 @@ export class FloorScene {
   }
   /** Curios that can be poked right now (the open turnstile and an unassigned desk only say something). */
   curioTargets() {
-    return this.curios.filter((t) => !(t.it.interact === 'turnstile' && this.gateClosed) && !(t.it === this.fl.myDesk && this.hasDesk));
+    const list = this.curios.filter((t) => !(t.it.interact === 'turnstile' && this.gateClosed) && !(t.it === this.fl.myDesk && this.hasDesk));
+    if (this.fireEscape) list.push(this.fireEscape);
+    return list;
   }
   nearest(list = this.interactables()) {
     let best = null;
@@ -405,7 +416,8 @@ export class FloorScene {
         tripAfter ||
         (leave === 'today' && this.rng.chance(0.5) ? this.rng.pick(BOSS_AFTER) : null) ||
         (shift === 'today' && this.rng.chance(0.5) ? this.rng.pick(NIGHT_AFTER) : null) ||
-        (home === 'today' && this.rng.chance(0.5) ? this.rng.pick(HOME_AFTER) : null);
+        (home === 'today' && this.rng.chance(0.5) ? this.rng.pick(HOME_AFTER) : null) ||
+        (t.n === this.roofNpc && this.rng.chance(0.5) ? this.roofTease() : null);
       const line = q?.hintLine(t.n) || after || this.nextLine();
       a.say(line);
       game.sfx('blip');
@@ -418,6 +430,8 @@ export class FloorScene {
     p.faceTowards(it.x + it.w / 2 - p.x, it.y + it.h / 2 - p.y);
     if (t.kind === 'curio') {
       this.poke(it);
+    } else if (t.kind === 'fireescape') {
+      this.useFireEscape();
     } else if (t.kind === 'task') {
       game.sfx('click');
       if (it.task.checkin && s.lobby === 'checkin') this.receptionist?.say('Quick test before your badge: spot the buzzwords!', 4);
@@ -872,6 +886,35 @@ export class FloorScene {
       this.receptionist?.say('Not so fast! Check in at the front desk first.', 3.5);
       game.toast('No badge yet: check in at the front desk.', C.warn);
     } else game.toast(`The turnstile wants ${E.TURNSTILE_COFFEE} coffee. Next cup in ${formatTime(S.msToNextCoffee(s, game.now()))}.`, C.warn);
+  }
+
+  /** The fire-escape window: up to the roof, unless something keeps it shut (then "It's stuck."). */
+  async useFireEscape() {
+    const game = this.game;
+    const s = game.state;
+    if (this.quest || this.event) return game.toast('Finish what you are doing first.', C.warn);
+    const why = RF.roofBlock(s, game.now());
+    if (why) {
+      game.sfx('bad');
+      this.player.say(STUCK_LINES[why] || STUCK_LINES.away, 3);
+      return;
+    }
+    if (!RF.enterRoof(s, this.floorNo, game.now()).ok) return;
+    game.sfx('door');
+    game.saveNow();
+    const { RoofClimb } = await import('./roofClimb.js');
+    game.set(new RoofClimb(game, this.floorNo, { up: true }));
+  }
+
+  /** The colleague who gives the smokers away: one of today's smokers by name, and the window they use. */
+  roofTease() {
+    const s = this.game.state;
+    const smoker = RF.smokersFor(s, this.floorNo)[0];
+    if (!smoker) return null;
+    const name = npcIdentity(smoker.seed, smoker.dept, S.castOf(s)).name.split(' ')[0];
+    const room = this.fl.rooms[this.fl.roomOf[this.fl.w + this.fireEscape.it.x]]?.type || 'kitchen';
+    const where = { restroom: 'toilet', copy: 'copy room', meeting: 'meeting room' }[room] || room;
+    return Q.pickLine(ROOF_TEASERS, (this.roofMemo ||= {})).replace('{name}', name).replace('{room}', where);
   }
 
   /** A colleague one-liner: 40% department flavour, 60% common office life; avoids recent repeats. */
@@ -1424,8 +1467,7 @@ export class FloorScene {
   render(g) {
     const s = this.game.state;
     const now = this.game.now();
-    g.fillStyle = '#0d0f18';
-    g.fillRect(0, 0, W, H);
+    this.drawBackdrop(g);
     this.view.gateOpen = !this.gateClosed;
     this.view.desk = this.hasDesk ? K.myDesk(s) : null;
     const actors = [this.player, ...this.npcs.map((n) => n.a), ...(this.hrRep ? [this.hrRep] : []), ...(this.receptionist ? [this.receptionist] : []), ...(this.event?.actors || [])];
@@ -1458,6 +1500,12 @@ export class FloorScene {
     this.quest?.renderHud(g);
     this.event?.renderHud(g);
     if (this.banner > 0) this.drawBanner(g);
+  }
+
+  /** Behind the map (the roof draws its sky here, scenes/roof.js). */
+  drawBackdrop(g) {
+    g.fillStyle = '#0d0f18';
+    g.fillRect(0, 0, W, H);
   }
 
   /** The night shift's darkness (the archive has its own, scenes/archive.js). */
