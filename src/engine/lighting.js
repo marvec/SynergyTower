@@ -25,7 +25,8 @@ export const VIEWS = ['final', 'unlit', 'light'];
 const BAYER = Float32Array.from([0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], (v) => (v + 0.5) / 16);
 const FACE = 0x8000; // owner flag: the pixel is a wall's front face (it faces south)
 const ROOF = 0x4000; // owner flag: the outer wall's top, the building's edge: no lamp inside reaches it, only the ambient
-const TILE_OF = ~(FACE | ROOF);
+const CAP = 0x2000; // owner flag: the top of a wall with a front (open floor south of it): lit only from its north side
+const TILE_OF = ~(FACE | ROOF | CAP);
 
 /** Light reaching a pixel, by distance as a share of the radius (0..1). */
 const FALLOFF = {
@@ -106,7 +107,8 @@ export class Lighting {
 
   /**
    * Which tile each world pixel shows, so a wall's pixels drawn over the row above still belong to the wall: tile index + 1
-   * (0 = outside the floor), with FACE set on a wall's front face and ROOF on the outer wall's top.
+   * (0 = outside the floor), with FACE set on a wall's front face, ROOF on the outer wall's top and CAP on the top of
+   * any other wall with a front (drawn over the room north of it, so a light south of the wall must not reach it).
    */
   buildOwners(wall, wallH, outerRise) {
     const { cols, rows, tile, pw, ph, top } = this;
@@ -125,6 +127,7 @@ export class Lighting {
             v = r * cols + tx + 1;
             if (py >= (r + 1) * tile - frontH(r) && !isWall(tx, r + 1)) v |= FACE;
             else if (r === 0 && py < tile - frontH(r)) v |= ROOF;
+            else if (!isWall(tx, r + 1)) v |= CAP;
             break;
           }
         }
@@ -237,6 +240,7 @@ export class Lighting {
     const inv = 1 / light.r;
     const k = light.intensity * level;
     const [tr, tg, tb] = light.tint;
+    const ly = Math.floor(light.y / tile);
     for (let py = y0; py < y1; py++) {
       const row = (py + top) * pw;
       let i = ((py - oy) * bw + (x0 - ox)) * 3;
@@ -245,6 +249,7 @@ export class Lighting {
         if (!o || o & ROOF) continue;
         const t = (o & TILE_OF) - 1;
         if (!(vis[t] & (o & FACE ? 2 : 1))) continue;
+        if (o & CAP && ly > ((t / cols) | 0)) continue; // a light south of the wall: its front blocks the top
         let dx, dy;
         if (perTile) {
           dx = ((t % cols) + 0.5) * tile - light.x;

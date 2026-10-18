@@ -70,6 +70,36 @@ test('a wall\'s front face is lit from the room it faces, not from behind', () =
   expect(px(fromSouth.compute(out(), 0, 0), 160, faceY)).toBeGreaterThan(0);
 });
 
+test('a light south of a wall lights its front, not its top: no light spills over the wall into the room behind', () => {
+  const topY = 8 * T - 6; // wall row 8: its top is drawn at y 116..131, its front at 132..143
+  const fromSouth = floor({ dither: false, ambient: 0 });
+  fromSouth.addLight({ x: 160.5, y: 150, r: 60, intensity: 2, dynamic: true }); // the player, right in front of it
+  const b = fromSouth.compute(out(), 0, 0);
+  expect(px(b, 160, 8 * T + 10)).toBeGreaterThan(0); // the front
+  for (const x of [130, 160, 190]) expect(px(b, x, topY)).toBe(0);
+  const fromNorth = floor({ dither: false, ambient: 0 });
+  fromNorth.addLight({ x: 160.5, y: 100, r: 60, intensity: 2 });
+  expect(px(fromNorth.compute(out(), 0, 0), 160, topY)).toBeGreaterThan(0); // the top, from the room it borders
+});
+
+test('a wall running north-south is lit along its top from either side, its southern end not from the south', () => {
+  const wall = new Uint8Array(COLS * ROWS);
+  for (let y = 2; y <= 6; y++) wall[y * COLS + 15] = 1; // column 15, rows 2..6; row 7 below it is open
+  const make = () => new Lighting({ cols: COLS, rows: ROWS, tile: T, opaque: wall, wall, wallH: 12, config: cfg({ dither: false, ambient: 0 }) });
+  const top = (row) => row * T - 4; // inside the top of that row's wall tile
+  for (const x of [14 * T + 8, 16 * T + 8]) {
+    const L = make();
+    L.addLight({ x, y: 4 * T + 8, r: 50, intensity: 2 }); // west, then east of it, on row 4
+    const b = L.compute(out(), 0, 0);
+    for (const row of [3, 4, 5]) expect(px(b, 15 * T + 8, top(row))).toBeGreaterThan(0);
+  }
+  const S = make();
+  S.addLight({ x: 15 * T + 8, y: 7 * T + 10, r: 50, intensity: 2 }); // just south of its end
+  const b = S.compute(out(), 0, 0);
+  expect(px(b, 15 * T + 8, 7 * T - 4)).toBeGreaterThan(0); // the end's front
+  expect(px(b, 15 * T + 8, top(6))).toBe(0); // the end's top
+});
+
 test('the outer wall reaches above the floor\'s first row and its front is lit there too; its top (the building\'s edge) and above stay dark', () => {
   const wall = new Uint8Array(COLS * ROWS);
   for (let x = 0; x < COLS; x++) wall[x] = 1; // row 0: the outer wall, 12 + 12 px tall front, its top 16 px above that

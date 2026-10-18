@@ -222,7 +222,7 @@ refreshes the committed ZIP of the 8 disk images in `public/c64/`.
   (`flickerLevel`: three sines plus rare dips, applied to a baked patch, more towards the edge; `LIGHTING.flicker`)) and the song is `nightshift`. The lighting is
   `src/engine/lighting.js`, DOS-style: the world is drawn unlit, then multiplied by a light buffer quantized to
   `LIGHTING.levels` shades with a 4x4 Bayer dither; static lights are baked once, walls and furniture with `lift` >= 24
-  block light on the tile grid (a wall's front face is lit only from the south). Settings in the `LIGHTING` object. Station cooldowns
+  block light on the tile grid (a wall's front face is lit only from the south, the top of a wall with a front only from the north, so no light spills over it). Settings in the `LIGHTING` object. Station cooldowns
   are halved (`completeTask` option `cooldownMult`, MinigameScene mode `'night'` → `completeNightTask`; running ones are
   halved at the start) and the floor's machine brews every 2 minutes under its own key (`N.BREWER_KEY`). Closed at
   night: HR, the terminal, floor quests ("CLOSED" tape), stand-ups, events, the coffee break chat. The elevator offers
