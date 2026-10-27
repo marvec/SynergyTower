@@ -3,6 +3,7 @@
 import { W, H, C, rect, frame, drawText, measureText, header, timerBar, Floaters, Shake, byDiff, clamp, finish } from '../engine/mgkit.js';
 import { drawButton } from '../engine/ui.js';
 import { wrapText } from '../engine/font.js';
+import { person } from '../engine/figure.js';
 import { MOODS, SLOTS, REPLIES, ARRIVALS, INTROS, REACTIONS, NEXTS, MOOD_BONUS } from '../data/mg-pitch.js';
 
 const PITCHES = 3;
@@ -52,106 +53,6 @@ function catIcon(g, cat, x, y) {
     iconCache.set(cat, c);
   }
   g.drawImage(c, Math.round(x), Math.round(y));
-}
-
-/** 12×30 pixel person at scale s. expr: neutral | interested | delighted | bored | annoyed | talk | nervous. */
-function person(g, x, y, s, look, expr) {
-  const r = (cx, cy, w, h, col) => rect(g, x + cx * s, y + cy * s, w * s, h * s, col);
-  r(3, 21, 2, 8, look.pants);
-  r(7, 21, 2, 8, look.pants);
-  r(2, 29, 3, 1, '#15161c');
-  r(7, 29, 3, 1, '#15161c');
-  r(2, 10, 8, 11, look.top);
-  r(0, 11, 2, 9, look.top);
-  r(10, 11, 2, 9, look.top);
-  r(0, 20, 2, 1, look.skin);
-  r(10, 20, 2, 1, look.skin);
-  if (look.ceo) {
-    r(3, 10, 1, 7, look.lapel);
-    r(8, 10, 1, 7, look.lapel);
-    r(4, 10, 4, 1, '#f4f1e8');
-    r(5, 10, 2, 1, '#8e1f1a');
-    r(5, 11, 2, 6, '#c0392b');
-    r(10, 19, 2, 1, '#f2c14e'); // gold watch
-  } else {
-    r(4, 10, 1, 4, '#e2504a');
-    r(7, 10, 1, 4, '#e2504a');
-    r(4, 14, 4, 3, '#f4f1e8');
-    r(5, 15, 2, 1, C.accent);
-  }
-  r(5, 9, 2, 1, look.skin);
-  r(2, 1, 8, 8, look.skin);
-  r(1, 4, 1, 2, look.skin);
-  r(10, 4, 1, 2, look.skin);
-  if (look.ceo) {
-    r(2, 1, 1, 4, look.hair);
-    r(9, 1, 1, 4, look.hair);
-    r(3, 1, 6, 1, '#f8dcc0');
-  } else {
-    r(2, 0, 8, 2, look.hair);
-    r(2, 2, 1, 2, look.hair);
-    r(9, 2, 1, 2, look.hair);
-  }
-  const eye = '#222';
-  const mouth = '#7a3b3b';
-  switch (expr) {
-    case 'interested':
-      r(4, 2, 1, 1, look.brow);
-      r(7, 2, 1, 1, look.brow);
-      r(4, 4, 1, 2, eye);
-      r(7, 4, 1, 2, eye);
-      r(5, 6, 2, 2, mouth);
-      break;
-    case 'delighted':
-      r(3, 4, 1, 1, eye);
-      r(4, 3, 1, 1, eye);
-      r(5, 4, 1, 1, eye);
-      r(6, 4, 1, 1, eye);
-      r(7, 3, 1, 1, eye);
-      r(8, 4, 1, 1, eye);
-      r(3, 5, 1, 1, mouth);
-      r(8, 5, 1, 1, mouth);
-      r(4, 6, 4, 1, mouth);
-      r(5, 7, 2, 1, '#c0392b');
-      r(2, 6, 1, 1, '#f09090');
-      r(9, 6, 1, 1, '#f09090');
-      break;
-    case 'bored':
-      r(3, 4, 2, 1, eye);
-      r(6, 4, 2, 1, eye);
-      r(3, 3, 2, 1, '#d9a273');
-      r(6, 3, 2, 1, '#d9a273');
-      r(6, 7, 2, 1, mouth);
-      break;
-    case 'annoyed':
-      r(3, 2, 1, 1, eye);
-      r(4, 3, 1, 1, eye);
-      r(8, 2, 1, 1, eye);
-      r(7, 3, 1, 1, eye);
-      r(4, 4, 1, 1, eye);
-      r(7, 4, 1, 1, eye);
-      r(5, 6, 2, 1, mouth);
-      r(4, 7, 1, 1, mouth);
-      r(7, 7, 1, 1, mouth);
-      r(2, 5, 1, 2, '#e07070');
-      r(9, 5, 1, 2, '#e07070');
-      break;
-    case 'talk':
-      r(4, 4, 1, 1, eye);
-      r(7, 4, 1, 1, eye);
-      r(5, 6, 2, 2, '#3a1a1a');
-      break;
-    case 'nervous':
-      r(4, 4, 1, 1, eye);
-      r(7, 4, 1, 1, eye);
-      r(4, 6, 4, 1, mouth);
-      r(9, 2, 1, 2, '#8ad0ff');
-      break;
-    default:
-      r(4, 4, 1, 1, eye);
-      r(7, 4, 1, 1, eye);
-      r(5, 6, 2, 1, mouth);
-  }
 }
 
 function drawElevator(g, floor, anim, arrived) {
@@ -235,7 +136,7 @@ export default {
     const shake = new Shake();
     const skins = ['#f2c9a0', '#d9a273', '#a86b42', '#6b4228'];
     const hairs = ['#2b1d14', '#7a4a22', '#d9b25c', '#a33b20', '#1a1a1a'];
-    const you = { skin: rng.pick(skins), hair: rng.pick(hairs), top: C.accent, pants: '#2b2e38', brow: '#2b1d14' };
+    const you = { skin: rng.pick(skins), hair: rng.pick(hairs), top: C.accent, pants: '#2b2e38', brow: '#2b1d14', bib: true };
     const ceo = { ceo: true, skin: '#f2c9a0', hair: '#c8c8c8', brow: '#9a9a9a', top: '#22252e', lapel: '#15171e', pants: '#22252e' };
     const moodOrder = rng.sample(Object.keys(MOODS), PITCHES);
     const climbs = [rng.int(10, 12), rng.int(10, 12), rng.int(10, 12)];

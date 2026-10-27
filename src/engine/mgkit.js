@@ -1,7 +1,7 @@
 // Shared helpers for mini-games so they look and feel consistent.
 // Mini-game contract (see docs spec §2):
 //   export default { id, name, help, create(params) } → instance { update(dt, input), render(g), done, score }
-//   params: { difficulty 0..1, rng, theme: { dept, title }, sfx(name) }
+//   params: { difficulty 0..1, rng, theme: { dept, title, sky? (only the roof sets it, for Smoke Break: 'day' | 'dusk' | 'night') }, sfx(name), player: the player's figure look (engine/figure.js), or null/undefined }
 import { drawText, drawWrapped, measureText } from './font.js';
 import { C, rect, frame, panel, bar } from './ui.js';
 import { W, H } from './screen.js';

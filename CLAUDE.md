@@ -27,7 +27,7 @@ Vanilla ES modules + Canvas 2D at a fixed logical 480×270, integer-scaled with 
 |---|---|---|
 | Core logic | `src/core/` | **Pure, no DOM.** economy, state/actions, floor generator, tasks, A*, RNG. Keep it portable (Flutter). |
 | Content | `src/data/` | Pure data: departments/titles/NPC lines, corp colours, task titles, music, `mg-*.js` mini-game content. |
-| Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit. |
+| Engine | `src/engine/` | Browser glue: screen, input, audio synth, bitmap font, UI kit, pixel-art baking, mini-game kit, mini-game art kit (`mgart.js`), the shared Elevator Pitch figure (`figure.js`), shared scenery (`mgscenery.js`). |
 | Scenes | `src/scenes/` | title → setup → exterior → floor ⇄ (overlays, mini-game host, elevator ride) → ending. |
 | Mini-games | `src/minigames/` | One file per mechanic (33 station games + `review`, the HR performance review, + `compliance`, the compliance training, + 8 holiday activities for the vacation hotel + 6 home office chores + 4 Christmas party activities: `dance`, `giftwrap`, `carols`, `photobooth` + the roof's `cigarette`), registered in `src/minigames/index.js`. |
 
@@ -84,12 +84,13 @@ One bundle everywhere; `src/engine/platform.js` decides at runtime (`isNative()`
 ## Mini-game contract
 
 ```js
-export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dept, title }, sfx }) }
+export default { id, name, help, create({ difficulty /*0..1*/, rng, theme: { dept, title, sky? /* roof only: day|dusk|night, Smoke Break */ }, sfx, player }) }
 // instance: update(dt, input), render(g), done (bool), score (0..1)
 ```
 - The score maps to stars as <0.35 → 0, <0.6 → 1, <0.85 → 2, else 3. A perfect player should reach ≥0.85, a random one ~0.
 - Every game needs an overall time limit (≤ ~90 s) and must support keyboard **and** mouse.
 - Theme content by `theme.dept`: lobby, support, sales, marketing, it, finance, legalhr, exec.
+- Art: the in-between style (`docs/minigame-visuals/README.md`): `engine/figure.js` `person()` for people (`player || DEFAULT_PLAYER` for you), `engine/mgart.js` for flat bands and chunky shapes; bake static scenery once with `bake()`.
 - Use the helpers in `src/engine/mgkit.js` (backdrop, header, timerBar, monitor, choiceBox, pickChoice, Floaters, Shake, byDiff, finish).
 - The host (`src/scenes/minigameScene.js`) owns the countdown, pause/forfeit, coffee and rewards. Mini-games know
   nothing about the economy.

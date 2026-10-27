@@ -1,8 +1,13 @@
 // Boss Alert: alt-tab to your spreadsheet just before the boss walks past your cubicle, but don't panic for colleagues.
 import { W, H, C, rect, frame, panel, drawText, header, timerBar, monitor, Floaters, Shake, Countdown, byDiff, clamp, finish } from '../engine/mgkit.js';
+import { sprite, bake, grad, glow, grains, shaded, line } from '../engine/mgart.js';
+import { person, DEFAULT_PLAYER } from '../engine/figure.js';
 
 const DESK_X = 240;
-const FEET_Y = 104;
+const FEET_Y = 112;
+const SCREEN = { x: 160, y: 162, w: 160, h: 84 }; // your monitor's picture
+const CUBICLE = { x: 150, y: 78, w: 182, h: 72 }; // the cubicle layer's place over the hallway
+const SKIRTS = ['#2f6f5f', '#6a3f7a', '#8a4a3a'];
 const SHIRTS = ['#3b6fb6', '#b63b3b', '#3bb66a', '#b6973b', '#7a3bb6', '#c86a9a', '#4a9aa0'];
 const HAIRS = ['#2b1d14', '#7a4a22', '#d9b25c', '#a33b20', '#1a1a1a'];
 const SKINS = ['#f2c9a0', '#d9a273', '#a86b42', '#6b4228'];
@@ -11,7 +16,7 @@ export default {
   id: 'stealth',
   name: 'Boss Alert',
   help: 'Press SPACE (or click) to alt-tab right before the BOSS (red tie) passes your desk. False alarms cost you.',
-  create({ difficulty: d, rng, theme, sfx = () => {} }) {
+  create({ difficulty: d, rng, theme, sfx = () => {}, player }) {
     const fl = new Floaters();
     const shake = new Shake();
     const n = Math.round(byDiff(d, 8, 15));
@@ -26,6 +31,7 @@ export default {
       const dir = rng.chance(0.5) ? 1 : -1;
       const boss = bossIdx.has(i);
       walkers.push({
+        i,
         spawn: t0,
         dir,
         x: dir > 0 ? -20 : W + 20,
@@ -40,6 +46,7 @@ export default {
         gone: false,
         checked: false,
       });
+      walkers[i].look = walkerLook(walkers[i], i);
       t0 += interval * rng.float(0.7, 1.3);
     }
     const lastCross = Math.max(...walkers.map((w) => w.spawn + (W + 40) / w.speed));
@@ -50,6 +57,19 @@ export default {
     let caught = 0;
     let falseAlarms = 0;
     let anim = 0;
+    const me = player || DEFAULT_PLAYER;
+    // The scenery never changes: the hallway, the desk surface, the monitor frame, the legend. Your cubicle and screen have a work and a fun look.
+    const scene = bake(W, H, (g) => {
+      hallway(g);
+      desktop(g);
+      mugshot(g);
+      panel(g, 346, 164, 120, 82, { title: 'STATUS' });
+    });
+    const deskLayers = [true, false].map((work) => bake(CUBICLE.w, CUBICLE.h, (g) => {
+      g.translate(-CUBICLE.x, -CUBICLE.y);
+      cubicle(g, me, !work);
+    }));
+    const screens = [true, false].map((work) => bake(SCREEN.w, SCREEN.h, (g) => (work ? drawWork : solitaire)(g, { x: 0, y: 0, w: SCREEN.w, h: SCREEN.h })));
 
     const score = () => clamp((dodged - 0.5 * falseAlarms) / bossCount, 0, 1);
 
@@ -101,44 +121,19 @@ export default {
       render(g) {
         g.save();
         shake.apply(g);
-        // Hallway.
-        rect(g, 0, 0, W, H, '#2a2f45');
-        rect(g, 0, 18, W, 82, '#5a6078');
-        for (let x = 20; x < W; x += 110) {
-          rect(g, x, 36, 30, 64, '#3d3a48');
-          rect(g, x + 2, 38, 26, 62, '#6b4a32');
-          rect(g, x + 22, 68, 3, 3, C.gold);
-          rect(g, x + 50, 34, 40, 26, '#8ab4ff');
-          frame(g, x + 50, 34, 40, 26, '#3d4150');
-        }
-        rect(g, 0, 100, W, 50, '#6a6f5a');
-        for (let x = 0; x < W; x += 16) rect(g, x, 100, 1, 50, 'rgba(0,0,0,0.08)');
+        g.drawImage(scene, 0, 0);
         // Walkers (behind the cubicle).
         for (const w of walkers) if (w.active) drawWalker(g, w, anim, Math.abs(w.x - DESK_X) < 45);
-        // Cubicle with the player seen from behind.
-        rect(g, DESK_X - 40, 112, 80, 38, '#8a8f9e');
-        rect(g, DESK_X - 40, 112, 80, 3, '#b0b5c4');
-        rect(g, DESK_X - 12, 104, 24, 14, '#2b2e38');
-        rect(g, DESK_X - 10, 106, 20, 10, workT > 0 ? '#e9eef5' : '#3a8a4a');
-        rect(g, DESK_X - 7, 116, 14, 12, C.accent);
-        rect(g, DESK_X - 5, 108, 10, 9, '#2b1d14');
-        drawText(g, 'YOU', DESK_X, 132, { align: 'center', color: C.ink });
+        const working = workT > 0;
+        g.drawImage(deskLayers[working ? 0 : 1], CUBICLE.x, CUBICLE.y);
         header(g, theme?.title || 'Boss Alert', `Dodged ${dodged}/${bossCount}`);
         timerBar(g, total.left, total.total);
-        // Your screen inset.
-        rect(g, 0, 150, W, H - 150, '#3a3020');
-        rect(g, 0, 150, W, 2, 'rgba(255,255,255,0.15)');
-        const s = monitor(g, 160, 162, 160, 84, '#000');
-        if (workT > 0) drawWork(g, s);
-        else drawFun(g, s, anim);
-        // Legend.
-        panel(g, 14, 164, 120, 82, { title: 'THE BOSS' });
-        drawWalker(g, { x: 74, dir: 1, suit: true, boss: true, tie: '#e2304a', hair: '#9a9aa0', skin: '#f2c9a0', shirt: '#fff' }, 0, false, 236);
-        drawText(g, 'red tie', 74, 182, { align: 'center', color: C.gold });
-        panel(g, 346, 164, 120, 82, { title: 'STATUS' });
+        // Your screen.
+        g.drawImage(screens[working ? 0 : 1], SCREEN.x, SCREEN.y);
+        if (!working) bounceCard(g, anim);
         drawText(g, `Caught: ${caught}`, 356, 184, { color: caught ? C.bad : C.text });
         drawText(g, `False alarms: ${falseAlarms}`, 356, 198, { color: falseAlarms ? C.warn : C.text });
-        drawText(g, workT > 0 ? 'Screen: WORK' : 'Screen: FUN', 356, 212, { color: workT > 0 ? C.good : C.gold });
+        drawText(g, working ? 'Screen: WORK' : 'Screen: FUN', 356, 212, { color: working ? C.good : C.gold });
         drawText(g, 'SPACE = alt-tab', 356, 228, { color: C.dim });
         fl.render(g);
         g.restore();
@@ -148,58 +143,213 @@ export default {
   },
 };
 
-function drawWalker(g, w, t, looking, feet = FEET_Y) {
-  const x = Math.round(w.x);
-  const tall = w.boss ? 3 : 0;
-  const step = Math.floor(t * 8 + x) % 2;
-  const top = feet - 34 - tall;
-  rect(g, x - 5, feet - 10, 4, 10 - step * 2, '#2b2e38');
-  rect(g, x + 1, feet - 10, 4, 8 + step * 2, '#2b2e38');
-  rect(g, x - 7, top + 10, 14, 15 + tall, w.suit ? '#22252e' : w.shirt);
+
+/** The Elevator Pitch figure for a walker: the boss (grey hair, dark suit, white lapels, red tie), a decoy in a suit with another tie, or a colleague in a shirt (every third in a skirt). */
+export function walkerLook(w, i) {
   if (w.suit) {
-    rect(g, x - 2, top + 10, 4, 8, '#ffffff');
-    rect(g, x - 1, top + 11, 2, 9, w.tie);
+    const look = { skin: w.skin, hair: w.hair, top: '#22242e', pants: '#22242e', tie: w.tie, lapel: '#ffffff', collar: '#ffffff', long: false };
+    return w.boss ? look : { ...look, top: '#2b3550', lapel: '#d8dfe8', collar: '#d8dfe8' };
   }
-  rect(g, x - 4, top, 8, 10, w.skin);
-  rect(g, x - 4, top - 1, 8, 3, w.hair);
-  if (looking) {
-    // Turned toward your desk: both eyes visible, plus a "?" bubble for the boss.
-    rect(g, x - 3, top + 4, 1, 1, '#111');
-    rect(g, x + 2, top + 4, 1, 1, '#111');
-    if (w.boss) {
-      rect(g, x - 3, top + 2, 2, 1, '#111');
-      rect(g, x + 1, top + 2, 2, 1, '#111');
-      rect(g, x + 6, top - 14, 12, 11, '#ffffff');
-      drawText(g, '?', x + 12, top - 12, { align: 'center', color: '#e2304a' });
+  const skirted = i % 3 === 1;
+  return { skin: w.skin, hair: w.hair, top: w.shirt, pants: '#3a3f55', skirt: skirted ? SKIRTS[Math.floor(i / 3) % SKIRTS.length] : null, collar: w.shirt, long: skirted };
+}
+
+/** A colleague (or the boss) walking by; turned to your desk (front view, standing) when near it, the boss with a "?" bubble. */
+function drawWalker(g, w, t, looking) {
+  const x = Math.round(w.x);
+  rect(g, x - 10, FEET_Y - 1, 20, 1, 'rgba(0,0,0,0.25)');
+  rect(g, x - 12, FEET_Y, 24, 1, 'rgba(0,0,0,0.25)');
+  rect(g, x - 10, FEET_Y + 1, 20, 1, 'rgba(0,0,0,0.25)');
+  const pose = looking ? 'stand' : (Math.floor(t * 6) + w.i) % 2 ? 'walkA' : 'walkB';
+  person(g, x - 12, FEET_Y - 60, 2, w.look, { pose });
+  // The figure draws a skirt over the shirt; the approved art has the shirt over the skirt's top two rows.
+  if (w.look.skirt) rect(g, x - 8, FEET_Y - 22, 16, 4, w.look.top);
+  if (looking && w.boss) {
+    rect(g, x + 10, FEET_Y - 60, 14, 13, '#1a1a22');
+    rect(g, x + 11, FEET_Y - 59, 12, 11, '#ffffff');
+    rect(g, x + 13, FEET_Y - 48, 3, 3, '#ffffff');
+    drawText(g, '?', x + 17, FEET_Y - 57, { align: 'center', color: '#e2304a' });
+  }
+}
+
+// Scenery, drawn once into baked canvases. Flat bands and 2 px cells, no dither or 1 px noise.
+
+/** The hallway: ceiling lights, pinstriped wall, chair rail, wainscot, carpet tiles; doors, a poster, a window, a water cooler, a clock and a plant. */
+function hallway(g) {
+  rect(g, 0, 0, W, 18, '#1a1d2e');
+  rect(g, 0, 18, W, 8, '#d8dce4');
+  for (let x = 30; x < W; x += 110) {
+    rect(g, x, 20, 44, 4, '#ffffff');
+    rect(g, x, 24, 44, 1, '#b8c0cc');
+  }
+  rect(g, 0, 26, W, 1, '#8a90a0');
+  rect(g, 0, 27, W, 54, '#7a8098');
+  for (let x = 0; x < W; x += 6) rect(g, x, 27, 1, 54, '#727890');
+  for (let x = 30; x < W; x += 110) grad(g, x - 6, 27, 56, 24, ['#9aa0b8', '#7a8098']);
+  rect(g, 0, 80, W, 3, '#8a6038');
+  rect(g, 0, 80, W, 1, '#b8885a');
+  rect(g, 0, 83, W, 17, '#5a6078');
+  for (let x = 6; x < W; x += 40) frame(g, x, 86, 32, 11, '#4a5068');
+  rect(g, 0, 100, W, 2, '#3a3d48');
+  rect(g, 0, 102, W, 48, '#5a6050');
+  for (let y = 102; y < 150; y += 12) for (let x = (y / 12) % 2 ? 0 : 12; x < W; x += 24) rect(g, x, y, 12, 12, '#545a4a');
+  grains(g, 0, 102, W, 48, ['#646a58', '#4e5444'], 500, 13);
+  // Doors with name plates.
+  for (const [x, name] of [[18, 'HR'], [344, 'CEO']]) {
+    rect(g, x - 3, 36, 40, 64, '#3d3a48');
+    rect(g, x, 39, 34, 61, '#7a5232');
+    rect(g, x + 3, 42, 28, 24, '#8a6040');
+    rect(g, x + 3, 70, 28, 26, '#8a6040');
+    rect(g, x + 28, 68, 3, 3, C.gold);
+    rect(g, x + 7, 30, 20, 8, '#c8a040');
+    drawText(g, name, x + 17, 30, { align: 'center', color: '#3a2a1a' });
+  }
+  // Motivational poster.
+  rect(g, 84, 34, 44, 40, '#1a1a22');
+  grad(g, 86, 36, 40, 28, ['#2a3a6a', '#6a7ab0', '#e8a070']);
+  for (let k = 0; k < 14; k++) rect(g, 92 + k, 64 - k, 28 - k * 2, 1, '#3a3a4a');
+  rect(g, 104, 50, 4, 2, '#ffffff');
+  rect(g, 86, 64, 40, 8, '#1a1a22');
+  drawText(g, 'SYNERGY', 106, 64, { align: 'center', color: '#f4f1e8' });
+  // A window onto the city.
+  rect(g, 150, 32, 76, 46, '#d8dce4');
+  grad(g, 153, 35, 70, 40, ['#5a90c8', '#a8d0ec']);
+  for (const [x, h] of [[156, 22], [168, 30], [182, 18], [192, 34], [206, 24], [214, 14]]) {
+    rect(g, x, 75 - h, 10, h, '#6a7a90');
+    for (let y = 75 - h + 3; y < 74; y += 4) rect(g, x + 2, y, 2, 2, '#c8d8e8'), rect(g, x + 6, y, 2, 2, '#c8d8e8');
+  }
+  rect(g, 187, 35, 2, 40, '#d8dce4');
+  // Water cooler.
+  rect(g, 268, 70, 22, 30, '#e8ecf0');
+  rect(g, 268, 70, 22, 2, '#ffffff');
+  rect(g, 272, 78, 4, 3, '#3a7ad1');
+  rect(g, 282, 78, 4, 3, '#e2504a');
+  shaded(g, 279, 58, 10, 13, '#8ac8f0', { rim: '#4a90c8', light: '#d0ecff' });
+  rect(g, 276, 44, 6, 4, '#3a7ad1');
+  // Clock and a tall plant.
+  shaded(g, 420, 44, 9, 9, '#f4f1e8', { rim: '#3a3d48' });
+  line(g, 420, 44, 420, 38, '#1a1a22');
+  line(g, 420, 44, 424, 46, '#1a1a22');
+  rect(g, 440, 84, 18, 16, '#b0603a');
+  rect(g, 439, 84, 20, 3, '#c8784a');
+  for (const [dx, dy, rx, ry] of [[-6, -14, 5, 10], [6, -18, 5, 12], [0, -28, 4, 10], [-8, -30, 4, 8], [8, -32, 4, 8]]) shaded(g, 449 + dx, 84 + dy, rx, ry, '#2f8a3a', { rim: '#1f5a26', light: '#4fba5a' });
+}
+
+/** The desk in front of you with your monitor's frame. */
+function desktop(g) {
+  rect(g, 0, 150, W, H - 150, '#5a4030');
+  for (let y = 154; y < H; y += 9) rect(g, 0, y, W, 1, 'rgba(0,0,0,0.12)');
+  rect(g, 0, 150, W, 2, 'rgba(255,255,255,0.15)');
+  monitor(g, SCREEN.x, SCREEN.y, SCREEN.w, SCREEN.h, '#000');
+}
+
+/** The legend: the boss on a height chart, cropped to the panel. */
+function mugshot(g) {
+  panel(g, 14, 164, 120, 82, { title: 'THE BOSS' });
+  rect(g, 20, 179, 108, 50, '#c8ccd4');
+  for (let y = 181; y < 229; y += 6) rect(g, 20, y, 108, 1, '#a8acb4');
+  drawText(g, '6ft', 24, 181, { color: '#6a6e78' });
+  g.save();
+  g.beginPath();
+  g.rect(20, 179, 108, 50);
+  g.clip();
+  person(g, 74 - 18, 274 - 90, 3, { skin: '#f2c9a0', hair: '#9a9aa0', top: '#22242e', pants: '#22242e', tie: '#e2304a', lapel: '#ffffff', collar: '#ffffff', long: false }, { pose: 'stand' });
+  g.restore();
+  drawText(g, 'red tie, grey hair', 74, 232, { align: 'center', color: C.gold });
+}
+
+/** Your cubicle seen over your shoulder: partitions with notes, the desk, your monitor (a mirror stuck on it) and you from behind. */
+function cubicle(g, me, fun) {
+  for (const [x0, w] of [[150, 46], [286, 46]]) {
+    rect(g, x0, 112, w, 38, '#6d7486');
+    grains(g, x0, 114, w, 36, ['#7d8496', '#5d6476'], 200, x0);
+    rect(g, x0, 110, w, 3, '#c4c8d0');
+    rect(g, x0, 113, w, 1, '#8a8e98');
+  }
+  rect(g, 158, 118, 10, 10, '#f2e27a');
+  rect(g, 172, 122, 12, 9, '#f4f1e8');
+  rect(g, 173, 123, 10, 5, '#7ab0d8');
+  rect(g, 312, 118, 12, 10, '#f2a0c0');
+  rect(g, 196, 120, 90, 30, '#8a6a4a');
+  rect(g, 196, 120, 90, 2, '#a88660');
+  rect(g, 270, 112, 8, 9, '#f4f1e8');
+  rect(g, 270, 112, 8, 2, '#3a2a1a');
+  // Monitor: its screen faces you; in the mirror on its corner, a red tie.
+  rect(g, 232, 92, 46, 30, '#1a1a22');
+  rect(g, 234, 94, 42, 25, fun ? '#2f7a3a' : '#e9eef5');
+  if (fun) for (let i = 0; i < 6; i++) rect(g, 236 + i * 7, 97, 5, 7, '#ffffff');
+  else for (let r = 0; r < 4; r++) rect(g, 236, 97 + r * 5, 38, 1, '#c8cfdc');
+  glow(g, 255, 106, 26, fun ? '#6aff8a' : '#c8e0ff', 0.25);
+  rect(g, 251, 122, 8, 4, '#2b2e38');
+  rect(g, 226, 88, 12, 8, '#1a1a22');
+  rect(g, 227, 89, 10, 6, '#a8c0d8');
+  rect(g, 228, 90, 3, 2, '#e2304a');
+  // You: chair back, shoulders, the back of your head with headphones.
+  rect(g, 226, 128, 40, 22, '#1a1a22');
+  grains(g, 228, 130, 36, 20, ['#2a2a32'], 60, 4);
+  rect(g, 224, 124, 44, 6, '#2a2a32');
+  rect(g, 222, 118, 48, 12, '#3b6fb6');
+  rect(g, 222, 118, 48, 2, '#5a8ad6');
+  rect(g, 241, 112, 10, 8, me.skin);
+  if (me.long) rect(g, 236, 108, 20, 14, me.hair);
+  shaded(g, 246, 106, 10, 11, me.hair);
+  for (let a = Math.PI; a <= Math.PI * 2; a += 0.08) rect(g, Math.round(246 + Math.cos(a) * 12), Math.round(106 + Math.sin(a) * 12), 2, 2, '#3a3d48');
+  rect(g, 233, 103, 4, 8, '#e2504a');
+  rect(g, 255, 103, 4, 8, '#e2504a');
+}
+
+/** A Solitaire window: title bar, green felt, the stock, foundations and seven tableau columns. */
+function solitaire(g, s) {
+  rect(g, s.x, s.y, s.w, s.h, '#1e5a2a');
+  grains(g, s.x, s.y + 10, s.w, s.h - 10, ['#246a32', '#1a4e24'], 300, 2);
+  windowBar(g, s, '#1f70c1', 'Solitaire Pro');
+  const card = (x, y, up, suit, rank) => {
+    rect(g, x, y, 16, 21, '#1a1a22');
+    rect(g, x + 1, y + 1, 14, 19, up ? '#ffffff' : '#3b6fb6');
+    if (!up) {
+      for (let k = 0; k < 6; k++) rect(g, x + 2 + ((k * 3) % 11), y + 3 + k * 3, 2, 2, '#7fb4ea');
+      return;
     }
-  } else {
-    rect(g, x + (w.dir > 0 ? 2 : -3), top + 4, 1, 1, '#111');
+    const red = suit === 'h' || suit === 'd';
+    drawText(g, rank, x + 2, y + 1, { color: red ? '#e2304a' : '#1a1a22' });
+    const SUITS = { h: '.r.r.|rrrrr|.rrr.|..r..', d: '..r..|.rrr.|rrrrr|.rrr.|..r..', s: '..r..|.rrr.|rrrrr|..r..|.rrr.', c: '.rrr.|.rrr.|rrrrr|..r..|.rrr.' };
+    sprite(g, SUITS[suit], { r: red ? '#e2304a' : '#1a1a22' }, x + 5, y + 11, 1);
+  };
+  for (let i = 0; i < 4; i++) card(s.x + 66 + i * 22, s.y + 12, i < 2, ['h', 's'][i % 2], ['A', '2'][i]);
+  card(s.x + 4, s.y + 12, false);
+  card(s.x + 24, s.y + 12, true, 'd', '7');
+  const ranks = ['K', 'Q', 'J', '10', '9', '8', '5'];
+  for (let col = 0; col < 7; col++) {
+    const x = s.x + 4 + col * 22;
+    for (let k = 0; k < Math.min(col, 3); k++) card(x, s.y + 36 + k * 4, false);
+    card(x, s.y + 36 + Math.min(col, 3) * 4, true, ['s', 'h', 'c', 'd'][col % 4], ranks[col]);
   }
 }
 
-function drawFun(g, s, t) {
-  rect(g, s.x, s.y, s.w, s.h, '#2f7a3a');
-  drawText(g, 'SOLITAIRE PRO', s.x + 4, s.y + 3, { color: '#d8f0d0' });
-  for (let i = 0; i < 6; i++) {
-    const cx = s.x + 8 + i * 25;
-    rect(g, cx, s.y + 16, 18, 24, '#ffffff');
-    frame(g, cx, s.y + 16, 18, 24, '#222');
-    drawText(g, 'A23456'[i], cx + 3, s.y + 18, { color: i % 2 ? '#e2304a' : '#222' });
-  }
-  const bx = s.x + 20 + ((t * 60) % (s.w - 40));
-  const by = s.y + 48 + Math.abs(Math.sin(t * 5)) * -18 + 18;
-  rect(g, bx, by, 14, 18, '#ffffff');
-  frame(g, bx, by, 14, 18, '#222');
+/** The title bar of a window on your screen: a colour, a name and three buttons. */
+function windowBar(g, s, color, name) {
+  rect(g, s.x, s.y, s.w, 9, color);
+  drawText(g, name, s.x + 3, s.y, { color: '#ffffff' });
+  for (const [k, c] of [[0, '#e2504a'], [1, '#f2c14e'], [2, '#5fd068']]) rect(g, s.x + s.w - 8 - k * 7, s.y + 2, 5, 5, c);
 }
 
+/** The work spreadsheet you alt-tab to. */
 function drawWork(g, s) {
   rect(g, s.x, s.y, s.w, s.h, '#ffffff');
-  rect(g, s.x, s.y, s.w, 10, '#1f7a44');
-  drawText(g, 'Q3_FINAL_v7.xlsx', s.x + 3, s.y + 1, { color: '#fff' });
+  windowBar(g, s, '#1f7a44', 'Q3_FINAL_v7.xlsx');
   for (let r = 0; r < 7; r++) {
     for (let c = 0; c < 4; c++) {
       frame(g, s.x + 2 + c * 39, s.y + 13 + r * 10, 40, 11, '#c8cfdc');
       drawText(g, String((r * 37 + c * 53) % 900 + 100), s.x + 6 + c * 39, s.y + 15 + r * 10, { color: '#2a2a35' });
     }
   }
+}
+
+/** The Solitaire win cascade: a card bouncing across the felt. */
+function bounceCard(g, t) {
+  const x = Math.round(SCREEN.x + 20 + ((t * 60) % (SCREEN.w - 40)));
+  const y = Math.round(SCREEN.y + 63 - Math.abs(Math.sin(t * 5)) * 18);
+  rect(g, x, y, 16, 21, '#1a1a22');
+  rect(g, x + 1, y + 1, 14, 19, '#ffffff');
+  rect(g, x + 5, y + 8, 6, 6, '#e2304a');
 }

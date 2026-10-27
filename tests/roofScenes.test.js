@@ -204,6 +204,18 @@ test('a cigarette: the mini-game in mode roof, counted, and afterwards the tip',
   expect(n.a.bubble.text).toContain(RF.archiveHint(game.state, 32).label);
 });
 
+test('a cigarette gets the roof\'s sky (the debug override included), not the clock', async () => {
+  const { recordingCanvas } = await import('./mock-canvas.js');
+  const { game, rs } = await onRoof(32);
+  rs.mode = 'night';
+  rs.smoke(rs.npcs[1]);
+  const mg = game.top;
+  expect(mg.task.sky).toBe('night');
+  const { ctx, calls } = recordingCanvas();
+  mg.inst.render(ctx);
+  expect(calls.some((c) => c.fill === '#8a5a5a')).toBe(true); // the night hand
+});
+
 test('the pay telescope takes its paperclips; a sight centred and zoomed in is spotted', async () => {
   const { game, rs } = await onRoof(2);
   const sp = game.state.sp;

@@ -259,7 +259,7 @@ export class RoofScene extends FloorScene {
   smoke(n) {
     const game = this.game;
     const r = RF.roof(game.state);
-    const task = { id: 'roof-cigarette', game: 'cigarette', title: 'Smoke Break', difficulty: RF.ROOF.difficulty, seed: this.from * 13 + r.visits };
+    const task = { id: 'roof-cigarette', game: 'cigarette', title: 'Smoke Break', difficulty: RF.ROOF.difficulty, seed: this.from * 13 + r.visits, sky: this.mode };
     game.push(
       new MinigameScene(game, task, (result) => {
         if (!result) return;

@@ -4,6 +4,7 @@ import { W, H } from '../engine/screen.js';
 import { C, rect, panel, dim, icon, bar, formatNum, formatTime, ButtonSet } from '../engine/ui.js';
 import { drawText, wrapText } from '../engine/font.js';
 import { createRng } from '../core/rng.js';
+import { figureLook } from '../engine/figure.js';
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
 import { completeStandup } from '../core/daily.js';
@@ -45,12 +46,15 @@ export class MinigameScene {
     const mod = MINIGAMES[task.game];
     this.mod = mod;
     const dept = this.mode === 'party' ? 'party' : departmentForFloor(this.floor).id;
+    // The player's figure for games that show you (the pool, the massage table, the party): skin, hair, skirt or trousers.
+    this.player = game.playerLook ? figureLook(game.playerLook(), game.corpColor().color) : null;
     this.inst = mod.create({
       difficulty: task.difficulty,
       rng: createRng((task.seed * 7919 + Date.now()) >>> 0),
-      theme: { dept, title: task.title, stats },
+      theme: { dept, title: task.title, stats, sky: task.sky }, // sky: the roof's (day, dusk, night) for the Smoke Break
       sfx: (n) => game.sfx(n),
       quest: task.quest, // floor-quest findings (360 Feedback, Lost Password)
+      player: this.player,
     });
     this.phase = 'ready';
     this.t = 0;
