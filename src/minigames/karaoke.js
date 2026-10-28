@@ -123,7 +123,7 @@ export default {
   help: 'Present slides you have never seen: pick the narration that matches the chart. Keys 1-4, arrows + Space, or click.',
   create({ difficulty: d, rng, theme, sfx = () => {} }) {
     const count = Math.round(byDiff(d, 6, 9));
-    const perSlide = byDiff(d, 10, 6);
+    const perSlide = byDiff(d, 20, 12); // seconds per slide
     const nOpt = d < 0.3 ? 3 : 4;
     const dept = theme?.dept;
     const fl = new Floaters();
