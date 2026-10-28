@@ -4,29 +4,30 @@
 import { W, H, rect, drawText } from './mgkit.js';
 import { cblob, shade } from './mgart.js';
 
-/** The HOTEL PARADISO block at x 70-410, y 30-154: sand-coloured wall, a cornice with the name, 3 rows of 8 shuttered windows with balconies. */
-export function hotelFacade(g) {
-  rect(g, 70, 34, 340, 120, '#e8d6b4');
-  rect(g, 66, 30, 348, 6, '#c8b088');
-  rect(g, 66, 30, 348, 2, '#d8c49c');
-  drawText(g, 'HOTEL PARADISO', 240, 40, { align: 'center', color: '#b0603a' });
+/** The HOTEL PARADISO block, its cornice's top left at (x - 4, y): 348x124 px (x 66-414, y 30-154 by default), a
+ *  sand-coloured wall, a cornice with the name, 3 rows of 8 shuttered windows with balconies. */
+export function hotelFacade(g, x = 70, y = 30) {
+  rect(g, x, y + 4, 340, 120, '#e8d6b4');
+  rect(g, x - 4, y, 348, 6, '#c8b088');
+  rect(g, x - 4, y, 348, 2, '#d8c49c');
+  drawText(g, 'HOTEL PARADISO', x + 170, y + 10, { align: 'center', color: '#b0603a' });
   for (let row = 0; row < 3; row++) {
-    const y = 56 + row * 30;
+    const wy = y + 26 + row * 30;
     for (let col = 0; col < 8; col++) {
-      const x = 84 + col * 40;
-      rect(g, x, y, 22, 18, '#5a8aaa');
-      rect(g, x, y, 22, 6, '#8ac0dc');
-      rect(g, x + 10, y, 2, 18, '#e8d6b4');
-      rect(g, x - 4, y, 4, 18, '#2f8f7f');
-      rect(g, x + 22, y, 4, 18, '#2f8f7f');
-      rect(g, x - 6, y + 18, 34, 2, '#ffffff');
-      for (let k = 0; k < 34; k += 6) rect(g, x - 6 + k, y + 20, 2, 4, '#ffffff');
+      const wx = x + 14 + col * 40;
+      rect(g, wx, wy, 22, 18, '#5a8aaa');
+      rect(g, wx, wy, 22, 6, '#8ac0dc');
+      rect(g, wx + 10, wy, 2, 18, '#e8d6b4');
+      rect(g, wx - 4, wy, 4, 18, '#2f8f7f');
+      rect(g, wx + 22, wy, 4, 18, '#2f8f7f');
+      rect(g, wx - 6, wy + 18, 34, 2, '#ffffff');
+      for (let k = 0; k < 34; k += 6) rect(g, wx - 6 + k, wy + 20, 2, 4, '#ffffff');
     }
   }
 }
 
-/** A palm with its foot at (x, y), `h` px tall, the trunk leaning by `lean` (negative: left); `t` sways the fronds (0 when baked). */
-export function palm(g, x, y, h, lean, t = 0) {
+/** A palm with its foot at (x, y), `h` px tall, the trunk leaning by `lean` (negative: left). Still: bake it. */
+export function palm(g, x, y, h, lean) {
   let tx = x;
   for (let k = 0; k < h; k += 4) {
     const f = k / h;
@@ -37,11 +38,10 @@ export function palm(g, x, y, h, lean, t = 0) {
   }
   const cx = Math.round(tx);
   const cy = y - h - 2;
-  const sway = Math.sin(t * 1.2) * 2;
   for (const [ang, len] of [[-2.8, 34], [-2.2, 30], [-1.6, 22], [-1.0, 30], [-0.35, 34], [0.2, 26], [-3.4, 26]]) {
     for (let k = 0; k < len; k++) {
       const f = k / len;
-      const px = cx + Math.cos(ang) * k + sway * f;
+      const px = cx + Math.cos(ang) * k;
       const py = cy + Math.sin(ang) * k + f * f * 14;
       rect(g, Math.round(px), Math.round(py), 2, 2, f < 0.5 ? '#2f8a3a' : '#3fae4f');
       if (k % 3 === 0 && k > 4) rect(g, Math.round(px), Math.round(py) + 2, 1, 3, '#24662e');

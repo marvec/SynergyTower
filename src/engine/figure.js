@@ -8,10 +8,11 @@ const MOUTH = '#7a3b3b';
 
 /**
  * 12x30 pixel person at scale s.
- * look: { skin, hair, top, pants, skirt?, tie?, lapel?, collar?, long? (hair), hat?: 'santa', shoes?, ceo?, brow?, corp?, bib? }
- *   `corp` is the swimwear colour; `ceo` is the pitch CEO; `bib` is the pitch employee's red tabs and white bib (no collar or tie).
+ * look: { skin, hair, top, pants, skirt?, longTop?, tie?, lapel?, collar?, long? (hair), hat?: 'santa', shoes?, ceo?, brow?, corp?, bib? }
+ *   `corp` is the swimwear colour; `ceo` is the pitch CEO; `bib` is the pitch employee's red tabs and white bib (no collar or tie);
+ *   `longTop` lets the top hang over the skirt's top two rows.
  * opts: { pose: stand | walkA | walkB | armsUp | waveL | waveR | crouch | danceA | danceB, view: front | back,
- *   swim: null | trunks | suit, expr: neutral | interested | delighted | bored | annoyed | talk | nervous | smile | sing | sleep }.
+ *   swim: null | trunks | suit, expr: neutral | interested | delighted | bored | annoyed | talk | nervous | smile | sing }.
  * A string as the 6th argument is the expression (pitch.js calls it that way).
  */
 export function person(g, x, y, s, look, opts = {}) {
@@ -34,6 +35,9 @@ export function person(g, x, y, s, look, opts = {}) {
   if (swim) {
     r(3, 21, 2, 8, look.skin);
     r(7, 21, 2, 8, look.skin);
+  } else if (look.skirt && crouch) {
+    r(2, 24, 2, 5, look.skin);
+    r(8, 24, 2, 5, look.skin);
   } else if (look.skirt) {
     r(3, 24, 2, 5 - shortA, look.skin);
     r(7, 24, 2, 5 - shortB, look.skin);
@@ -53,7 +57,8 @@ export function person(g, x, y, s, look, opts = {}) {
   r(2, 10 + dy, 8, 11 - (crouch ? 2 : 0), body);
   if (swim === 'trunks') r(2, 19, 8, 4, corp);
   else if (look.skirt && !swim) {
-    r(2, 19 + (crouch ? 2 : 0), 8, 5 - (crouch ? 2 : 0), look.skirt);
+    const top = 19 + (crouch ? 2 : 0) + (look.longTop ? 2 : 0); // a long top hangs over the waistband
+    r(2, top, 8, 24 - top, look.skirt);
     r(1, 22, 10, 2, look.skirt);
   }
 
@@ -133,13 +138,15 @@ export function person(g, x, y, s, look, opts = {}) {
 function face(r, look, expr, dy) {
   const f = (cx, cy, w, h, col) => r(cx, cy + dy, w, h, col);
   switch (expr) {
-    case 'interested':
-      f(4, 2, 1, 1, look.brow);
-      f(7, 2, 1, 1, look.brow);
+    case 'interested': {
+      const brow = look.brow || shade(look.hair, -0.2); // looks not built by figureLook have none
+      f(4, 2, 1, 1, brow);
+      f(7, 2, 1, 1, brow);
       f(4, 4, 1, 2, EYE);
       f(7, 4, 1, 2, EYE);
       f(5, 6, 2, 2, MOUTH);
       break;
+    }
     case 'delighted':
       f(3, 4, 1, 1, EYE);
       f(4, 3, 1, 1, EYE);
@@ -192,11 +199,6 @@ function face(r, look, expr, dy) {
       f(4, 6, 4, 1, MOUTH);
       f(4, 5, 1, 1, MOUTH);
       f(7, 5, 1, 1, MOUTH);
-      break;
-    case 'sleep':
-      f(3, 4, 2, 1, EYE);
-      f(7, 4, 2, 1, EYE);
-      f(5, 6, 2, 1, MOUTH);
       break;
     default:
       f(4, 4, 1, 1, EYE);

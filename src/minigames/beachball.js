@@ -7,7 +7,9 @@ import { hotelFacade, palm, lounger, parasol, cloud } from '../engine/mgscenery.
 
 const GOAL = 10;
 const WATER = 214; // y of the pool surface
-const HANDS = WATER - 54; // where the ball meets your raised hands
+const YOU_Y = WATER - 38; // the top of your head (2x figure, waist-deep)
+const BALL_R = 14; // the ball's radius, its outline included
+const HANDS = YOU_Y - 14 - BALL_R; // the ball's centre when its bottom meets your raised hands (7 cells above the head)
 const GRAVITY = 150;
 const BOUNCE = 150;
 const SPEED = 230;
@@ -29,7 +31,7 @@ export default {
     const scene = bake(W, H, scenery);
     const pool = bake(W, H - WATER, poolBands);
     const lane = bake(W, H - WATER + 24, laneLine);
-    const balls = Array.from({ length: PHASES }, (_, k) => bake(28, 28, (b) => drawBall(b, 14, 14, (k * Math.PI) / PHASES)));
+    const balls = Array.from({ length: PHASES }, (_, k) => bake(BALL_R * 2, BALL_R * 2, (b) => drawBall(b, BALL_R, BALL_R, (k * Math.PI) / PHASES)));
 
     const inst = {
       done: false,
@@ -74,7 +76,7 @@ export default {
         // You, waist-deep, arms up; the water is drawn over your legs.
         const x = Math.round(you.x);
         const px = x - 12;
-        person(g, px, WATER - 38, 2, look, { pose: 'armsUp', swim: look.skirt ? 'suit' : 'trunks' });
+        person(g, px, YOU_Y, 2, look, { pose: 'armsUp', swim: look.skirt ? 'suit' : 'trunks' });
         g.drawImage(pool, 0, WATER);
         for (let i = 0; i < 22; i++) rect(g, ((i * 61 + t * 30) % (W + 40)) - 20, WATER + 8 + (i % 5) * 11, 10 + (i % 3) * 4, 2, '#8fe6f5');
         g.drawImage(lane, 0, WATER - 24);
@@ -97,7 +99,7 @@ export default {
           rect(g, bx - 6, WATER - 4, 2, 2, '#ffffff');
         } else {
           const f = Math.floor(((t * 1.5) / Math.PI) * PHASES) % PHASES;
-          g.drawImage(balls[f], Math.round(ball.x) - 14, Math.round(ball.y) - 14);
+          g.drawImage(balls[f], Math.round(ball.x) - BALL_R, Math.round(ball.y) - BALL_R);
         }
         header(g, theme?.title || 'Pool ball', `Bounces ${bounces}/${GOAL}`);
         timerBar(g, total.left, total.total);
@@ -112,7 +114,7 @@ export default {
 // The static scenery: sky, clouds, the hotel, palms, the deck with loungers and parasols, the pool's coping.
 function scenery(g) {
   rect(g, 0, 0, W, H, '#8fd0f0');
-  bands(g, 0, 18, W, 132, ['#6ab8ea', '#7cc4ee', '#8fd0f0', '#a1dbf3', '#b4e2f6']);
+  bands(g, 0, 18, W, 132, ['#6ab8ea', '#8fd0f0', '#b4e2f6']);
   cloud(g, 40, 34);
   cloud(g, 330, 26);
   hotelFacade(g);
@@ -144,10 +146,10 @@ function laneLine(g) {
   for (let k = 0; k < 3; k++) rect(g, 442, 26 + k * 8, 16, 2, '#b8c4d0');
 }
 
-// A chunky ball: 2 px cells, six panels turning by `a`, a white cap and one highlight.
+// A chunky ball: 2 px cells, six panels turning by `a`, a white cap and one highlight, a 2 px outline (BALL_R in all).
 function drawBall(g, x, y, a) {
   const cols = ['#e2504a', '#ffffff', '#3b6fb6', '#f2c14e', '#ffffff', '#3bb66a'];
-  const r = 12;
+  const r = BALL_R - 2;
   cblob(g, x, y, r + 2, r + 2, '#1a1a22');
   for (let dy = -r; dy < r; dy += 2)
     for (let dx = -r; dx < r; dx += 2) {

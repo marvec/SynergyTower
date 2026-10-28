@@ -6,7 +6,7 @@ import { DEFAULT_PLAYER } from '../engine/figure.js';
 
 const TURNS = 4;
 const RATE = 0.2; // tan per second
-const GOLD = [0.5, 0.92];
+export const GOLD = [0.5, 0.92]; // the tan to turn over at
 const SUN = { x: 410, y: 50 };
 const METER = { x: 60, y: 70, h: 140 };
 
@@ -17,12 +17,18 @@ const lerp = (a, b, k) => {
   const ch = (s) => Math.round(((pa >> s) & 255) + (((pb >> s) & 255) - ((pa >> s) & 255)) * k);
   return `#${((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1)}`;
 };
-/** Your own skin, tanning to a golden brown by 0.7, then burning red. The tan is the skin itself, darker and warmer (blue falls most), so every tone darkens as it tans. */
+/** Your own skin, in step with the thermometer: golden brown as the golden window opens (GOLD[0]), a little deeper
+ *  through it, burning red only past it (GOLD[1]), a lobster at 1. The tan is the skin itself, darker and warmer (blue
+ *  falls most), so every tone darkens as it tans. */
 export const skinAt = (own, tan) => {
   const n = parseInt(own.slice(1), 16);
   const ch = (s, k) => Math.round(((n >> s) & 255) * k);
-  const golden = `#${((1 << 24) | (ch(16, 0.86) << 16) | (ch(8, 0.78) << 8) | ch(0, 0.68)).toString(16).slice(1)}`;
-  return tan < 0.7 ? lerp(own, golden, tan / 0.7) : lerp(golden, '#e2504a', Math.min(1, (tan - 0.7) / 0.3));
+  const tone = (r, g, b) => `#${((1 << 24) | (ch(16, r) << 16) | (ch(8, g) << 8) | ch(0, b)).toString(16).slice(1)}`;
+  const golden = tone(0.86, 0.78, 0.68);
+  const deep = tone(0.8, 0.7, 0.58);
+  if (tan < GOLD[0]) return lerp(own, golden, tan / GOLD[0]);
+  if (tan <= GOLD[1]) return lerp(golden, deep, (tan - GOLD[0]) / (GOLD[1] - GOLD[0]));
+  return lerp(deep, '#e2504a', Math.min(1, (tan - GOLD[1]) / (1 - GOLD[1])));
 };
 
 export default {

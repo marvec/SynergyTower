@@ -1,9 +1,11 @@
 // Carol Karaoke (Christmas party, the stage): sing a carol in the public domain. Its melody runs in three pitch lanes
 // (low, middle, high); keep your voice on the lane of the note being sung (Up/Down, or tap a lane) while the lyrics scroll.
-// The host plays the carol (inst.song) from the start of play. Score: time on the right lane over the sung time, where
+// The host plays the carol (inst.song) from the start of play; its beat 0 sounds SONG_LEAD in, so the notes and the
+// choir run on that clock. Score: time on the right lane over the sung time, where
 // a third (a voice parked on one lane) is nothing.
 import { W, H, rect, drawText, measureText, header, timerBar, Floaters, Countdown, clamp, finish } from '../engine/mgkit.js';
 import { isTouch } from '../engine/platform.js';
+import { SONG_LEAD } from '../engine/audio.js';
 import { SONGS } from '../data/music.js';
 import { CAROLS } from '../data/party.js';
 import { bake, cblob } from '../engine/mgart.js';
@@ -115,7 +117,7 @@ export default {
     const carol = rng.pick(CAROLS);
     const notes = melodyNotes(SONGS[carol.id]);
     const lane = lanesFor(notes);
-    notes.forEach((n, i) => Object.assign(n, { lane: lane(n.midi), word: carol.syllables[i] || '' }));
+    notes.forEach((n, i) => Object.assign(n, { t: n.t + SONG_LEAD, lane: lane(n.midi), word: carol.syllables[i] || '' }));
     const end = notes.at(-1).t + notes.at(-1).dur;
     const total = new Countdown(end + 3);
     const fl = new Floaters();
@@ -161,8 +163,8 @@ export default {
         stringBulbs(g, 34, time, 40, 440);
         g.drawImage(treeImg, 0, 0);
         xmasTreeBaubles(g, 438, 96, 54, time);
-        // The choir sings on the beat, every other one with an open mouth.
-        const bt = Math.floor(time / beat);
+        // The choir sings on the song's beat, every other one with an open mouth.
+        const bt = Math.floor(Math.max(0, time - SONG_LEAD) / beat);
         choir.forEach((imgs, i) => g.drawImage(imgs[(i + bt) % 2 === 0 ? 1 : 0], 132 + i * 48, 32));
         g.drawImage(lower, 0, 0);
         const cur = notes.find((n) => time >= n.t && time < n.t + n.dur);
@@ -175,15 +177,16 @@ export default {
           note(g, Math.round(x0), Math.round(x1), LANE_Y[n.lane], n === cur ? LIVE_COL : NOTE_COL);
         }
         rect(g, NOW_X, 92, 2, 112, '#f4f1e8');
-        if (voice >= 0) {
-          // Your head in a Santa hat on the lane you sing at, mouth open on a note.
-          g.save();
-          g.beginPath();
-          g.rect(NOW_X - 14, LANE_Y[voice] - 10, 30, 28);
-          g.clip();
-          person(g, NOW_X - 11, LANE_Y[voice] - 4, 2, look, { expr: cur ? 'sing' : 'smile' });
-          g.restore();
-        }
+        // Your head in a Santa hat on the lane you sing at, mouth open on a note; before you pick a lane it waits on the
+        // middle one (where a first Up/Down puts it; a tap picks its lane), faded with its mouth shut.
+        const at = voice >= 0 ? voice : 1;
+        g.save();
+        g.beginPath();
+        g.rect(NOW_X - 14, LANE_Y[at] - 10, 30, 28);
+        g.clip();
+        if (voice < 0) g.globalAlpha = 0.5;
+        person(g, NOW_X - 11, LANE_Y[at] - 4, 2, look, { expr: voice >= 0 && cur ? 'sing' : 'smile' });
+        g.restore();
         // The lyrics: the current syllable bright, the next few dim.
         const i0 = Math.max(0, notes.findIndex((n) => n.t + n.dur > time));
         let x = 40;

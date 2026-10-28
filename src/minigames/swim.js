@@ -33,7 +33,7 @@ export default {
     const inst = {
       done: false,
       score: 0,
-      peek: () => ({ canStroke: arm <= 0 }),
+      peek: () => ({ canStroke: arm <= 0, back: progress >= STROKES }),
       update(dt, input) {
         fl.update(dt);
         t += dt;
@@ -120,7 +120,7 @@ function buoy(g, t) {
 
 // You doing the crawl on 3 px cells, x the middle of your body, y the waterline: back and legs just under the surface
 // (tinted), head and a stroking arm out of the water. Trunks or a suit in the corporate colour, long hair with a skirt.
-function swimmer(g, x, y, armUp, back, look) {
+export function swimmer(g, x, y, armUp, back, look) {
   const skin = look.skin;
   const suit = look.corp || look.top;
   const c = cells(g, x - 24, y - 9, 3);

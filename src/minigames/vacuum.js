@@ -10,6 +10,7 @@ const REACH = 14;
 const SHY = 46; // bunnies shuffle away from the vacuum inside this distance
 const SHUFFLE = 22;
 const BUNNY_BOX = 20; // a baked dust bunny's square, its centre in the middle
+const TURN = [400, 422]; // the stick turns to lean left past x 422 (it reaches 54 px right of the head), back left of x 400
 
 export default {
   id: 'vacuum',
@@ -20,6 +21,7 @@ export default {
     const fl = new Floaters();
     const vac = { x: ROOM.x + 24, y: ROOM.y + ROOM.h - 24 };
     let aim = null; // the mouse's spot, while it steers
+    let turned = false; // the stick leans left (by the right wall)
     const dust = [];
     while (dust.length < BUNNIES) {
       const b = { x: rng.int(ROOM.x + 12, ROOM.x + ROOM.w - 12), y: rng.int(ROOM.y + 12, ROOM.y + ROOM.h - 12), seed: rng.int(0, 99) };
@@ -66,6 +68,8 @@ export default {
         }
         vac.x = clamp(vac.x, ROOM.x + 8, ROOM.x + ROOM.w - 8);
         vac.y = clamp(vac.y, ROOM.y + 8, ROOM.y + ROOM.h - 8);
+        if (vac.x > TURN[1]) turned = true;
+        else if (vac.x < TURN[0]) turned = false;
         for (let i = dust.length - 1; i >= 0; i--) {
           const b = dust[i];
           const d = Math.hypot(b.x - vac.x, b.y - vac.y);
@@ -84,7 +88,7 @@ export default {
       render(g) {
         g.drawImage(scene, 0, 0);
         for (const b of dust) g.drawImage(bunnies[Math.round(Math.sin(t * 6 + b.seed)) + 1], Math.round(b.x) - BUNNY_BOX / 2, Math.round(b.y) - BUNNY_BOX / 2);
-        vacuum(g, vac.x, vac.y);
+        vacuum(g, vac.x, vac.y, turned);
         drawText(g, `${got}/${BUNNIES} dust bunnies`, W / 2, H - 24, { align: 'center', color: '#f4f1e8' });
         header(g, theme?.title || 'Vacuum', `${got}/${BUNNIES}`);
         timerBar(g, total.left, total.total);
@@ -154,27 +158,31 @@ function bunny(g, x, yy) {
   rect(g, x + 2, yy - 2, 2, 1, '#1a1a22');
 }
 
-/** A cordless stick vacuum: the brush head on the floor at (x, y), the stick rising to the motor with its clear dust cup, the handle and the battery pack. Nothing trails behind it. */
-function vacuum(g, x, y) {
+/** A cordless stick vacuum: the brush head on the floor at (x, y), the stick rising to the motor with its clear dust cup, the handle and the battery pack. Nothing trails behind it.
+ *  The stick leans right, or left when `turned` (mirrored around x), so it stays on screen along the right wall. */
+function vacuum(g, x, y, turned) {
+  x = Math.round(x);
+  y = Math.round(y);
+  const r = (dx, dy, w, h, c) => rect(g, turned ? x - dx - w : x + dx, y + dy, w, h, c); // dx from the head's middle
   for (let k = 0; k < 13; k++) {
-    rect(g, x + 2 + k * 2, y - 8 - k * 2, 4, 4, '#3a3d48');
-    rect(g, x + 2 + k * 2, y - 8 - k * 2, 2, 2, '#c8ccd2');
+    r(2 + k * 2, -8 - k * 2, 4, 4, '#3a3d48');
+    r(2 + k * 2, -8 - k * 2, 2, 2, '#c8ccd2');
   }
-  const mx = x + 30;
-  const my = y - 34;
-  cblob(g, mx, my, 10, 8, '#1a1a22');
-  cblob(g, mx, my, 8, 6, '#9ad0e0');
-  rect(g, mx - 4, my, 8, 4, '#8a8a90'); // dust in the cup
-  rect(g, mx + 6, my - 10, 10, 8, '#1a1a22');
-  rect(g, mx + 8, my - 8, 6, 4, '#e2504a'); // motor
-  rect(g, mx + 14, my - 18, 4, 12, '#1a1a22'); // handle
-  rect(g, mx + 16, my - 20, 8, 4, '#1a1a22');
-  rect(g, mx + 8, my - 14, 6, 4, '#3a3d48'); // battery
-  rect(g, mx + 9, my - 13, 2, 2, '#5fd068');
+  const mx = 30;
+  const my = -34;
+  cblob(g, turned ? x - mx : x + mx, y + my, 10, 8, '#1a1a22');
+  cblob(g, turned ? x - mx : x + mx, y + my, 8, 6, '#9ad0e0');
+  r(mx - 4, my, 8, 4, '#8a8a90'); // dust in the cup
+  r(mx + 6, my - 10, 10, 8, '#1a1a22');
+  r(mx + 8, my - 8, 6, 4, '#e2504a'); // motor
+  r(mx + 14, my - 18, 4, 12, '#1a1a22'); // handle
+  r(mx + 16, my - 20, 8, 4, '#1a1a22');
+  r(mx + 8, my - 14, 6, 4, '#3a3d48'); // battery
+  r(mx + 9, my - 13, 2, 2, '#5fd068');
   // The brush head: a red shell, bristles at the front, a swivel neck.
-  rect(g, x - 14, y - 6, 28, 12, '#1a1a22');
-  rect(g, x - 12, y - 6, 24, 8, '#e2504a');
-  rect(g, x - 12, y - 6, 24, 2, '#ff7a6a');
-  for (let k = -12; k < 12; k += 4) rect(g, k + x, y + 2, 2, 4, '#f2c14e');
-  rect(g, x - 2, y - 10, 6, 4, '#3a3d48');
+  r(-14, -6, 28, 12, '#1a1a22');
+  r(-12, -6, 24, 8, '#e2504a');
+  r(-12, -6, 24, 2, '#ff7a6a');
+  for (let k = -12; k < 12; k += 4) r(k, 2, 2, 4, '#f2c14e');
+  r(-2, -10, 6, 4, '#3a3d48');
 }

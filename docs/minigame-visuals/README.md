@@ -4,8 +4,9 @@
 
 All 54 mini-games were captured on the dev server (`__mg(id, 0.6)`, about 4 s into play, `img/current/<id>.png`) and
 sorted by how much visual detail they have. The six games singled out for a redo have mockups in `img/`: stills
-drawn with the game's own engine (bitmap font, `header`/`timerBar`, `bakeCharacter`) at 480x270, scaled 2x. The game
-code is unchanged. The mockups' drawing code is in `mockups/` (`kit.js` holds the helpers; see "Building it" below).
+drawn with the game's own engine (bitmap font, `header`/`timerBar`, `bakeCharacter`) at 480x270, scaled 2x. At the time
+of this review the game code was unchanged (the mockups came first). The mockups' drawing code is in `mockups/` (`kit.js`
+holds the helpers; see "Building it" below).
 
 ## Tiers
 

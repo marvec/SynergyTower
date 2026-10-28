@@ -126,7 +126,8 @@ const FOODS = {
   Pudding: { map: '....g.gg....|.....ggg....|...wwwwww...|..wwpwwpww..|.pppwppwppp.|.pppppppppp.|..pppppppp..', pal: { p: '#5a2a1a', g: '#2f8a3a', w: '#f4f1e8' } },
   Sprouts: { map: '....bbbb....|...baaaab...|..bbalaabb..|.baabbbbaab.|baalaabaalab|baaaaabaaaab|.bbbb.bbbb..', pal: { a: '#5fa048', b: '#3a7a2a', l: '#8ac870' } },
   Stollen: { map: '..wwwwwwww..|.wwwrwwwwww.|wwwwwwwrwwww|.dddddddddd.|..dddddddd..', pal: { w: '#f4f1e8', r: '#d8343a', d: '#d8b078' } },
-  'Candy cane': { map: '..rwrw....|.wr..wr...|.rw...rw..|......wr..|......rw..|......wr..|......rw..|......wr..', pal: { r: '#d8343a', w: '#f4f1e8' } },
+  // A thick striped cane with a dark outline all round, so the white stripes do not melt into the platter.
+  'Candy cane': { map: '..kkkkk..|.krwrwrk.|krwkkkwrk|kwrk.krwk|kkk..kwrk|.....krwk|.....kwrk|.....krwk|.....kwrk|.....kkkk', pal: { r: '#d8343a', w: '#f4f1e8', k: '#6a1820' } },
   'Roast potatoes': { map: '....bbbb....|.bb.pppp.bb.|bppbpphpbppb|bpppbpppbppb|.bbbbbbbbbb.', pal: { p: '#e2b85a', b: '#b8863a', h: '#f2d890' } },
 };
 export const foodFor = (name) => FOODS[name];
@@ -151,17 +152,25 @@ function scenery(g, party) {
   for (let x = AREA.x; x < AREA.x + AREA.w; x += 50) rect(g, x, AREA.y - 12, 2, AREA.h + 20, '#e8e2d4');
   rect(g, AREA.x - 12, mid - 6, AREA.w + 24, 12, party ? '#d8343a' : '#5fd0c8');
   rect(g, AREA.x - 12, mid + 4, AREA.w + 24, 2, party ? '#a02028' : '#3ab0a8');
-  // A centrepiece: flowers at the hotel, a holly wreath at the party.
-  cblob(g, 240, mid, 10, 8, party ? '#2f8a3a' : '#e86ab0');
-  cblob(g, 236, mid - 2, 4, 4, party ? '#d8343a' : '#ffe070');
+  // A centrepiece: flowers at the hotel, a holly wreath at the party (a ring of leaves, the runner showing through).
+  if (!party) {
+    cblob(g, 240, mid, 10, 8, '#e86ab0');
+    cblob(g, 236, mid - 2, 4, 4, '#ffe070');
+    return;
+  }
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * Math.PI * 2;
+    cblob(g, 240 + Math.round(Math.cos(a) * 9), mid + Math.round(Math.sin(a) * 7), 4, 3, k % 2 ? '#2f8a3a' : '#1f6a2a');
+  }
+  for (const [x, y] of [[234, mid + 5], [238, mid + 7], [231, mid + 2]]) cblob(g, x, y, 2, 2, '#e83a40'); // berries on the lower left leaves
 }
 
-// A silver platter with the dish's food on it; `pop` (0..1) lifts the food in as the dish appears.
+// A silver platter with the dish's food on it; `pop` (0..1) lifts the food in (from 8 px lower) as the dish appears.
 function drawPlatter(g, x, y, food, pop) {
   cblob(g, x, y + 4, 22, 10, '#8a8e98');
   cblob(g, x, y + 2, 20, 9, '#c8ccd4');
   cblob(g, x - 4, y, 10, 4, '#e8ecf0');
-  if (pop < 0.4 || !food) return;
+  if (!food) return;
   const w = food.map.split('|')[0].length;
   sprite(g, food.map, food.pal, x - w, y - 10 + Math.round(((1 - pop) * 8) / 2) * 2, 2);
 }

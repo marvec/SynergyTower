@@ -33,14 +33,22 @@ export function installMockDocument() {
   globalThis.document = { createElement: () => mockCanvas(16, 16) };
 }
 
-/** A mock canvas that records every fillRect with the fill colour at that moment: { canvas, ctx, calls }. */
+/** A mock canvas that records every fillRect with the fill colour and global alpha at that moment: { canvas, ctx, calls }.
+ *  save()/restore() keep the alpha like a real canvas. */
 export function recordingCanvas(w = 480, h = 270) {
   const calls = [];
   const c = { width: w, height: h, style: {} };
   const inner = mockContext(c);
+  const saved = [];
+  let alpha = 1;
+  const own = {
+    fillRect: (x, y, ww, hh) => calls.push({ x, y, w: ww, h: hh, fill: inner.fillStyle, alpha }),
+    save: () => saved.push(alpha),
+    restore: () => saved.length && (alpha = saved.pop()),
+  };
   const ctx = new Proxy(inner, {
-    get: (t, k) => (k === 'fillRect' ? (x, y, ww, hh) => calls.push({ x, y, w: ww, h: hh, fill: t.fillStyle }) : t[k]),
-    set: (t, k, v) => ((t[k] = v), true),
+    get: (t, k) => (k in own ? own[k] : k === 'globalAlpha' ? alpha : t[k]),
+    set: (t, k, v) => (k === 'globalAlpha' ? (alpha = v) : (t[k] = v), true),
   });
   c.getContext = () => ctx;
   return { canvas: c, ctx, calls };

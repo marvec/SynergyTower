@@ -1,6 +1,6 @@
 // Boss Alert: alt-tab to your spreadsheet just before the boss walks past your cubicle, but don't panic for colleagues.
 import { W, H, C, rect, frame, panel, drawText, header, timerBar, monitor, Floaters, Shake, Countdown, byDiff, clamp, finish } from '../engine/mgkit.js';
-import { sprite, bake, grad, glow, grains, shaded, line } from '../engine/mgart.js';
+import { sprite, bake, grad, glow, grains, shaded, line, shade } from '../engine/mgart.js';
 import { person, DEFAULT_PLAYER } from '../engine/figure.js';
 
 const DESK_X = 240;
@@ -151,7 +151,8 @@ export function walkerLook(w, i) {
     return w.boss ? look : { ...look, top: '#2b3550', lapel: '#d8dfe8', collar: '#d8dfe8' };
   }
   const skirted = i % 3 === 1;
-  return { skin: w.skin, hair: w.hair, top: w.shirt, pants: '#3a3f55', skirt: skirted ? SKIRTS[Math.floor(i / 3) % SKIRTS.length] : null, collar: w.shirt, long: skirted };
+  // The approved art has the shirt over the skirt's top two rows (longTop).
+  return { skin: w.skin, hair: w.hair, top: w.shirt, pants: '#3a3f55', skirt: skirted ? SKIRTS[Math.floor(i / 3) % SKIRTS.length] : null, longTop: skirted, collar: w.shirt, long: skirted };
 }
 
 /** A colleague (or the boss) walking by; turned to your desk (front view, standing) when near it, the boss with a "?" bubble. */
@@ -162,8 +163,6 @@ function drawWalker(g, w, t, looking) {
   rect(g, x - 10, FEET_Y + 1, 20, 1, 'rgba(0,0,0,0.25)');
   const pose = looking ? 'stand' : (Math.floor(t * 6) + w.i) % 2 ? 'walkA' : 'walkB';
   person(g, x - 12, FEET_Y - 60, 2, w.look, { pose });
-  // The figure draws a skirt over the shirt; the approved art has the shirt over the skirt's top two rows.
-  if (w.look.skirt) rect(g, x - 8, FEET_Y - 22, 16, 4, w.look.top);
   if (looking && w.boss) {
     rect(g, x + 10, FEET_Y - 60, 14, 13, '#1a1a22');
     rect(g, x + 11, FEET_Y - 59, 12, 11, '#ffffff');
@@ -288,8 +287,8 @@ function cubicle(g, me, fun) {
   rect(g, 226, 128, 40, 22, '#1a1a22');
   grains(g, 228, 130, 36, 20, ['#2a2a32'], 60, 4);
   rect(g, 224, 124, 44, 6, '#2a2a32');
-  rect(g, 222, 118, 48, 12, '#3b6fb6');
-  rect(g, 222, 118, 48, 2, '#5a8ad6');
+  rect(g, 222, 118, 48, 12, me.top);
+  rect(g, 222, 118, 48, 2, shade(me.top, 0.2));
   rect(g, 241, 112, 10, 8, me.skin);
   if (me.long) rect(g, 236, 108, 20, 14, me.hair);
   shaded(g, 246, 106, 10, 11, me.hair);

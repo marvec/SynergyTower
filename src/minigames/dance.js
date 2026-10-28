@@ -18,6 +18,7 @@ const SPEED = 120; // px per second
 const PERFECT = 0.09;
 const GOOD = 0.18;
 const PAD = { y: 226, w: 36, h: 30 };
+const GLASS = { x0: 160, x1: 320, y1: 220 }; // the lanes' glass: its columns and its bottom edge
 const SONG_S = 40;
 
 const ARROW = ['...##...', '..####..', '.######.', '########', '..####..', '..####..', '..####..', '..####..'];
@@ -44,6 +45,15 @@ function hall(g) {
   rect(g, 0, 18, W, 178, '#1e1630');
   for (let x = 0; x < W; x += 24) rect(g, x, 18, 12, 178, '#21183a');
   stringWire(g, 24);
+}
+
+/** You and the rival on the song's beat: opposite moves for the first 60% of each beat (danceA for you on even beats,
+ *  danceB on odd ones) with a 2 px hop, standing in between and before the song: { you, rival, hop }. */
+export function danceMoves(time, beat) {
+  const beats = Math.max(0, time - SONG_LEAD) / beat;
+  if (time < SONG_LEAD || beats % 1 >= 0.6) return { you: 'stand', rival: 'stand', hop: 0 };
+  const odd = Math.floor(beats) % 2 === 1;
+  return { you: odd ? 'danceB' : 'danceA', rival: odd ? 'danceA' : 'danceB', hop: 2 };
 }
 
 /** Everything in front of the wall that never changes: the DJ booth, the dancers' shadows, the unlit floor, the lane glass. */
@@ -163,13 +173,16 @@ export default {
         stringBulbs(g, 24, time);
         g.drawImage(stage, 0, 0);
         for (let k = 0; k < 6; k++) rect(g, 360 + k * 16, 128, 8, 40, ['#e2504a', '#5b8def', '#5fd068'][(k + Math.floor(time * 4)) % 3]); // the booth's lights
-        // The dance floor: the tiles whose turn it is light up, the pattern moving on with each beat.
+        // The dance floor: the tiles whose turn it is light up, the pattern moving on with each beat; never over the lane
+        // glass (a tile reaching under it lights only below it).
         for (let y = 196, row = 0; y < H; y += 18, row++)
-          for (let x = 0, i = row; x < W; x += 40, i++)
-            if (i % 4 === pulse && !(x >= 160 && x < 320 && y + 2 < 220)) { // never over the lane glass
-              rect(g, x + 2, y + 2, 36, 14, FLOOR_TILES[pulse]);
-              rect(g, x + 2, y + 2, 36, 2, '#ffffff33');
-            }
+          for (let x = 0, i = row; x < W; x += 40, i++) {
+            if (i % 4 !== pulse) continue;
+            const top = x >= GLASS.x0 && x < GLASS.x1 ? Math.max(y + 2, GLASS.y1) : y + 2;
+            if (top >= y + 16) continue;
+            rect(g, x + 2, top, 36, y + 16 - top, FLOOR_TILES[pulse]);
+            if (top === y + 2) rect(g, x + 2, y + 2, 36, 2, '#ffffff33');
+          }
         discoBall(g, 92, 52, time, 12);
         rect(g, 162, LINE_Y - 1, 156, 2, '#f29cd044');
         for (let i = 0; i < 4; i++) put(g, LANE_X[i], LINE_Y, i, flash[i] > 0 ? '#ffffff' : GREY);
@@ -187,12 +200,10 @@ export default {
           rect(g, x + 1, PAD.y + 1, PAD.w - 2, 2, on ? '#ffffff66' : '#3a3258');
           put(g, LANE_X[i], PAD.y + PAD.h / 2, i, '#f4f1e8');
         }
-        // You and the DJ's rival, mid-move on the beat (a pose for the first half of each beat, standing between), feet at 182.
-        const moving = time >= SONG_LEAD && beats % 1 < 0.6;
-        const odd = Math.floor(beats) % 2 === 1;
-        const hop = moving ? 2 : 0;
-        person(g, 58, 122 - hop, 2, look, { pose: moving ? (odd ? 'danceB' : 'danceA') : 'stand', expr: 'smile' });
-        person(g, 398, 122 - hop, 2, RIVAL, { pose: moving ? (odd ? 'danceA' : 'danceB') : 'stand', expr: 'smile' });
+        // You and the DJ's rival, mid-move on the beat, feet at 182.
+        const move = danceMoves(time, beat);
+        person(g, 58, 122 - move.hop, 2, look, { pose: move.you, expr: 'smile' });
+        person(g, 398, 122 - move.hop, 2, RIVAL, { pose: move.rival, expr: 'smile' });
         drawText(g, 'YOU', 70, 196, { align: 'center', color: '#f4f1e8', shadow: '#120c1e' });
         drawText(g, `Combo ${combo}  Best ${best}`, W / 2, 20, { align: 'center', color: '#f29cd0', shadow: '#120c1e' });
         drawText(g, isTouch() ? 'Tap the pads' : 'Arrow keys', W / 2, 260, { align: 'center', color: '#c8b8e8', shadow: '#120c1e' });

@@ -47,6 +47,8 @@ export default {
       shirt(b);
       rect(b, 0, H - 26, W, 12, 'rgba(60,40,24,0.55)'); // under the hint
     });
+    // The heat glows, baked once: warm (orange) and hot (red, one image per size of its pulse).
+    const glows = { warm: glowImg(WARM_GLOW, '#ff9a3a', 1.2), hot: Array.from({ length: 7 }, (_, i) => glowImg(HOT_GLOW - 3 + i, '#ff2a1a', 1.6)) };
     const onShirt = () => iron.x > SHIRT.x && iron.x < SHIRT.x + SHIRT.w && iron.y > SHIRT.y && iron.y < SHIRT.y + SHIRT.h;
     const score = () => Math.max(0, smoothed - scorches) / CREASES;
 
@@ -110,7 +112,7 @@ export default {
         }
         for (const c of creases) if (c.press < 1) crease(g, c.x, c.y, c.len, 0.3 + 0.7 * (1 - c.press));
         // The iron: the longer it stands, the hotter it glows (orange, then red with a pulsing glow on the fabric).
-        ironAt(g, Math.round(iron.x), Math.round(iron.y), t, heat);
+        ironAt(g, Math.round(iron.x), Math.round(iron.y), t, heat, glows);
         drawText(g, `${smoothed}/${CREASES} creases`, W / 2, H - 24, { align: 'center', color: '#f4f1e8' });
         header(g, theme?.title || 'Ironing', scorches ? `${scorches} scorched` : 'No scorch marks');
         timerBar(g, total.left, total.total);
@@ -182,13 +184,25 @@ function crease(g, x, y, len, a) {
   g.globalAlpha = 1;
 }
 
+// The glows' radii (the hot one pulses 3 px either way).
+const WARM_GLOW = 20;
+const HOT_GLOW = 24;
+/** A glow of radius `rad` baked around the middle of a (2 * rad + 1) px square. */
+function glowImg(rad, c, alpha) {
+  return bake(rad * 2 + 1, rad * 2 + 1, (b) => glow(b, rad, rad, rad, c, alpha));
+}
+
 /** The iron from above: a pointed nose (left), a rounded heel, the blue body, a black handle, the soleplate's rim, steam off the nose and the cord out of the top of the handle at the heel. `heat` 0..1: cool is the approved look; warm (> 0.3) an orange soleplate and glow, hot (> 0.6) a red one with a pulsing glow on the fabric. */
-function ironAt(g, x, y, t, heat) {
+function ironAt(g, x, y, t, heat, glows) {
   const r = Math.round;
   const stage = heat > 0.6 ? 2 : heat > 0.3 ? 1 : 0;
   const rim = ['#f29c38', '#ff7a1a', '#ff3020'][stage];
   const edge = ['#1a1a22', '#b84a14', '#8a1410'][stage]; // the soleplate's outline
-  if (stage) glow(g, x - 2, y - 4, stage === 2 ? 24 + r(Math.sin(t * 12) * 3) : 20, stage === 2 ? '#ff2a1a' : '#ff9a3a', stage === 2 ? 1.6 : 1.2);
+  if (stage) {
+    const img = stage === 2 ? glows.hot[r(Math.sin(t * 12) * 3) + 3] : glows.warm;
+    const R = (img.width - 1) / 2;
+    g.drawImage(img, x - 2 - R, y - 4 - R);
+  }
   for (let k = 0; k < 16; k += 2) {
     const w = 18 + r(Math.min(k, 16 - k) * 0.4) + k;
     rect(g, r(x - 18 + (16 - k) * 0.6), y - 12 + k, w + 12, 2, edge);

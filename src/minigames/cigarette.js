@@ -10,10 +10,11 @@ const FILTER = 0.12; // the filter's share of the cigarette: the ember stops her
 const STUB_AT = 0.06; // within this much of the filter, the flick key stubs it out
 const LIMIT_S = 80; // overall time limit
 const ASH_MAX = 0.09; // ash this long falls off
+const ASH_WARN = 0.75; // past this share of ASH_MAX the ash darkens, on the cigarette and its gauge
 const RELIGHT_S = 0.9; // holding the lighter to it
 const FLICK_BTN = { x: W - 96, y: H - 44, w: 84, h: 26 };
 const CIG = { x: 150, y: 132, len: 250, h: 8 }; // on screen at full length
-const METER = { x: 420, y: 36, h: 130 }; // the gauges sit on the right: the arm takes the left
+const METER = { x: 420, y: 36, w: 14, h: 130 }; // the gauges (each w wide) sit on the right: the arm takes the left
 
 export default {
   id: 'cigarette',
@@ -47,7 +48,7 @@ export default {
     const smoke = [];
     // Baked once: the sky, skyline and parapet, the gauges' frame and zones, the glows of the ember and of the fingers.
     const scene = bake(W, H, (g) => scenery(g, pal, mood));
-    const gaugeZones = bake(14, METER.h, (g) => (g.translate(-METER.x, -METER.y), gauge(g, sweet)));
+    const gaugeZones = bake(METER.w, METER.h, (g) => (g.translate(-METER.x, -METER.y), gauge(g, sweet)));
     const glowR = mood === 'night' ? 30 : 20;
     const emberGlow = bake(glowR * 2 + 2, glowR * 2 + 2, (g) => glow(g, glowR + 1, glowR + 1, glowR, '#ff8030', mood === 'night' ? 0.8 : 0.6));
     const fingerGlow = mood === 'night' ? bake(100, 52, (g) => fingerLight(g)) : null;
@@ -170,7 +171,8 @@ export default {
         rect(g, CIG.x + fw + 2, CIG.y, 1, CIG.h, '#c8a040');
         const aw = Math.round(CIG.len * ash);
         if (aw > 0) {
-          for (let k = 0; k < CIG.h; k++) rect(g, tip - aw, CIG.y + k, aw, 1, ASH_ROWS[k]);
+          const rows = ash > ASH_MAX * ASH_WARN ? ASH_ROWS_OLD : ASH_ROWS;
+          for (let k = 0; k < CIG.h; k++) rect(g, tip - aw, CIG.y + k, aw, 1, rows[k]);
           for (let i = 0; i < aw; i += 4) rect(g, tip - aw + i, CIG.y + 1 + (i % 3) * 2, 2, 1, '#4a4e58');
         }
         if (lit) {
@@ -216,18 +218,20 @@ export default {
         }
         g.restore();
         // The heat meter: out at the bottom, cough at the top, the sweet spot in green.
-        const { x: mx, y: my, h: mh } = METER;
+        const { x: mx, y: my, w: mw, h: mh } = METER;
         rect(g, mx - 6, my - 6, 60, mh + 26, 'rgba(10,8,20,0.55)');
-        rect(g, mx - 1, my - 1, 16, mh + 2, '#1a1a22');
+        rect(g, mx - 1, my - 1, mw + 2, mh + 2, '#1a1a22');
         g.drawImage(gaugeZones, mx, my);
         const hy = my + Math.round(mh * (1 - clamp(heat, 0, 1)));
-        rect(g, mx - 4, hy - 2, 22, 1, '#1a1a22');
-        rect(g, mx - 4, hy - 1, 22, 3, lit ? '#ffd06a' : '#6a707c');
-        drawText(g, 'HEAT', mx + 7, my + mh + 4, { align: 'center', color: C.text });
+        rect(g, mx - 4, hy - 2, mw + 8, 1, '#1a1a22');
+        rect(g, mx - 4, hy - 1, mw + 8, 3, lit ? '#ffd06a' : '#6a707c');
+        drawText(g, 'HEAT', mx + mw / 2, my + mh + 4, { align: 'center', color: C.text });
         // Ash gauge.
-        drawText(g, 'ASH', mx + 34, my + mh + 4, { align: 'center', color: C.text });
-        rect(g, mx + 27, my + mh - 40, 14, 41, '#1a1a22');
-        rect(g, mx + 28, my + mh - 39 + Math.round(39 * (1 - Math.min(1, ash / ASH_MAX))), 12, Math.round(39 * Math.min(1, ash / ASH_MAX)), ash > ASH_MAX * 0.75 ? C.warn : '#9aa1ad');
+        const ax = mx + 27; // the ash gauge, as wide as the heat gauge
+        drawText(g, 'ASH', ax + mw / 2, my + mh + 4, { align: 'center', color: C.text });
+        rect(g, ax, my + mh - 40, mw, 41, '#1a1a22');
+        const ah = Math.round(39 * Math.min(1, ash / ASH_MAX));
+        rect(g, ax + 1, my + mh - 39 + 39 - ah, mw - 2, ah, ash > ASH_MAX * ASH_WARN ? C.warn : '#9aa1ad');
         // The flick button.
         const b = FLICK_BTN;
         rect(g, b.x, b.y, b.w, b.h, C.border);
@@ -295,6 +299,7 @@ const FILTER_ROWS = [
 ];
 const FILTER_FLECKS = [[4, 2, '#a85a20'], [14, 4, '#f8c070'], [22, 2, '#a85a20'], [8, 6, '#f8c070'], [18, 6, '#a85a20'], [26, 4, '#f8c070']];
 const ASH_ROWS = ['#b4b8c0', '#a0a4ac', '#8a8e98', '#7a7e88', '#6a6e78', '#5a5e68', '#5a5e68', '#4a4e58'];
+const ASH_ROWS_OLD = ASH_ROWS.map((c) => shade(c, -0.3)); // long ash, about to fall
 
 /** The night's ember light on the fingers and the cuff, as one image (drawn additively at 136,110). */
 function fingerLight(g) {
@@ -382,15 +387,15 @@ function parapet(g, p) {
 
 /** The heat gauge's zones (drawn in screen coordinates; the caller translates): the frame and panel are drawn per frame. */
 function gauge(g, sweet) {
-  const { x: mx, y: my, h: mh } = METER;
+  const { x: mx, y: my, w: mw, h: mh } = METER;
   const at = (v) => my + Math.round(mh * (1 - v));
   const top = at(sweet[1]);
   const bottom = at(sweet[0]);
-  grad(g, mx, my, 14, top - my, ['#c84a3a', '#e8a040']); // too much: you cough
-  rect(g, mx, top, 14, bottom - top, '#3a8a4a'); // the sweet spot
-  grad(g, mx, bottom, 14, my + mh - bottom, ['#2a4a6a', '#1a2a3a']); // too little: it goes out
-  rect(g, mx, top, 14, 1, '#9af0b0');
-  rect(g, mx, bottom - 1, 14, 1, '#9af0b0');
+  grad(g, mx, my, mw, top - my, ['#c84a3a', '#e8a040']); // too much: you cough
+  rect(g, mx, top, mw, bottom - top, '#3a8a4a'); // the sweet spot
+  grad(g, mx, bottom, mw, my + mh - bottom, ['#2a4a6a', '#1a2a3a']); // too little: it goes out
+  rect(g, mx, top, mw, 1, '#9af0b0');
+  rect(g, mx, bottom - 1, mw, 1, '#9af0b0');
 }
 
 // The hand is a cell sprite like the masseur's hands (3 px cells, a dark outline, flat skin in two tones), seen from the

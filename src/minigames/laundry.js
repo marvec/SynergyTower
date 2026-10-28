@@ -21,7 +21,7 @@ const DELICATE_COLORS = ['#f4f6f8', '#e2504a', '#3b6fb6', '#c8a8e8', '#2f8a3a'];
 
 // What each piece looks like when it falls: one of six garment shapes; an unknown name is a T-shirt.
 export const GARMENTS = ['hoodie', 'tshirt', 'socks', 'jeans', 'shirt', 'towel'];
-const GARMENT_OF = {
+export const GARMENT_OF = {
   'White shirt': 'shirt', 'White socks': 'socks', 'White towel': 'towel', 'White T-shirt': 'tshirt', Pillowcase: 'towel',
   'Red T-shirt': 'tshirt', 'Blue jeans': 'jeans', 'Green hoodie': 'hoodie', 'Black socks': 'socks', 'Yellow towel': 'towel', 'Pink pyjamas': 'shirt',
   'Wool jumper': 'hoodie', 'Silk blouse': 'shirt', 'Cashmere scarf': 'towel', 'Silk tie': 'shirt', 'Lace top': 'tshirt',
@@ -81,7 +81,7 @@ export default {
     const inst = {
       done: false,
       score: 0,
-      peek: () => ({ item: item ? { bin: item.bin, y: item.y } : null, keys: BINS.map((b) => b.arrow) }),
+      peek: () => ({ item: item ? { bin: item.bin, y: item.y, color: item.color } : null, keys: BINS.map((b) => b.arrow) }),
       update(dt, input) {
         fl.update(dt);
         shake.update(dt);
@@ -118,7 +118,8 @@ export default {
         g.drawImage(scene, 0, 0);
         for (const [i, b] of BINS.entries()) load(g, b, sorted[i], t);
         if (item) {
-          // Drawn a little lower than item.y so the name clears the header; it lands on the machines as it reaches them.
+          // Drawn a little lower than item.y so the name clears the header, and squeezed so it stops just above the
+          // machines (its middle at y 155) when it hits the floor.
           const x = 240;
           const y = 46 + (item.y - 30) * 0.78;
           drawGarment(g, garmentOf(item.name), x, y, item.color);

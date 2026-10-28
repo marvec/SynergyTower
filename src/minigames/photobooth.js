@@ -3,7 +3,7 @@
 // the flash counts for the next card), so holding one arrow throughout is a stiff photo every time. The strip of four
 // photos is the result.
 import { W, H, rect, drawText, header, timerBar, Floaters, Countdown, byDiff, finish } from '../engine/mgkit.js';
-import { isTouch } from '../engine/platform.js';
+import { isTouch, reducedMotion } from '../engine/platform.js';
 import { bake } from '../engine/mgart.js';
 import { person, DEFAULT_PLAYER } from '../engine/figure.js';
 
@@ -35,6 +35,7 @@ export default {
     let shot = 0;
     let t = 0;
     let clock = 0; // for the snow and the blinking light
+    const still = reducedMotion(); // the system asks for less motion: the snow stays put
     let phase = 'count';
     let tap = -1;
     let good = 0;
@@ -81,8 +82,9 @@ export default {
       },
       render(g) {
         g.drawImage(scene, 0, 0);
-        // The snow drifts down the backdrop (behind the banner), a light blinks in the corner.
-        FLAKES.forEach(([x, y]) => snowflake(g, x, 56 + Math.round(((y - 56 + clock * 10) % 140) / 2) * 2));
+        // The snow drifts down the backdrop from under the banner (y 56-196, then again from the top), a light blinks in the corner.
+        const fall = still ? 0 : clock * 10;
+        FLAKES.forEach(([x, y]) => snowflake(g, x, 56 + Math.round(((y - 56 + fall) % 140) / 2) * 2));
         if (Math.floor(clock * 2) % 2) rect(g, 338, 186, 6, 6, '#e2504a');
         // The live view: you, holding whatever you hold right now; the pose card on the left.
         const held = KEYS.findIndex((k) => inst._input?.down?.(k));

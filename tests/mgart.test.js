@@ -2,7 +2,7 @@
 import { test, expect } from 'bun:test';
 import { installMockDocument, recordingCanvas } from './mock-canvas.js';
 installMockDocument();
-const { bands, cblob, cells, bake, mix, grad, rnd, glow } = await import('../src/engine/mgart.js');
+const { bands, cblob, blob, cells, bake, mix, grad, rnd, glow, grains } = await import('../src/engine/mgart.js');
 
 test('bands splits the height between the colours, top to bottom, no gaps', () => {
   const { ctx, calls } = recordingCanvas();
@@ -91,4 +91,29 @@ test('blob, line, shaded and grains draw on the grid they promise', async () => 
   const again = recordingCanvas();
   grains(again.ctx, 10, 20, 100, 40, ['#aaaaaa', '#bbbbbb'], 60, 5);
   expect(again.calls).toEqual(g.calls);
+});
+
+test('blob is symmetric about its middle row (1 px rows, cy - ry to cy + ry); cblob(..., 1) is 2 * ry rows from cy - ry', () => {
+  const a = recordingCanvas();
+  blob(a.ctx, 50, 50, 8, 5, '#abcdef');
+  expect(a.calls.map((c) => c.y)).toEqual([46, 47, 48, 49, 50, 51, 52, 53, 54]); // the tips (y = ±ry) are 0 px wide
+  expect(a.calls.map((c) => c.w)).toEqual(a.calls.map((c) => c.w).reverse());
+  expect(a.calls.every((c) => c.h === 1)).toBe(true);
+  const b = recordingCanvas();
+  cblob(b.ctx, 50, 50, 8, 5, '#abcdef', 1);
+  expect(b.calls.map((c) => c.y)).toEqual([45, 46, 47, 48, 49, 50, 51, 52, 53, 54]);
+});
+
+test('grains land on the screen\'s 2 px grid, also from an odd origin', () => {
+  for (const [x, y] of [[0, 0], [1, 3], [-13, 7]]) {
+    const { ctx, calls } = recordingCanvas();
+    grains(ctx, x, y, 40, 20, ['#111111'], 120, 5);
+    expect(calls.length).toBe(20);
+    for (const c of calls) {
+      expect(Math.abs(c.x % 2)).toBe(0);
+      expect(Math.abs(c.y % 2)).toBe(0);
+      expect(c.x).toBeGreaterThanOrEqual(x - 1);
+      expect(c.x + 2).toBeLessThanOrEqual(x + 40 + 1);
+    }
+  }
 });

@@ -54,13 +54,19 @@ export function glow(g, cx, cy, r, c, alpha) {
   g.restore();
 }
 
-/** Ellipse on an s-pixel grid (chunky edges, like the 2x figures). */
-export function cblob(g, cx, cy, rx, ry, c, s = 2) {
-  for (let y = -ry; y < ry; y += s) {
-    const yy = (y + s / 2) / ry;
+// The ellipse painter behind cblob and blob: rows `s` px tall from y = -ry while y < end, each as wide as the ellipse
+// at y + mid, the half width rounded to whole s-pixel cells.
+function ellipseRows(g, cx, cy, rx, ry, c, s, end, mid) {
+  for (let y = -ry; y < end; y += s) {
+    const yy = (y + mid) / ry;
     const hw = Math.round((rx * Math.sqrt(Math.max(0, 1 - yy * yy))) / s) * s;
     if (hw > 0) rect(g, Math.round(cx - hw), Math.round(cy + y), hw * 2, s, c);
   }
+}
+
+/** Ellipse on an s-pixel grid (chunky edges, like the 2x figures): rows of s px from cy - ry down to just under cy + ry. */
+export function cblob(g, cx, cy, rx, ry, c, s = 2) {
+  ellipseRows(g, cx, cy, rx, ry, c, s, ry, s / 2);
 }
 
 /** A cell painter: r(cx, cy, w, h, colour) in s-pixel cells from (ox, oy). */
@@ -88,12 +94,10 @@ export function bake(w, h, draw) {
   return c;
 }
 
-/** A filled ellipse, row by row (1 px rows, crisp edges): plates, bubbles, hills. */
+/** A filled ellipse in 1 px rows (crisp edges): plates, bubbles, hills. Unlike cblob it is symmetric about its middle
+ *  row (cy - ry to cy + ry), so small ones stay round. */
 export function blob(g, cx, cy, rx, ry, c) {
-  for (let y = -ry; y <= ry; y++) {
-    const hw = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y / ry) ** 2)));
-    if (hw > 0) rect(g, Math.round(cx - hw), Math.round(cy + y), hw * 2, 1, c);
-  }
+  ellipseRows(g, cx, cy, rx, ry, c, 1, ry + 1, 0);
 }
 
 /** A line of `w` px dots from (x1, y1) to (x2, y2). */
@@ -104,15 +108,16 @@ export function line(g, x1, y1, x2, y2, c, w = 1) {
 
 /** A lit ball on the 2 px grid: dark rim, the base nudged up-left, one light patch (light from the top left). */
 export function shaded(g, cx, cy, rx, ry, c, opts = {}) {
-  const { rim = shade(c, -0.35), light = shade(c, 0.22), outline = null } = opts;
-  if (outline) cblob(g, cx, cy, rx + 2, ry + 2, outline);
+  const { rim = shade(c, -0.35), light = shade(c, 0.22) } = opts;
   cblob(g, cx, cy, rx, ry, rim);
   cblob(g, cx - 2, cy - 2, Math.max(2, rx - 2), Math.max(2, ry - 2), c);
   cblob(g, cx - Math.round(rx * 0.3), cy - Math.round(ry * 0.3), Math.max(2, Math.round(rx * 0.4)), Math.max(2, Math.round(ry * 0.4)), light);
 }
 
-/** Sparse 2x2 grains over a rect (sand, worktop, sponge): about n / 6 of them, on the 2 px grid, the same for the same seed. */
+/** Sparse 2x2 grains over a rect (sand, worktop, sponge): about n / 6 of them, on the screen's 2 px grid (also when x or
+ *  y is odd), the same for the same seed. */
 export function grains(g, x, y, w, h, colors, n, seed = 7) {
   const r = rnd(seed);
-  for (let i = 0; i < n / 6; i++) rect(g, x + Math.floor((r() * w) / 2) * 2, y + Math.floor((r() * h) / 2) * 2, 2, 2, colors[i % colors.length]);
+  const on2 = (v) => Math.floor(v / 2) * 2;
+  for (let i = 0; i < n / 6; i++) rect(g, on2(x + r() * w), on2(y + r() * h), 2, 2, colors[i % colors.length]);
 }

@@ -42,7 +42,7 @@ export default {
     const inst = {
       done: false,
       score: 0,
-      peek: () => ({ glass: { ...glass }, fruit: fruit.map((f) => ({ x: f.x, y: f.y })) }),
+      peek: () => ({ glass: { ...glass }, fruit: fruit.map((f) => ({ x: f.x, y: f.y })), caught }),
       update(dt, input) {
         fl.update(dt);
         t += dt;
@@ -53,7 +53,8 @@ export default {
           spawnT = 1.5;
           let x = rng.int(60, W - 60);
           if (Math.abs(x - glass.x) < 80) x = clamp(glass.x + (x < glass.x ? -1 : 1) * rng.int(90, 160), 60, W - 60);
-          fruit.push({ x, y: 40, vy: 60, f: rng.pick(FRUIT), spin: rng.float(0, 6) });
+          fruit.push({ x, y: 40, vy: 60, f: rng.pick(FRUIT) });
+          rng.float(0, 6); // was the fruit's spin, no longer drawn: still drawn from the rng so a seed plays as before
         }
         const p = input.pointer;
         if (p.inside && (p.moved || p.down)) glass.x += clamp(p.x - glass.x, -SPEED * 1.5 * dt, SPEED * 1.5 * dt);
@@ -64,7 +65,6 @@ export default {
           const f = fruit[i];
           f.vy = Math.min(110, f.vy + 30 * dt);
           f.y += f.vy * dt;
-          f.spin += dt * 5;
           if (f.y >= FLOOR_Y - 34 && f.y < FLOOR_Y - 18 && Math.abs(f.x - glass.x) < HALF) {
             fruit.splice(i, 1);
             caught++;
@@ -147,6 +147,7 @@ function hurricane(g, x, fill) {
   rect(g, x - 18, top - 2, 6, 2, '#2f8a3a');
   rect(g, x + 6, top - 20, 2, 26, '#e2504a');
   rect(g, x + 8, top - 20, 6, 2, '#e2504a');
-  for (let k = 0; k < 6; k++) rect(g, x - 8 + k * 2, top - 20 + k * 2, 16 - k * 4 > 0 ? 18 - k * 4 : 2, 2, k % 2 ? '#e85d75' : '#ffb0c0');
+  // The umbrella's canopy: rows stepping down to the right, 4 px narrower each, ending in a 2 px tip.
+  for (let k = 0; k < 6; k++) rect(g, x - 8 + k * 2, top - 20 + k * 2, Math.max(2, 18 - k * 4), 2, k % 2 ? '#e85d75' : '#ffb0c0');
   rect(g, x - 1, top - 14, 2, 14, '#8a5a3a');
 }

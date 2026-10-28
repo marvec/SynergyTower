@@ -49,6 +49,7 @@ export default {
     });
     const dashes = waveDashes();
     // The tiers (one image per layer, drawn from `built` every frame, never part of `scene`) and the surf in SURF_PHASES phases.
+    const pailImg = bake(PAIL.w, PAIL.h, (b) => (b.translate(PAIL.ox, PAIL.oy), drawPail(b)));
     const tiers = Array.from({ length: LAYERS }, (_, i) => bake(width(i), LAYER_H + 4, (b) => tier(b, i, width(i) / 2, 4, width(i))));
     const surfs = Array.from({ length: SURF_PHASES }, (_, k) => bake(W, SURF_H, (b) => (b.translate(0, -SURF_TOP), surf(b, ((k / SURF_PHASES) * Math.PI * 2) / SURF_RATE))));
     const drawTier = (g, i, x, y) => tiers[i] && g.drawImage(tiers[i], Math.round(x - width(i) / 2), Math.round(y) - 4); // never past the last tier
@@ -112,7 +113,7 @@ export default {
         const off = drop ? drop.x : offset();
         const tip = drop ? Math.min(1, drop.t * 6) : 0;
         arm(g, cx + off, 44);
-        pail(g, cx + off, 50 + tip * 4, -off / 500 + (off <= 0 ? 1 : -1) * tip * 0.35);
+        pail(g, pailImg, cx + off, 50 + tip * 4, -off / 500 + (off <= 0 ? 1 : -1) * tip * 0.35);
         header(g, theme?.title || 'Sandcastle', `Layers ${built}/${LAYERS}`);
         timerBar(g, total.left, total.total);
         drawText(g, 'Tip the bucket over the castle', W / 2, 256, { align: 'center', color: '#6a4a22' });
@@ -219,12 +220,21 @@ function tier(g, i, cx, y, w) {
     }
 }
 
-// The pail, its rim centre at (x, y), turned by `tilt` radians: a tapered bucket, a light stripe, sand showing at the top,
-// a label and a wire handle.
-function pail(g, x, y, tilt) {
+// The pail, baked upright once (PAIL: its size and the rim centre in it) and drawn turned by `tilt` radians with its rim
+// centre at (x, y). Turning the image without smoothing keeps hard pixels; turned rects would blur at their edges.
+const PAIL = { w: 34, h: 40, ox: 17, oy: 16 };
+function pail(g, img, x, y, tilt) {
   g.save();
-  g.translate(x, y);
+  g.imageSmoothingEnabled = false;
+  g.translate(Math.round(x), Math.round(y));
   g.rotate(tilt);
+  g.drawImage(img, -PAIL.ox, -PAIL.oy);
+  g.restore();
+}
+
+// The upright pail around its rim centre (0, 0): a tapered bucket, a light stripe, sand showing at the top, a label and a
+// wire handle.
+function drawPail(g) {
   for (let k = 0; k < 22; k++) {
     const hw = 14 - Math.floor(k / 4);
     rect(g, -hw, k, hw * 2, 1, '#1a3a7a');
@@ -238,7 +248,6 @@ function pail(g, x, y, tilt) {
   rect(g, -6, 8, 12, 6, '#f2c14e');
   sprite(g, '.y.|yyy|.y.', { y: '#ffffff' }, -1, 9, 1);
   for (let a = Math.PI; a <= Math.PI * 2; a += 0.06) rect(g, Math.round(Math.cos(a) * 15), Math.round(Math.sin(a) * 14), 1, 1, '#9aa1ad');
-  g.restore();
 }
 
 // A kid's arm coming down from above the screen to the pail: sleeve, forearm, a fist at (x, y).

@@ -12,11 +12,12 @@ const SHIFT_S = 10;
 const OVAL = { cx: 240, cy: 132, rx: 112, ry: 20 }; // the water inside the tub's rim; bubbles stay inside it
 const TH = { x: 420, y: 60, h: 140 }; // the thermometer
 
-/** The water's colour: blue when cold, warming to a soft pink when hot (never grey-brown on the way). */
+/** The water's colour: blue when cold, warming to a soft pink when hot, never grey-brown on the way: green falls as
+ *  fast as blue, so blue stays 48 over it (never brown) and the mauve in the middle stays clearly coloured. */
 export function bathWater(temp) {
   const k = clamp((temp - 20) / 25, 0, 1);
   const hex = (v) => Math.round(v).toString(16).padStart(2, '0');
-  return `#${hex(90 + 150 * k * 0.7)}${hex(180 - 40 * k)}${hex(228 - 60 * k)}`;
+  return `#${hex(90 + 150 * k * 0.7)}${hex(180 - 60 * k)}${hex(228 - 60 * k)}`;
 }
 
 export default {
@@ -78,7 +79,7 @@ export default {
           rect(g, Math.round(b.x), Math.round(b.y), b.s, b.s, '#ffffff');
           rect(g, Math.round(b.x), Math.round(b.y), 2, 2, water);
         }
-        duck(g, Math.round(Math.sin(t * 2)) * 2);
+        duck(g, Math.round(Math.sin(t * 2) * 2)); // bobbing 2 px up and down, a pixel at a time
         // The taps run when open: cold (left), hot (right).
         if (cold) stream(g, 150, t);
         if (hot) stream(g, 330, t);

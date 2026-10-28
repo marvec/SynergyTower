@@ -76,21 +76,56 @@ test('the pitch outfits stay: the employee wears red tabs and a bib, the CEO a r
   expect(fills(ceo.calls).has('#c0392b')).toBe(true);
 });
 
-test('poses keep the figure inside its box; a crouch drops the head, a dance raises one arm', () => {
+test('every pose stays inside its box (arms reach 7 cells above the head and 6-7 to the sides) with the feet on the ground', () => {
+  const s = 2;
+  for (const look of [LOOK, { ...LOOK, skirt: '#2f8f7f', long: true }]) {
+    for (const pose of ['stand', 'walkA', 'walkB', 'armsUp', 'waveL', 'waveR', 'crouch', 'danceA', 'danceB']) {
+      const { ctx, calls } = recordingCanvas();
+      person(ctx, 0, 100, s, look, { pose, expr: 'smile' });
+      expect(calls.every((c) => c.fill !== undefined)).toBe(true);
+      expect(Math.min(...calls.map((c) => c.x))).toBeGreaterThanOrEqual(-6 * s);
+      expect(Math.max(...calls.map((c) => c.x + c.w))).toBeLessThanOrEqual(19 * s);
+      expect(Math.min(...calls.map((c) => c.y))).toBeGreaterThanOrEqual(100 - 7 * s);
+      expect(Math.max(...calls.map((c) => c.y + c.h))).toBe(100 + 30 * s); // a foot on the ground
+    }
+  }
+});
+
+test('a crouch drops the head, a dance raises one arm', () => {
   const stand = recordingCanvas();
   person(stand.ctx, 0, 100, 2, LOOK);
   const crouch = recordingCanvas();
   person(crouch.ctx, 0, 100, 2, LOOK, { pose: 'crouch' });
   const topOf = (calls) => Math.min(...calls.filter((c) => c.fill === LOOK.hair).map((c) => c.y));
   expect(topOf(crouch.calls)).toBeGreaterThan(topOf(stand.calls));
-  for (const pose of ['walkA', 'walkB', 'waveL', 'waveR', 'danceA', 'danceB']) {
-    const { ctx, calls } = recordingCanvas();
-    person(ctx, 0, 100, 2, LOOK, { pose, expr: 'smile' });
-    expect(calls.length).toBeGreaterThan(10);
-  }
   const dance = recordingCanvas();
   person(dance.ctx, 0, 100, 2, LOOK, { pose: 'danceA' });
   expect(Math.min(...dance.calls.filter((c) => c.fill === LOOK.skin).map((c) => c.y))).toBeLessThan(100);
+});
+
+test('a crouch bends the knees apart in a skirt too, under the skirt', () => {
+  const legsOf = (pose) => {
+    const { ctx, calls } = recordingCanvas();
+    person(ctx, 0, 0, 1, { ...LOOK, skirt: '#2f8f7f', long: true }, { pose });
+    return calls.filter((c) => c.fill === LOOK.skin && c.y >= 24 && c.h > 1).map((c) => c.x).sort((a, b) => a - b);
+  };
+  expect(legsOf('stand')).toEqual([3, 7]);
+  expect(legsOf('crouch')).toEqual([2, 8]); // over the crouching shoes (x 1 and 8), like trousers
+});
+
+test('the faces: every expression draws eyes and a mouth; "interested" works for looks without a brow colour', () => {
+  for (const expr of ['neutral', 'interested', 'delighted', 'bored', 'annoyed', 'talk', 'nervous', 'smile', 'sing']) {
+    const { ctx, calls } = recordingCanvas();
+    person(ctx, 0, 0, 1, LOOK, { expr });
+    expect(calls.some((c) => c.fill === undefined)).toBe(false);
+    expect(fills(calls).has('#222')).toBe(true);
+  }
+  const { ctx, calls } = recordingCanvas();
+  person(ctx, 0, 0, 1, LOOK, { expr: 'interested' }); // LOOK has no brow (not built by figureLook)
+  const brows = calls.filter((c) => c.y === 2 && c.w === 1 && (c.x === 4 || c.x === 7));
+  expect(brows.length).toBe(2);
+  expect(brows[0].fill).not.toBe(LOOK.hair);
+  expect(brows[0].fill).not.toBe(LOOK.skin);
 });
 
 test('swimmers keep their skin legs below the hips (the water tints them)', () => {
@@ -105,7 +140,7 @@ test('swimmers keep their skin legs below the hips (the water tints them)', () =
 
 test('swimsuit torso is the corporate colour from the shoulders to the hips, as in the approved Pool Ball mockup', () => {
   const { ctx, calls } = recordingCanvas();
-  person(ctx, 0, 0, 1, { ...LOOK, top: '#2f8f7f', corp: '#2f8f7f', long: true }, { swim: 'suit', pose: 'armsUp' });
+  person(ctx, 0, 0, 1, { ...LOOK, corp: '#2f8f7f', long: true }, { swim: 'suit', pose: 'armsUp' }); // top and corp differ
   const torso = calls.find((c) => c.x === 2 && c.y === 10 && c.w === 8 && c.h === 11);
   expect(torso.fill).toBe('#2f8f7f');
   // the sleeves are bare arms
@@ -131,4 +166,20 @@ test('figureLook falls back to the default player for missing fields', () => {
   expect(f.corp).toBe(DEFAULT_PLAYER.corp);
   expect(typeof f.brow).toBe('string');
   expect(() => figureLook({}, '#123456')).not.toThrow();
+});
+
+test('longTop: the top hangs over the skirt\'s waistband (rows 19-20), the skirt starts at row 21; without it at row 19', () => {
+  const rowsOf = (look) => {
+    const { ctx, calls } = recordingCanvas();
+    person(ctx, 0, 0, 1, look);
+    return calls.filter((c) => c.x === 2 && c.w === 8 && c.fill === '#2f8f7f').map((c) => c.y);
+  };
+  expect(rowsOf({ ...LOOK, skirt: '#2f8f7f' })).toEqual([19]);
+  expect(rowsOf({ ...LOOK, skirt: '#2f8f7f', longTop: true })).toEqual([21]);
+  const { ctx, calls } = recordingCanvas();
+  person(ctx, 0, 0, 1, { ...LOOK, skirt: '#2f8f7f', longTop: true });
+  const last = (x, y) => calls.filter((c) => c.x <= x && x < c.x + c.w && c.y <= y && y < c.y + c.h).at(-1).fill;
+  expect(last(5, 19)).toBe(LOOK.top);
+  expect(last(5, 20)).toBe(LOOK.top);
+  expect(last(5, 21)).toBe('#2f8f7f');
 });
