@@ -108,6 +108,14 @@ unless Martin explicitly asks for that. Rules in `c64/CLAUDE.md`.
 Its download page is `synergytower.co.uk/c64/` (`src/c64/`, built like `/feedback/`); `bun c64/build.js --publish`
 refreshes the committed ZIP of the 8 disk images in `public/c64/`.
 
+## Plans and specs
+
+Write new plans and specs (`docs/plans/`, `docs/superpowers/specs/`) as a single self-contained HTML file (inline CSS,
+no external scripts or fonts), not Markdown. Use ASD-STE100 Simplified Technical English: short sentences, one
+instruction per sentence, active voice, imperative for steps, one word for one meaning, no idioms. Explain with diagrams
+(inline SVG: flows, state machines, floor layouts, scene stacks) and charts (inline SVG: economy curves, pacing, timings)
+where they say more than text. Existing Markdown plans stay as they are.
+
 ## Conventions & gotchas
 
 - **No external assets.** Art is drawn in code, music and SFX are synthesized with WebAudio (`src/data/music.js` tracker
