@@ -48,6 +48,7 @@ export class MinigameScene {
     this.task = task;
     this.onDone = onDone;
     this.mode = opts.mode || 'task';
+    this.practice = !!opts.practice; // a Daily Memo played from the console (__memo(n)): records nothing
     this.capturesKeys = true; // disables global hotkeys such as M (music) while playing
     this.floor = game.state.floor;
     const s = game.state;
@@ -268,8 +269,8 @@ export class MinigameScene {
     const { n, game } = this.task;
     // Null if this Memo was already done (another tab): show the stars, pay nothing.
     const stars = E.starsFromScore(score);
-    this.result = MEMO.completeMemo(s, n, score, game) || { memo: true, n, game, score: Math.floor(score * 100) / 100, stars, sp: 0, streak: s.memo.streak, none: true };
-    track('memo_end', { n, game, stars, floor: s.maxFloor });
+    this.result = (!this.practice && MEMO.completeMemo(s, n, score, game)) || { memo: true, n, game, score: Math.floor(score * 100) / 100, stars, sp: 0, streak: s.memo.streak, none: true };
+    if (!this.practice) track('memo_end', { n, game, stars, floor: s.maxFloor });
     this.game.markDirty();
     this.game.saveNow();
     this.phase = 'result';
@@ -277,8 +278,8 @@ export class MinigameScene {
     this.revealed = 0;
     this.game.sfx(stars > 0 ? 'good' : 'fail');
     this.buttons.clear();
-    this.buttons.add({ x: W / 2 - 92, y: H / 2 + 62, w: 88, h: 18, label: 'Share', color: C.accent, onClick: () => this.share() });
-    this.buttons.add({ x: W / 2 + 4, y: H / 2 + 62, w: 88, h: 18, label: 'Done', onClick: () => this.finish() });
+    this.buttons.add({ x: W / 2 - 92, y: H / 2 + 46, w: 88, h: 18, label: 'Share', color: C.accent, onClick: () => this.share() });
+    this.buttons.add({ x: W / 2 + 4, y: H / 2 + 46, w: 88, h: 18, label: 'Done', onClick: () => this.finish() });
   }
   /** Shares the result text (a click or key press: share sheets need it). */
   share() {
@@ -289,7 +290,7 @@ export class MinigameScene {
     const r = this.result;
     return [
       `${this.mod.name}  -  score ${r.score.toFixed(2)}`,
-      r.sp ? `+${formatNum(r.sp)} paperclips` : r.none ? 'Already done today.' : 'No paperclips at 0 stars.',
+      r.sp ? `+${formatNum(r.sp)} paperclips` : this.practice ? 'Practice run: nothing recorded.' : r.none ? 'Already done today.' : 'No paperclips at 0 stars.',
       `Memo streak: ${r.streak} day${r.streak === 1 ? '' : 's'}`,
       MEMO_DONE,
     ];
@@ -298,8 +299,8 @@ export class MinigameScene {
     const r = this.result;
     dim(g, 0.65);
     const x = W / 2 - 120;
-    const y = H / 2 - 82;
-    panel(g, x, y, 240, 172, { title: `${MEMO_TITLE} #${r.n}: ${MEMO_RESULT_TITLES[r.stars]}`, titleColor: r.stars ? C.accent : '#7a2b2b' });
+    const y = H / 2 - 76;
+    panel(g, x, y, 240, 150, { title: `${MEMO_TITLE} #${r.n}: ${MEMO_RESULT_TITLES[r.stars]}`, titleColor: r.stars ? C.accent : '#7a2b2b' });
     drawStarsLarge(g, this.revealed, W / 2, y + 18);
     const [score, pay, streak, done] = this.memoLines();
     drawText(g, score, W / 2, y + 44, { align: 'center', color: C.text });

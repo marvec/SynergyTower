@@ -113,7 +113,7 @@ function statInfo(key, s, now, brewerKey = `coffee-machine-${s.floor}`) {
     const status = M.memoStatus(s, now);
     const today = M.memoResult(s, n);
     const days = (k) => `${k} day${k === 1 ? '' : 's'}`;
-    const stars = (h) => `${'*'.repeat(h.stars)}${'-'.repeat(3 - h.stars)} ${h.score.toFixed(2)}`;
+    const stars = (h) => `${h.stars}/3 stars  ${h.score.toFixed(2)}`;
     return {
       title: n >= 1 ? `Daily Memo #${n}` : 'Daily Memo',
       value: today ? today.score.toFixed(2) : status === 'pending' ? 'new' : '-',

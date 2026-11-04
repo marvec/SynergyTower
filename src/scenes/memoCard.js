@@ -12,7 +12,7 @@ import { shareMemo } from './minigameScene.js';
 export class MemoCard extends Modal {
   /** onPlay(): starts today's attempt (FloorScene#startMemo). */
   constructor(game, { onPlay }) {
-    super(game, { w: 300, h: 150, title: MEMO_TITLE });
+    super(game, { w: 300, h: 134, title: MEMO_TITLE });
     this.onPlay = onPlay;
   }
   /** Today's Memo number. */
