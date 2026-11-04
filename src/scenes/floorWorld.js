@@ -1,7 +1,7 @@
 // Floor visuals + actors: bakes static layers once per floor and draws a depth-sorted 2.5D scene.
-import { TILE, WALL_H, OUTER_RISE, CHAR_W, CHAR_H, bakeCharacter, bakeFurniture, furnitureDef, drawFloorTile, drawWallTile, drawWindowGlass, drawFloorPlate, floorStyleForRoom, shade, drawDeskDecor } from '../engine/art.js';
+import { TILE, WALL_H, OUTER_RISE, CHAR_W, CHAR_H, bakeCharacter, bakeFurniture, furnitureDef, drawFloorTile, drawWallTile, drawWindowGlass, drawFloorPlate, drawMemoBoard, floorStyleForRoom, shade, drawDeskDecor } from '../engine/art.js';
 import { makeCanvas, W as VIEW_W, H as VIEW_H } from '../engine/screen.js';
-import { T_WALL } from '../core/floorgen.js';
+import { T_WALL, ELEVATOR_ROOM } from '../core/floorgen.js';
 import { findPath } from '../core/pathfind.js';
 import { createRng } from '../core/rng.js';
 import { DEPARTMENTS } from '../data/departments.js';
@@ -12,6 +12,11 @@ import { drawText, wrapText, measureText } from '../engine/font.js';
 import { C, rect } from '../engine/ui.js';
 
 const charCache = new Map();
+
+/** The Daily Memo board's wall tile: the elevator lobby's outer wall, above the plant right of the directory. Tower
+ * floors only (not the client's office, the hotel, the flat, the party hall, the roof or the archive). */
+export const memoBoardTile = (fl) => (fl.foreign || fl.client ? null : { x: ELEVATOR_ROOM.x1, y: 0 });
+
 export function characterSheet(look) {
   const key = JSON.stringify(look);
   let c = charCache.get(key);
@@ -341,6 +346,9 @@ export class FloorView {
     if (y === 0 && lift?.y === 1 && this.isWall(lift.x - 1, 0) && !this.isWall(lift.x - 1, 1)) {
       drawFloorPlate(rg, (lift.x - 1) * TILE, WALL_H + rise, fl.archive ? 'A' : String(fl.floor), this.kit.accent);
     }
+    // The Daily Memo noticeboard (core/memo.js), tower floors only.
+    const board = memoBoardTile(fl);
+    if (board && board.y === y) drawMemoBoard(rg, board.x * TILE, WALL_H + rise, this.kit.accent);
     for (const p of fl.posters || []) if (p.y === y) this.drawPoster(rg, p);
     return any ? rc : null;
   }

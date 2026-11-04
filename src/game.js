@@ -2,6 +2,7 @@
 import * as S from './core/state.js';
 import { createSlotStore } from './core/slots.js';
 import { checkBadges } from './core/achievements.js';
+import { settleMemo } from './core/memo.js';
 import { track } from './engine/analytics.js';
 import { gameStorage, haptic } from './engine/platform.js';
 import { CORP_COLORS, SKIN_TONES, HAIR_COLORS } from './data/corpColors.js';
@@ -109,6 +110,7 @@ export function createGame({ screen, input, audio }) {
     },
     setState(s) {
       game.state = s;
+      settleMemo(s); // a Daily Memo left mid-game (reload, closed tab) counts as a 0: one attempt per career and day
       setAccent(game.corpColor());
       audio.setMusic(s.settings.music);
       audio.setSfx(s.settings.sfx);

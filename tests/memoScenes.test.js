@@ -1,6 +1,6 @@
 // Headless Daily Memo: the host's 'memo' mode (fixed seed and theme, one attempt, the result panel), the lobby
 // noticeboard on tower floors, its card and the attempt flow.
-import { test, expect } from 'bun:test';
+import { test, expect, afterEach } from 'bun:test';
 import { installMockDocument, mockCanvas, recordingCanvas } from './mock-canvas.js';
 import { newGame } from '../src/core/state.js';
 installMockDocument();
@@ -27,14 +27,22 @@ const tick = async (game, n = 3) => {
 const [EY, EM, ED] = M.MEMO_EPOCH.split('-').map(Number);
 const memoDay = (n, h = 12, min = 0) => new Date(EY, EM - 1, ED + n - 1, h, min).getTime();
 
+// Careers here are played on Memo dates (in the future): delete them, or the title test elsewhere would load one.
+const games = [];
+afterEach(() => {
+  for (const game of games.splice(0)) if (game.slot) game.deleteCareer(game.slot);
+});
+
 function career(floor = 9, now = memoDay(40)) {
   const audio = { setMusic() {}, setSfx() {}, play() {}, stop() {}, sfx() {}, unlock() {} };
   const game = createGame({ screen: {}, input: createInput(), audio });
   const s = newGame({ corpName: 'Acme', playerName: 'Pat' }, 0);
   Object.assign(s, { lobby: 'done', floor, maxFloor: floor, level: floor, sp: 500 });
   s.flags.introSeen = true;
+  s.partyInvite = new Date(now).getFullYear(); // Memo #40 falls in December: no Christmas party invitation here
   s.coffee = { value: 4, updatedAt: now };
   game.newCareer(s);
+  games.push(game);
   let t = now;
   game.now = () => t;
   game.setNow = (v) => (t = v);
@@ -135,4 +143,155 @@ test('the Memo result panel renders, its text fits the bitmap font', async () =>
   const lines = mg.memoLines();
   for (const t of lines) for (const ch of t) expect(hasGlyph(ch)).toBe(true);
   expect(lines.join(' ')).toContain('0.62');
+});
+
+// ------------------------------------------------------------ the lobby noticeboard and its card
+const { FloorScene } = await import('../src/scenes/floorScene.js');
+const { MemoCard } = await import('../src/scenes/memoCard.js');
+const { ELEVATOR_ROOM } = await import('../src/core/floorgen.js');
+const { buildArchive } = await import('../src/core/archive.js');
+const { buildClientFloor } = await import('../src/core/clientFloor.js');
+const { buildHome } = await import('../src/core/home.js');
+const { buildHotel } = await import('../src/core/hotel.js');
+const { buildPartyHall } = await import('../src/core/partyHall.js');
+const { buildRoof } = await import('../src/core/roof.js');
+const N = await import('../src/core/nightShift.js');
+
+function onFloor(floor = 9, now = memoDay(40)) {
+  const game = career(floor, now);
+  const fs = new FloorScene(game, floor);
+  game.set(fs);
+  return { game, fs, s: game.state };
+}
+/** Stand below the plant beside the directory and press Space. */
+const standAtBoard = (fs) => Object.assign(fs.player, { x: 22.5, y: 2.2 });
+
+test('every tower floor has the Memo board on the lobby\'s outer wall, above the plant', () => {
+  for (const f of [1, 9, 40]) {
+    const { fs } = onFloor(f);
+    expect(fs.memoBoard.it).toMatchObject({ x: ELEVATOR_ROOM.x1, y: 0, w: 1, h: 2 });
+    expect(fs.interactables().some((t) => t.kind === 'memo')).toBe(true);
+    standAtBoard(fs);
+    expect(fs.nearest().kind).toBe('memo'); // not the directory station next to it
+  }
+});
+
+test('foreign maps have no Memo board', () => {
+  const game = career(10);
+  for (const fl of [buildArchive(), buildClientFloor(10), buildHome(), buildHotel(), buildPartyHall(), buildRoof()]) {
+    const fs = new FloorScene(game, 10, { fl });
+    expect(fs.memoBoard).toBeNull();
+    expect(fs.interactables().some((t) => t.kind === 'memo')).toBe(false);
+  }
+});
+
+test('the board opens the card; Play saves the attempt before the game starts (AE2)', async () => {
+  const { game, fs, s } = onFloor();
+  fs.interact(fs.memoBoard);
+  expect(game.top).toBeInstanceOf(MemoCard);
+  await tick(game, 1);
+  expect(game.top.buttons.items.map((b) => b.label)).toEqual(['Play', 'Close']);
+  let saved = null;
+  const save = game.saveNow;
+  game.saveNow = () => {
+    save();
+    saved = JSON.parse(localStorage.getItem(`synergytower.slot.${game.slot}`)).memo.open;
+  };
+  game.top.buttons.items[0].onClick();
+  expect(saved).toEqual({ n: 40, game: M.memoFor(40).game });
+  expect(game.top).toBeInstanceOf(MinigameScene);
+  expect(game.top.mode).toBe('memo');
+  // The tab closes mid-game: loading the career settles the attempt to 0.
+  expect(game.loadCareer(game.slot)).toBe(true);
+  expect(game.state.memo.open).toBe(null);
+  expect(game.state.memo.history[0]).toMatchObject({ n: 40, score: 0, stars: 0 });
+  const again = new FloorScene(game, 9);
+  game.set(again);
+  again.interact(again.memoBoard);
+  await tick(game, 1);
+  expect(game.top.buttons.items.map((b) => b.label)).toEqual(['Share', 'Close']);
+});
+
+test('after a result the card shows it with Share, and no Play', async () => {
+  const { game, fs } = onFloor();
+  fs.interact(fs.memoBoard);
+  await tick(game, 1);
+  game.top.buttons.items[0].onClick();
+  playTo(game.top, 0.9);
+  game.top.finish();
+  expect(game.top).toBe(fs);
+  fs.interact(fs.memoBoard);
+  await tick(game, 1);
+  const card = game.top;
+  expect(card.buttons.items.map((b) => b.label)).toEqual(['Share', 'Close']);
+  card.render(g);
+});
+
+test('a card open at midnight turns to the next Memo, and Play starts that one', async () => {
+  const { game, fs, s } = onFloor(9, memoDay(40, 23, 59));
+  M.startMemo(s, game.now());
+  M.completeMemo(s, 40, 0.5);
+  fs.interact(fs.memoBoard);
+  await tick(game, 1);
+  expect(game.top.n).toBe(40);
+  expect(game.top.buttons.items[0].label).toBe('Share');
+  game.setNow(memoDay(41, 0, 0));
+  await tick(game, 1);
+  expect(game.top.n).toBe(41);
+  expect(game.top.buttons.items[0].label).toBe('Play');
+  game.top.buttons.items[0].onClick();
+  expect(game.top.task.n).toBe(41);
+});
+
+test('no card before the check-in, on a night shift or during a hold', () => {
+  {
+    const { game, fs, s } = onFloor(1);
+    s.lobby = 'checkin';
+    fs.interact(fs.memoBoard);
+    expect(game.top).toBe(fs);
+    expect(fs.player.bubble).toBeTruthy();
+  }
+  {
+    const { game, s } = onFloor(15);
+    expect(N.startNightShift(s, 15, game.now()).ok).toBe(true);
+    const fs = new FloorScene(game, 15);
+    game.set(fs);
+    fs.interact(fs.memoBoard);
+    expect(game.top).toBe(fs);
+    expect(fs.player.bubble).toBeTruthy();
+  }
+  {
+    const { game, fs, s } = onFloor();
+    s.conduct.hold = { since: 0 };
+    fs.interact(fs.memoBoard);
+    expect(game.top).toBe(fs);
+  }
+});
+
+test('the Memo toast shows once a day, not again on the next floor', () => {
+  const { game, s } = onFloor(9);
+  expect(s.memo.toastDay).toBeTruthy(); // set by the first floor of the day
+  const toasts = [];
+  const real = game.toast.bind(game);
+  game.toast = (t, c) => (toasts.push(t), real(t, c));
+  const memoToasts = () => toasts.filter((t) => t.includes('Memo #'));
+  game.set(new FloorScene(game, 8));
+  game.set(new FloorScene(game, 9));
+  expect(memoToasts()).toEqual([]);
+  game.setNow(memoDay(41, 9));
+  game.set(new FloorScene(game, 8));
+  game.set(new FloorScene(game, 9));
+  expect(memoToasts()).toEqual(['Memo #41 is on the lobby noticeboard']);
+});
+
+test('the stand-up and the Memo on the same day keep their own streaks', async () => {
+  const { game, s } = onFloor(9);
+  const D = await import('../src/core/daily.js');
+  expect(D.completeStandup(s, 'quiz', 0.9, game.now(), () => 1)).toBeTruthy();
+  M.startMemo(s, game.now());
+  M.completeMemo(s, 40, 0.2);
+  expect(s.daily.streak).toBe(1);
+  expect(s.memo.streak).toBe(1);
+  expect(M.memoStatus(s, game.now())).toBe('done');
+  expect(D.standupStatus(s, game.now())).toBe('done');
 });

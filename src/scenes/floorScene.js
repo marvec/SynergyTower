@@ -17,7 +17,7 @@ import { FIRED_LINES, KEPT_LINES } from '../data/people.js';
 import { SPONSOR_PITCH, adPitch } from '../data/sponsors.js';
 import { openFeedback } from '../engine/feedback.js';
 import { track } from '../engine/analytics.js';
-import { FloorView, Actor, NpcBrain, npcLook, npcIdentity, posterContent, suit } from './floorWorld.js';
+import { FloorView, Actor, NpcBrain, npcLook, npcIdentity, posterContent, suit, memoBoardTile } from './floorWorld.js';
 import { Hud, HUD_H } from './hud.js';
 import { TaskCard, ElevatorPanel, ShopOverlay, PerksOverlay, TrainOverlay, PauseMenu, Dialog, howToDialog, ReviewCard, hrNotice, FateDialog, ChatCard } from './overlays.js';
 import { TerminalScene } from './terminal.js';
@@ -36,7 +36,10 @@ import * as T from '../core/trip.js';
 import { CLIENTS, TRIP_TEASERS, TRIP_OFFER, TRIP_AFTER } from '../data/trip.js';
 import * as L from '../core/vacation.js'; // leave
 import { BOSS_TEASERS, BOSS_AFTER, VACATION_OFFER } from '../data/vacation.js';
-import { isTouch } from '../engine/platform.js';
+import { isTouch, reducedMotion } from '../engine/platform.js';
+import * as MEMO from '../core/memo.js';
+import { MEMO_STUCK, MEMO_TOAST } from '../data/memo.js';
+import { MemoCard } from './memoCard.js';
 import * as CD from '../core/conduct.js';
 import * as A from '../core/archive.js';
 import { ARCHIVE_OFFER, ARCHIVE_WAITING, HANDIN_TITLE, HANDIN_TEXT } from '../data/archive.js';
@@ -125,6 +128,10 @@ export class FloorScene {
       const x0 = Math.floor(c.x / TILE);
       return { x: x0, y: p.y, w: Math.ceil((c.x + c.w) / TILE) - x0, h: 1, top: p.y * TILE - 12, ad: c.ad };
     });
+    // The Daily Memo noticeboard (core/memo.js) on the lobby's outer wall. The plant below it is solid, so the target
+    // spans both tiles to be in reach from the corridor.
+    const board = this.foreign ? null : memoBoardTile(this.fl);
+    this.memoBoard = board ? { kind: 'memo', it: { x: board.x, y: board.y, w: 1, h: 2, top: -10 } } : null;
     // Curiosities: furniture that reacts when poked but is not gameplay (no focus brackets, no prompt). See core/curios.js.
     this.curios = this.fl.items.filter((it) => Q.curioOf(this.fl, it)).map((it) => ({ kind: 'curio', it }));
     this.pokes = new Map(); // item → its line memo (core/curios pickLine), so lines come at random without repeats
@@ -200,6 +207,7 @@ export class FloorScene {
       this.standupToast = true;
       this.game.toast(`Daily stand-up: ${this.standupNpc.id.name} is looking for you.`, C.xp);
     }
+    this.memoToast();
     if (CD.lockedOut(s)) this.startLockout(); // a career saved in that state (reloaded): finish the job
     const checkin = s.lobby === 'checkin' && this.receptionist;
     if (checkin) this.receptionist.say(`Welcome, ${s.player.name}! Please check in at the front desk.`, 6);
@@ -307,6 +315,7 @@ export class FloorScene {
     for (const n of this.npcs) if (!n.brain.exit) list.push({ kind: 'npc', n });
     for (const b of this.quest?.props || []) list.push({ kind: 'board', it: b.it, b });
     for (const it of this.posters) list.push({ kind: 'poster', it });
+    if (this.memoBoard) list.push(this.memoBoard);
     return list;
   }
   distTo(target) {
@@ -373,14 +382,14 @@ export class FloorScene {
         return;
       }
       if (t.kind === 'task' && q.isStation(t.it)) return q.atStation();
-      if (['task', 'elevator', 'hr', 'terminal'].includes(t.kind)) {
+      if (['task', 'elevator', 'hr', 'terminal', 'memo'].includes(t.kind)) {
         game.sfx('bad');
         game.toast(`Busy with "${q.task.title}". Finish it or give up (G).`, C.warn);
         return;
       }
     }
     const hold = CD.onHold(s);
-    if (hold && ['task', 'elevator', 'terminal', 'mydesk'].includes(t.kind)) {
+    if (hold && ['task', 'elevator', 'terminal', 'mydesk', 'memo'].includes(t.kind)) {
       game.sfx('bad');
       game.toast('Compliance hold: complete your training at the HR office first.', C.bad);
       this.hrRep?.say(this.chatLine(HR_CALL_LINES), 3);
@@ -439,6 +448,8 @@ export class FloorScene {
       game.push(new TaskCard(game, it.task, (task) => this.startTask(task), { peek, trip: this.taskMode === 'trip' }));
     } else if (t.kind === 'turnstile') {
       this.useTurnstile();
+    } else if (t.kind === 'memo') {
+      this.useMemoBoard();
     } else if (t.kind === 'mydesk') {
       game.sfx('click');
       game.push(new DeskOverlay(game, this.floorNo, this.view));
@@ -981,6 +992,57 @@ export class FloorScene {
     );
   }
 
+  // ------------------------------------------------------------ Daily Memo (core/memo.js)
+  /** The noticeboard: today's Memo card, or a line from the player when it is not open to them. */
+  useMemoBoard() {
+    const game = this.game;
+    const s = game.state;
+    const why = s.lobby !== 'done' ? 'badge' : this.night ? 'night' : MEMO.memoStatus(s, game.now()) === 'none' ? 'none' : null;
+    if (why) {
+      game.sfx('bad');
+      this.player.say(MEMO_STUCK[why], 3);
+      return;
+    }
+    game.sfx('click');
+    game.push(new MemoCard(game, { onPlay: () => this.startMemo() }));
+  }
+
+  /** Uses today's attempt and saves it before the game starts, so a reload cannot give a retry (it settles to 0). */
+  startMemo() {
+    const game = this.game;
+    const s = game.state;
+    const memo = MEMO.startMemo(s, game.now());
+    if (!memo) return;
+    track('memo_start', { n: memo.n, game: memo.game, floor: s.maxFloor });
+    game.markDirty();
+    game.saveNow();
+    game.push(new MinigameScene(game, memo, null, { mode: 'memo' }));
+  }
+
+  /** Once a day, on the first daytime tower floor: where to find today's Memo. */
+  memoToast() {
+    const s = this.game.state;
+    const now = this.game.now();
+    const day = D.dayKey(now);
+    if (!this.memoBoard || this.night || s.memo.toastDay === day || MEMO.memoStatus(s, now) !== 'pending') return;
+    s.memo.toastDay = day;
+    this.game.toast(MEMO_TOAST(MEMO.memoNumber(now)), C.gold);
+  }
+
+  /** The board's pin blinks while today's Memo waits; the hold tape covers it during a hold. */
+  drawMemoPin(g, s, now) {
+    const it = this.memoBoard?.it;
+    if (!it || this.night) return;
+    const cx = it.x * TILE + 8;
+    if (CD.onHold(s)) return this.drawHoldTape(g, cx, it.top);
+    if (MEMO.memoStatus(s, now) !== 'pending' || (!reducedMotion() && Math.floor(this.time * 2) % 2)) return;
+    rect(g, cx - 1, -9, 3, 3, C.border);
+    rect(g, cx, -8, 1, 1, '#e04a3a');
+    rect(g, cx - 1, -10, 3, 1, '#e04a3a');
+    rect(g, cx - 2, -9, 1, 2, '#e04a3a');
+    rect(g, cx + 2, -9, 1, 2, '#e04a3a');
+  }
+
   // ------------------------------------------------------------ conduct (core/conduct.js)
   /** A line from the list at random, without repeats until the list is used up. */
   chatLine(list) {
@@ -1479,6 +1541,7 @@ export class FloorScene {
     if (this.focus && this.focus.kind !== 'npc') this.drawFocus(g, this.focus.it);
     this.drawMarkers(g, s, now);
     this.drawStandupMarker(g);
+    this.drawMemoPin(g, s, now);
     this.quest?.renderWorld(g);
     this.event?.renderWorld(g);
     // Bubbles keep clear of last frame's clock panel (it is drawn later, over the world).
@@ -1741,6 +1804,11 @@ export class FloorScene {
     else if (t.kind === 'mydesk') {
       text = 'Your desk';
       sub = 'decorate';
+    }
+    else if (t.kind === 'memo') {
+      text = 'Daily Memo';
+      const st = MEMO.memoStatus(s, now);
+      sub = st === 'pending' ? `#${MEMO.memoNumber(now)} - one attempt` : st === 'done' ? 'your result' : '';
     }
     else if (t.kind === 'turnstile') {
       text = 'Turnstiles';
