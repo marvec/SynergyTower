@@ -94,7 +94,7 @@ export function startMemo(s, now) {
 }
 
 /** Score cut to two decimals, the way the share text shows it. */
-const cutScore = (score) => Math.floor(Math.max(0, Math.min(1, score)) * 100 + 1e-9) / 100;
+export const cutScore = (score) => Math.floor(Math.max(0, Math.min(1, score)) * 100 + 1e-9) / 100;
 
 /**
  * Stores the result of Memo n (the one started, also after midnight) and pays paperclips at 1+ star. No XP, coffee,

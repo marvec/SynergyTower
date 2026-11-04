@@ -1035,7 +1035,7 @@ export class FloorScene {
     if (!it || this.night) return;
     const cx = it.x * TILE + 8;
     if (CD.onHold(s)) return this.drawHoldTape(g, cx, it.top);
-    if (MEMO.memoStatus(s, now) !== 'pending' || (!reducedMotion() && Math.floor(this.time * 2) % 2)) return;
+    if ((!reducedMotion() && Math.floor(this.time * 2) % 2) || MEMO.memoStatus(s, now) !== 'pending') return;
     rect(g, cx - 1, -9, 3, 3, C.border);
     rect(g, cx, -8, 1, 1, '#e04a3a');
     rect(g, cx - 1, -10, 3, 1, '#e04a3a');

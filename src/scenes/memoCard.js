@@ -37,20 +37,22 @@ export class MemoCard extends Modal {
     b.focus = Math.min(f, b.items.length - 1);
   }
   renderBody(g, x, y) {
-    const memo = M.memoFor(this.n);
-    const r = this.result;
+    const s = this.game.state;
+    const now = this.game.now();
+    const n = M.memoNumber(now);
+    const memo = M.memoFor(n);
+    const r = M.memoResult(s, n);
+    const streak = M.memoStreak(s, now);
     const cx = x + this.w / 2;
     drawText(g, MINIGAMES[memo.game].name, cx, y + 6, { align: 'center', color: C.gold });
     drawText(g, `Theme: ${DEPARTMENTS.find((d) => d.id === memo.dept).name}`, cx, y + 17, { align: 'center', color: C.dim });
     if (r) {
       drawStarsLarge(g, r.stars, cx, y + 30);
-      const streak = M.memoStreak(this.game.state, this.game.now());
-      drawText(g, `Score ${r.score.toFixed(2)}  -  streak ${streak} (best ${this.game.state.memo.best})`, cx, y + 56, { align: 'center' });
+      drawText(g, `Score ${r.score.toFixed(2)}  -  streak ${streak} (best ${s.memo.best})`, cx, y + 56, { align: 'center' });
       drawText(g, MEMO_DONE, cx, y + 70, { align: 'center', color: C.dim });
     } else {
       drawWrapped(g, MEMO_BLURB, x + 14, y + 32, this.w - 28);
       drawText(g, MEMO_WARNING, cx, y + 64, { align: 'center', color: C.warn });
-      const streak = M.memoStreak(this.game.state, this.game.now());
       if (streak) drawText(g, `Memo streak: ${streak}`, cx, y + 78, { align: 'center', color: C.dim });
     }
   }

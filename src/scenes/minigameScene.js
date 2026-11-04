@@ -269,7 +269,7 @@ export class MinigameScene {
     const { n, game } = this.task;
     // Null if this Memo was already done (another tab): show the stars, pay nothing.
     const stars = E.starsFromScore(score);
-    this.result = (!this.practice && MEMO.completeMemo(s, n, score, game)) || { memo: true, n, game, score: Math.floor(score * 100) / 100, stars, sp: 0, streak: s.memo.streak, none: true };
+    this.result = (!this.practice && MEMO.completeMemo(s, n, score, game)) || { memo: true, n, game, score: MEMO.cutScore(score), stars, sp: 0, streak: s.memo.streak, none: true };
     if (!this.practice) track('memo_end', { n, game, stars, floor: s.maxFloor });
     this.game.markDirty();
     this.game.saveNow();
