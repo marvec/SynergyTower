@@ -153,6 +153,7 @@ where they say more than text. Existing Markdown plans stay as they are.
   visits + `track(name, data)` events (career_start, task_played, review, promotion, poster_view, feedback_open/sent,
   coffee_click, checkin {stars}, turnstile, trip_start, trip {result: arrived|crashed|late|quit, time, stage, crashes}, trip_end {sp, tasks, early}, vacation_start, vacation_activity {game, stars}, vacation_end {coffee, activities, early}, standup {stars, streak}, office_event {kind, won}, desk_decor {item}, badge {id}, reminders_on, reminder_sent, shop_open, checkout_open, so_purchase {pack, so} from the fake checkout,
   so_spend {on: skip_task|skip_review|refill|perk:<id>, so}, store_click {store: c64|appstore|googleplay} (title-screen badges), ask_out {strike}, compliance_hold, compliance {passed, demoted, fired}, fired_career {reason: training|checkin}, night_start, night_end {sp, tasks, early}, archive_start, archive_enter, archive_end {result: found|timeout|gave_up, left}, archive_handin {stars, levels, sp}, home_start, home_chore {game, stars}, home_call {answered}, home_end {result: done|early|sent_back, lapses, chores}, party_invite {action: shown|go}, party_start, party_activity {game, stars}, party_drink {kind}, party_end {result: done|early, activities, sp, drinks}, roof_enter, roof_smoke {stars}, roof_decline, roof_hint {floor}, roof_telescope, roof_spotted {what}, roof_cradle, roof_caught, install_click {how: prompt|ios}, pwa_prompt, pwa_choice {outcome}, pwa_installed,
+  memo_start {n, game}, memo_end {n, game, stars}, memo_share {how: native|share|clipboard|dialog},
   c64_download / c64_coffee (on /c64/); all with `floor` = maxFloor). `track` is a no-op elsewhere, so tests and the dev server send nothing. The apps send Umami events too, tagged `app-ios`/`app-android`.
 - Lobby check-in (`state.lobby`: `checkin` → `gate` → `done`; saves without it load as `done`): a new hire has 0 coffee and no
   refill. The floor-1 front desk task is always Jargon (`task.checkin`, pre-assigned in `planFloor`), free while checking in;
@@ -164,6 +165,22 @@ where they say more than text. Existing Markdown plans stay as they are.
   - **Daily stand-up** (`src/core/daily.js`, `state.daily`): once per local day, after check-in, a colleague on the current
     floor (picked by day + floor, never the trip or vacation colleague) has a blue bubble; the favour is a free tier-1 game in `MinigameScene` `mode: 'standup'`
     (no KPI stars, no cooldown) paying double paperclips, +1 coffee and a Stock Option chance (sure on every 7th day in a row).
+  - **Daily Memo** (plan `docs/plans/2026-11-04-1043-feat-daily-memo-plan.html`, `src/core/memo.js`, `state.memo`, text in
+    `src/data/memo.js`, reward `E.MEMO`): one shared challenge per local date, the same for every career and device with
+    no server. `memoNumber(now)` counts local dates from `MEMO_EPOCH` (#1; set it to the release date); `memoFor(n)` fixes
+    the game (`MEMO_POOLS`), seed, difficulty (0.3-0.8) and department; `memoTheme` gives the game a fixed theme (that
+    department's first floor, so `password` agrees). `MEMO_POOLS` is **append-only**: a new entry's `from` sits on a cycle
+    boundary 60+ Memos after its release, so old builds (cached PWA, un-updated apps) agree on every earlier Memo; only
+    games that pass `tests/memoGames.test.js` (same rng calls at any frame rate) go in. A content edit to a pool game
+    (`src/data/mg-*.js` or its generator) changes Memos from the next release on, and for a while old and new builds
+    disagree. One attempt per career: `startMemo` sets `memo.open` and the scene saves before pushing `MinigameScene`
+    `mode: 'memo'` (fixed `task.seed`, no `Date.now()`); `settleMemo` in `game.setState` turns a left-over attempt into a 0.
+    It pays paperclips at 1+ star only: no XP, coffee, KPI stars, `played` or `bestByTask`. The entry is a wall
+    pseudo-target in the elevator lobby (`memoBoardTile`, tile `ELEVATOR_ROOM.x1`, row 0, with the plant below; tower
+    floors only; `planFloor` untouched), opening `MemoCard` (`src/scenes/memoCard.js`); a toast once a day
+    (`memo.toastDay`). Share goes through `shareText` (`src/engine/share.js`: the app's Share plugin, Web Share on touch
+    devices, the clipboard, else a DOM box with the text selected); the share text uses ★☆· (escapes in the source, never
+    on the canvas). Badges Read the Memo, Paper Trail; a Memo tab in `StatsDialog`; reminder kind `memo` (10:00 local).
   - **Office events** (`src/core/events.js` rules, `src/scenes/officeEvent.js` run by the FloorScene like a quest): fire
     drill, printer meltdown, cake, surprise audit. `state.events.nextAt` spaces them 6-10 min apart, 40 s on a floor
     first; timers use scene dt. Force one from the console: `__game.top.startEvent('cake')`.
@@ -376,6 +393,8 @@ where they say more than text. Existing Markdown plans stay as they are.
 - `__roof()` / `__roof(22)` / `__roof('up')` / `__roof(12, 'up')` / `__roof('guard')`: at the fire-escape window of the nearest
   roof floor (the guard's "closed today" lifted), straight onto the roof, or the guard out now; on the roof
   `__roof('day' | 'dusk' | 'night')` fixes the sky (`__roof(null)`: the local time again).
+- `__memo()` / `__memo(212)` / `__memo('board')`: today's Daily Memo again (forgets today's attempt) with the card open, Memo
+  #212 as a practice run that records nothing, or just stand at the lobby noticeboard.
 - `__vacation()`: floor 20 with the leave request open, free (no paperclips) and repeatable (resets today's holiday);
   `__vacation('hotel')` goes straight to the hotel, also free.
   Dev server only: it lives in `src/debug.js`, which `main.js` imports unless `__DEV__` is false; the production build

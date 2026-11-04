@@ -29,6 +29,7 @@ Run `npm run sync` after every change to the game; the native projects only hold
 | Title badges | C64 + App Store + Google Play | C64 only |
 | Feedback form | in-game overlay with reCAPTCHA | opens synergytower.co.uk/feedback/ in the in-app browser (reCAPTCHA only works on the website's domain) |
 | External links | new tab | in-app browser (Browser plugin) |
+| Sharing a Daily Memo result | Web Share on phones and tablets, the clipboard on desktops, else a box to copy from | the native share sheet (Share plugin) |
 | Offline | service worker | the files are inside the app; no service worker |
 | Analytics | Cloudflare + Umami on the production domain | Umami, tagged `app-ios` / `app-android` |
 | Back button (Android) | n/a | acts as Escape (dialogs, menu); never quits by accident |

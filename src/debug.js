@@ -9,6 +9,7 @@ import * as HO from './core/home.js';
 import * as PA from './core/party.js';
 import * as RF from './core/roof.js';
 import * as S from './core/state.js';
+import * as MEMO from './core/memo.js';
 import { MinigameScene } from './scenes/minigameScene.js';
 import { LIGHTING, VIEWS } from './engine/lighting.js';
 
@@ -272,6 +273,44 @@ export function installDebug(game) {
     fs.snapCamera();
     fs.openChat(n);
     return `${n.id.name}, ${CD.askState(s, n.seed) || 'no drinks'}`;
+  };
+
+  /**
+   * Debug: the Daily Memo (core/memo.js). __memo() forgets today's attempt and opens the card; __memo(212) plays Memo
+   * #212 as a practice run that records nothing; __memo('board') puts you at the lobby noticeboard on your floor.
+   */
+  window.__memo = async (arg) => {
+    const s = game.state;
+    if (!s) return 'no career loaded';
+    if (typeof arg === 'number') {
+      const memo = MEMO.memoFor(arg);
+      if (!memo) return 'Memos start at #1';
+      game.push(new MinigameScene(game, memo, null, { mode: 'memo', practice: true }));
+      return `practice: Memo #${arg}, ${memo.game}`;
+    }
+    const n = MEMO.memoNumber(game.now());
+    const m = s.memo;
+    if (arg !== 'board') {
+      m.open = null;
+      if (m.last === n) {
+        m.history = m.history.filter((h) => h.n !== n);
+        m.last = m.history[0]?.n || 0;
+        m.streak = Math.max(0, m.streak - 1);
+        m.count = Math.max(0, m.count - 1);
+      }
+      m.toastDay = null;
+    }
+    game.saveNow();
+    const { FloorScene } = await import('./scenes/floorScene.js');
+    const fs = new FloorScene(game, s.floor);
+    game.set(fs);
+    if (!fs.memoBoard) return 'no noticeboard here';
+    fs.player.x = fs.memoBoard.it.x + 0.5;
+    fs.player.y = 2.2;
+    fs.player.dir = 'up';
+    fs.snapCamera();
+    if (arg !== 'board') fs.useMemoBoard();
+    return `Memo #${n}: ${MEMO.memoStatus(s, game.now())}`;
   };
 
   /**
