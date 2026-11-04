@@ -18,18 +18,25 @@ test('the title counts every mini-game the games-played counter does (office and
 });
 
 test('the title loads the last played career and survives it being deleted from the picker', () => {
-  const game = createGame({ screen: {}, input: createInput(), audio });
-  game.newCareer(newGame({ corpName: 'A Corp', playerName: 'Ann' }, 0));
-  game.newCareer(newGame({ corpName: 'B Corp', playerName: 'Bob' }, 0));
-  const title = new TitleScene(game);
-  game.set(title);
-  expect(game.state.player.name).toBe('Bob');
-  game.deleteCareer(game.slot); // what the picker does, while the title is drawn underneath it
-  expect(game.state).toBeNull();
-  expect(() => title.render(g())).not.toThrow();
-  title.resume(); // back from the picker
-  expect(game.state.player.name).toBe('Ann');
-  title.render(g());
+  const shared = globalThis.localStorage; // a fresh storage: other test files leave careers in the shared one
+  const own = new Map();
+  globalThis.localStorage = { getItem: (k) => (own.has(k) ? own.get(k) : null), setItem: (k, v) => own.set(k, String(v)), removeItem: (k) => own.delete(k) };
+  try {
+    const game = createGame({ screen: {}, input: createInput(), audio });
+    game.newCareer(newGame({ corpName: 'A Corp', playerName: 'Ann' }, 0));
+    game.newCareer(newGame({ corpName: 'B Corp', playerName: 'Bob' }, 0));
+    const title = new TitleScene(game);
+    game.set(title);
+    expect(game.state.player.name).toBe('Bob');
+    game.deleteCareer(game.slot); // what the picker does, while the title is drawn underneath it
+    expect(game.state).toBeNull();
+    expect(() => title.render(g())).not.toThrow();
+    title.resume(); // back from the picker
+    expect(game.state.player.name).toBe('Ann');
+    title.render(g());
+  } finally {
+    globalThis.localStorage = shared;
+  }
 });
 
 test('the elevator doors split the company name at the space nearest the middle (never across the seam)', async () => {
