@@ -22,7 +22,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.x
-      - run: bun test
+      - run: bun test --randomize # a new order every run (Bun prints the seed: bun test --seed=N repeats it), so tests that lean on other files show up
       - run: bun run build
       - uses: actions/upload-pages-artifact@v5
         with:
