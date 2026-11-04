@@ -137,6 +137,7 @@ export const memoResult = (s, n) => (s.memo?.history || []).find((h) => h.n === 
 
 /** The text to share: three lines, the same everywhere. */
 export function memoShareText(entry, name) {
-  const stars = '★'.repeat(entry.stars) + '☆'.repeat(3 - entry.stars);
+  // ★ and ☆ as escapes: the bitmap font has no glyph for them, and this text is never drawn on the canvas.
+  const stars = '\u2605'.repeat(entry.stars) + '\u2606'.repeat(3 - entry.stars);
   return `SynergyTower Memo #${entry.n} · ${name}\n${stars} ${entry.score.toFixed(2)}\nsynergytower.co.uk`;
 }
