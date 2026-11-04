@@ -51,20 +51,43 @@ const quiet = (t) => {
 };
 const today = (t) => new Date(t).toDateString();
 
-function sentToday(now) {
+/**
+ * Reminders counted per local day ({ days: { [day]: count } }): the app schedules ahead, so one trip to the background
+ * can count today's and tomorrow's (the Daily Memo at 10:00) without one day resetting the other. Days before today are
+ * dropped. A log from an older build ({ day, count }) reads as that one day.
+ */
+function readLog() {
   try {
     const log = JSON.parse(localStorage.getItem(LOG_KEY) || '{}');
-    return log.day === today(now) ? log.count : 0;
+    return log.days || (log.day ? { [log.day]: log.count || 0 } : {});
   } catch {
-    return 0;
+    return {};
   }
 }
-function countSent(now) {
+function writeLog(days) {
+  const start = new Date(today(Date.now())).getTime();
+  const kept = Object.fromEntries(Object.entries(days).filter(([day, n]) => n > 0 && new Date(day).getTime() >= start));
   try {
-    localStorage.setItem(LOG_KEY, JSON.stringify({ day: today(now), count: sentToday(now) + 1 }));
+    localStorage.setItem(LOG_KEY, JSON.stringify({ days: kept }));
   } catch {
     /* ignore */
   }
+}
+
+export function sentToday(now) {
+  return readLog()[today(now)] || 0;
+}
+export function countSent(now) {
+  const days = readLog();
+  days[today(now)] = (days[today(now)] || 0) + 1;
+  writeLog(days);
+}
+/** A scheduled reminder that was not delivered (the player came back first) no longer counts for its day. */
+export function uncount(at) {
+  const days = readLog();
+  if (!(days[today(at)] > 0)) return;
+  days[today(at)]--;
+  writeLog(days);
 }
 
 async function show(r) {
@@ -119,7 +142,8 @@ export function initReminders(game) {
 }
 
 // ---- the app: local notifications, scheduled ahead (the WebView doesn't run in the background)
-const NATIVE_IDS = { coffee: 1, review: 2 };
+/** One id per reminder kind (core/reminders.js): an item without one would fail the whole schedule call. */
+export const NATIVE_IDS = { coffee: 1, review: 2, memo: 3 };
 
 /** The time a reminder may be shown: `at`, or 08:00 when `at` falls in the quiet hours. */
 export function outsideQuiet(at) {
@@ -164,11 +188,3 @@ function initNative(game) {
   });
 }
 
-function uncount(at) {
-  try {
-    const log = JSON.parse(localStorage.getItem(LOG_KEY) || '{}');
-    if (log.day === today(at) && log.count > 0) localStorage.setItem(LOG_KEY, JSON.stringify({ day: log.day, count: log.count - 1 }));
-  } catch {
-    /* ignore */
-  }
-}

@@ -5,6 +5,7 @@ import { C, rect, frame, icon, bar, formatNum, formatTime, coffeeColor } from '.
 import { drawText, drawWrapped, measureText } from '../engine/font.js';
 import * as S from '../core/state.js';
 import * as E from '../core/economy.js';
+import * as M from '../core/memo.js';
 import { buildFloor } from '../core/tasks.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { Modal } from './overlays.js';
@@ -16,9 +17,12 @@ export const STAT_TABS = [
   { key: 'stars', icon: 'star', label: 'KPI' },
   { key: 'level', icon: 'xp', label: 'Level' },
   { key: 'games', icon: 'pad', label: 'Games', iw: 11 },
+  { key: 'memo', icon: 'book', label: 'Memo' },
 ];
 
-const TAB_W = 50;
+const TAB_W = 46;
+/** Results the Memo tab lists, newest first (the career keeps 30). */
+const MEMO_ROWS = 4;
 
 /** The explanation for one stat: { title, value, color, text, rows?: [[label, ok|null, detail]], bar? }. */
 function statInfo(key, s, now, brewerKey = `coffee-machine-${s.floor}`) {
@@ -104,6 +108,24 @@ function statInfo(key, s, now, brewerKey = `coffee-machine-${s.floor}`) {
       ],
     };
   }
+  if (key === 'memo') {
+    const n = M.memoNumber(now);
+    const status = M.memoStatus(s, now);
+    const today = M.memoResult(s, n);
+    const days = (k) => `${k} day${k === 1 ? '' : 's'}`;
+    const stars = (h) => `${h.stars}/3 stars  ${h.score.toFixed(2)}`;
+    return {
+      title: n >= 1 ? `Daily Memo #${n}` : 'Daily Memo',
+      value: today ? today.score.toFixed(2) : status === 'pending' ? 'new' : '-',
+      color: today ? C.gold : C.text,
+      text: 'One task a day, the same for everyone in the tower. One attempt: share your result and compare. Find it on the noticeboard by the elevator.',
+      rows: [
+        ['Streak', null, days(M.memoStreak(s, now))],
+        ['Best streak', null, days(s.memo.best || 0)],
+        ...(s.memo.history || []).slice(0, MEMO_ROWS).map((h) => [`#${h.n} ${MINIGAMES[h.game]?.name || h.game}`, null, stars(h)]),
+      ],
+    };
+  }
   // games
   const g = S.gamesPlayed(s);
   const here = [...new Set(buildFloor(f).tasks.map((t) => t.task.game))];
@@ -126,8 +148,16 @@ export class StatsDialog extends Modal {
     super(game, { w: 330, h: 184, title: 'Your numbers' });
     this.tab = Math.max(0, STAT_TABS.findIndex((t) => t.key === key));
   }
+  get tabW() {
+    return TAB_W;
+  }
   get tabsX() {
     return this.x + Math.round((this.w - TAB_W * STAT_TABS.length) / 2);
+  }
+  /** The open tab's explanation (the floor underneath knows its coffee machine's key: a client's brewer, the night machine). */
+  info() {
+    const floor = this.game.scenes().findLast((sc) => sc.brewerKey);
+    return statInfo(STAT_TABS[this.tab].key, this.game.state, this.game.now(), floor?.brewerKey);
   }
   build() {
     this.buttons.clear();
@@ -151,7 +181,6 @@ export class StatsDialog extends Modal {
     this.game.sfx('click');
   }
   renderBody(g, x, y) {
-    const s = this.game.state;
     // Tabs.
     STAT_TABS.forEach((t, i) => {
       const tx = this.tabsX + i * TAB_W;
@@ -163,9 +192,7 @@ export class StatsDialog extends Modal {
       icon(g, t.icon, tx + (TAB_W - lw) / 2, y + 6);
       drawText(g, t.label, tx + (TAB_W - lw) / 2 + iw, y + 6, { color: on ? C.gold : C.dim });
     });
-    // The floor underneath knows its coffee machine's key (a client's brewer, the night machine).
-    const floor = this.game.scenes().findLast((sc) => sc.brewerKey);
-    const info = statInfo(STAT_TABS[this.tab].key, s, this.game.now(), floor?.brewerKey);
+    const info = this.info();
     const bx = x + 12;
     const bw = this.w - 24;
     let yy = y + 24;

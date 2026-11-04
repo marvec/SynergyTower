@@ -1785,6 +1785,21 @@ export function drawWindowGlass(g, x, y, tx, night) {
   }
 }
 
+/** The Daily Memo noticeboard on the elevator lobby's outer wall: a cork board with a memo (row-canvas coordinates). */
+export function drawMemoBoard(g, x, y, accent) {
+  const { r } = P(g);
+  const bx = x + 2;
+  const by = y + 16 - WALL_H - OUTER_RISE + 2;
+  r(bx + 1, by + 1, 12, 13, 'rgba(0,0,0,0.3)');
+  r(bx, by, 12, 13, '#5a3a22');
+  r(bx + 1, by + 1, 10, 11, '#b07a48');
+  r(bx + 2, by + 2, 1, 1, '#c89060');
+  r(bx + 8, by + 9, 1, 1, '#8a5a32');
+  r(bx + 3, by + 3, 7, 8, '#fbf8ef');
+  r(bx + 3, by + 3, 7, 1, accent);
+  for (const [dy, w] of [[5, 5], [7, 6], [9, 4]]) r(bx + 4, by + dy, w, 1, '#9a9aa8');
+}
+
 /** The floor number plate on the outer wall beside the elevator (row-canvas coordinates of an outer wall tile). */
 export function drawFloorPlate(g, x, y, label, accent) {
   const { r } = P(g);

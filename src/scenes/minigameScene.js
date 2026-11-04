@@ -2,7 +2,7 @@
 import { track } from '../engine/analytics.js';
 import { W, H } from '../engine/screen.js';
 import { C, rect, panel, dim, icon, bar, formatNum, formatTime, ButtonSet } from '../engine/ui.js';
-import { drawText, wrapText } from '../engine/font.js';
+import { drawText, measureText, wrapText } from '../engine/font.js';
 import { createRng } from '../core/rng.js';
 import { figureLook } from '../engine/figure.js';
 import * as S from '../core/state.js';
@@ -15,11 +15,19 @@ import { completeTraining } from '../core/conduct.js';
 import { completeChore, homeLeft, HOME } from '../core/home.js';
 import { completePartyActivity, partyLeft, sway, tipsyLevel } from '../core/party.js';
 import { completeSmoke } from '../core/roof.js';
+import * as MEMO from '../core/memo.js';
+import { MEMO_DONE, MEMO_PAUSE, MEMO_RESULT_TITLES, MEMO_TITLE } from '../data/memo.js';
+import { shareText } from '../engine/share.js';
 import { reducedMotion } from '../engine/platform.js';
 import { fireCareer, FiredScene } from './fired.js';
 import { MINIGAMES } from '../minigames/index.js';
 import { departmentForFloor, titleForFloor } from '../data/departments.js';
 import { drawStarsLarge } from './overlays.js';
+
+/** Shares a Memo result (`r`: { n, score, stars }) and counts how; a cancelled sheet is not a share. */
+export function shareMemo(game, r, name) {
+  shareText(game, MEMO.memoShareText(r, name)).then((how) => how !== 'cancelled' && track('memo_share', { how, floor: game.state.maxFloor }));
+}
 
 export class MinigameScene {
   /**
@@ -32,13 +40,15 @@ export class MinigameScene {
    * flat: XP and a few paperclips once per chore and stay, never KPI stars; the coffee maker pours cups instead, see
    * core/home.js) or 'party' (an activity at the Christmas party: free, paperclips once per activity and party, the
    * Secret Santa gift; no XP, KPI stars or coffee, see core/party.js) or 'roof' (a cigarette with the smokers on the roof:
-   * free, pays nothing, counts as played, see core/roof.js). The result carries `playS`, the seconds of play (the home's presence meter drains by them).
+   * free, pays nothing, counts as played, see core/roof.js) or 'memo' (the Daily Memo: `task` is core/memo.js memoFor(n), its
+   * seed and theme fixed so every career gets the same game; one attempt, paperclips at 1+ star, nothing else). The result carries `playS`, the seconds of play (the home's presence meter drains by them).
    */
   constructor(game, task, onDone, opts = {}) {
     this.game = game;
     this.task = task;
     this.onDone = onDone;
     this.mode = opts.mode || 'task';
+    this.practice = !!opts.practice; // a Daily Memo played from the console (__memo(n)): records nothing
     this.capturesKeys = true; // disables global hotkeys such as M (music) while playing
     this.floor = game.state.floor;
     const s = game.state;
@@ -48,10 +58,13 @@ export class MinigameScene {
     const dept = this.mode === 'party' ? 'party' : departmentForFloor(this.floor).id;
     // The player's figure for games that show you (the pool, the massage table, the party): skin, hair, skirt or trousers.
     this.player = game.playerLook ? figureLook(game.playerLook(), game.corpColor().color) : null;
+    // The Daily Memo: the same seed and theme on every device and career, no clock mixed in.
+    const memo = this.mode === 'memo';
+    if (memo) this.task = task = { ...task, title: `${MEMO_TITLE} #${task.n}` };
     this.inst = mod.create({
       difficulty: task.difficulty,
-      rng: createRng((task.seed * 7919 + Date.now()) >>> 0),
-      theme: { dept, title: task.title, stats, sky: task.sky }, // sky: the roof's (day, dusk, night) for the Smoke Break
+      rng: createRng(memo ? task.seed : (task.seed * 7919 + Date.now()) >>> 0),
+      theme: memo ? MEMO.memoTheme(task) : { dept, title: task.title, stats, sky: task.sky }, // sky: the roof's (day, dusk, night) for the Smoke Break
       sfx: (n) => game.sfx(n),
       quest: task.quest, // floor-quest findings (360 Feedback, Lost Password)
       player: this.player,
@@ -141,6 +154,7 @@ export class MinigameScene {
     if (this.mode === 'home') return this.completeHome(score);
     if (this.mode === 'party') return this.completeParty(score);
     if (this.mode === 'roof') return this.completeRoof(score);
+    if (this.mode === 'memo') return this.completeMemo(score);
     const s = this.game.state;
     const before = { level: s.level };
     const trip = this.mode === 'trip';
@@ -249,6 +263,52 @@ export class MinigameScene {
     if (this.result.levelsGained) setTimeout(() => this.game.sfx('levelup'), 900);
     this.buttons.clear();
     this.buttons.add({ x: W / 2 - 50, y: H / 2 + 58, w: 100, h: 18, label: 'Continue', onClick: () => this.finish() });
+  }
+  completeMemo(score) {
+    const s = this.game.state;
+    const { n, game } = this.task;
+    // Null if this Memo was already done (another tab): show the stars, pay nothing.
+    const stars = E.starsFromScore(score);
+    this.result = (!this.practice && MEMO.completeMemo(s, n, score, game)) || { memo: true, n, game, score: MEMO.cutScore(score), stars, sp: 0, streak: s.memo.streak, none: true };
+    if (!this.practice) track('memo_end', { n, game, stars, floor: s.maxFloor });
+    this.game.markDirty();
+    this.game.saveNow();
+    this.phase = 'result';
+    this.t = 0;
+    this.revealed = 0;
+    this.game.sfx(stars > 0 ? 'good' : 'fail');
+    this.buttons.clear();
+    this.buttons.add({ x: W / 2 - 92, y: H / 2 + 46, w: 88, h: 18, label: 'Share', color: C.accent, onClick: () => this.share() });
+    this.buttons.add({ x: W / 2 + 4, y: H / 2 + 46, w: 88, h: 18, label: 'Done', onClick: () => this.finish() });
+  }
+  /** Shares the result text (a click or key press: share sheets need it). */
+  share() {
+    shareMemo(this.game, this.result, this.mod.name);
+  }
+  /** The result panel's text lines under the stars. */
+  memoLines() {
+    const r = this.result;
+    return [
+      `${this.mod.name}  -  score ${r.score.toFixed(2)}`,
+      r.sp ? `+${formatNum(r.sp)} paperclips` : this.practice ? 'Practice run: nothing recorded.' : r.none ? 'Already done today.' : 'No paperclips at 0 stars.',
+      `Memo streak: ${r.streak} day${r.streak === 1 ? '' : 's'}`,
+      MEMO_DONE,
+    ];
+  }
+  renderMemoResult(g) {
+    const r = this.result;
+    dim(g, 0.65);
+    const x = W / 2 - 120;
+    const y = H / 2 - 76;
+    panel(g, x, y, 240, 150, { title: `${MEMO_TITLE} #${r.n}: ${MEMO_RESULT_TITLES[r.stars]}`, titleColor: r.stars ? C.accent : '#7a2b2b' });
+    drawStarsLarge(g, this.revealed, W / 2, y + 18);
+    const [score, pay, streak, done] = this.memoLines();
+    drawText(g, score, W / 2, y + 44, { align: 'center', color: C.text });
+    if (r.sp) icon(g, 'sp', W / 2 - 4 - measureText(pay) / 2 - 8, y + 60);
+    drawText(g, pay, W / 2 + (r.sp ? 4 : 0), y + 60, { align: 'center', color: r.sp ? C.gold : C.dim });
+    drawText(g, streak, W / 2, y + 76, { align: 'center' });
+    drawText(g, done, W / 2, y + 92, { align: 'center', color: C.dim });
+    this.buttons.render(g);
   }
   completeRoof(score) {
     const s = this.game.state;
@@ -453,7 +513,7 @@ export class MinigameScene {
     } else if (this.phase === 'paused') {
       dim(g, 0.6);
       panel(g, W / 2 - 110, H / 2 - 30, 220, 66, { title: 'Paused' });
-      const msg = { standup: 'Give up? The favour still counts.', vacation: 'Give up? You can try again later.', party: 'Give up? You can try again later.', roof: 'Put it out? Nothing lost.', compliance: this.game.state?.maxFloor > 1 ? 'Give up? That counts as failing.' : "Give up? You'll be fired." }[this.mode] || 'Give up? Coffee is not refunded.';
+      const msg = { standup: 'Give up? The favour still counts.', vacation: 'Give up? You can try again later.', party: 'Give up? You can try again later.', roof: 'Put it out? Nothing lost.', memo: MEMO_PAUSE, compliance: this.game.state?.maxFloor > 1 ? 'Give up? That counts as failing.' : "Give up? You'll be fired." }[this.mode] || 'Give up? Coffee is not refunded.';
       drawText(g, msg, W / 2, H / 2 - 10, { align: 'center' });
       this.buttons.render(g);
     } else if (this.phase === 'result') {
@@ -464,6 +524,7 @@ export class MinigameScene {
       else if (this.mode === 'home') this.renderHomeResult(g);
       else if (this.mode === 'party') this.renderPartyResult(g);
       else if (this.mode === 'roof') this.renderRoofResult(g);
+      else if (this.mode === 'memo') this.renderMemoResult(g);
       else this.renderResult(g);
     }
     drawText(g, 'Esc: pause', W - 4, H - 10, { align: 'right', color: 'rgba(255,255,255,0.4)' });

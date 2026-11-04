@@ -157,3 +157,23 @@ test('the portrait dock lists every HUD stat with the StatsDialog tab it opens',
   expect(rows.map((r) => r[0])).toEqual(['sp', 'stars', 'coffee', 'level', 'so', 'games']);
   expect(rows.find((r) => r[0] === 'stars')[2]).toMatch(/^0\/\d+$/);
 });
+
+test('the reminder log counts each day on its own: a reminder scheduled for tomorrow keeps today\'s count', async () => {
+  const R = await import('../src/engine/reminders.js');
+  const m = new Map();
+  globalThis.localStorage = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
+  const now = new Date();
+  const at = (days, h) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + days, h).getTime();
+  R.countSent(at(0, 15)); // coffee this afternoon
+  R.countSent(at(1, 10)); // the Memo tomorrow morning
+  expect(R.sentToday(at(0, 16))).toBe(1);
+  expect(R.sentToday(at(1, 9))).toBe(1);
+  R.uncount(at(0, 15)); // back before the coffee one: not delivered, not counted
+  expect(R.sentToday(at(0, 16))).toBe(0);
+  expect(R.sentToday(at(1, 9))).toBe(1);
+  // A log saved by an older build ({ day, count }) still counts for its day.
+  m.set('synergytower.reminders', JSON.stringify({ day: new Date(at(0, 12)).toDateString(), count: 2 }));
+  expect(R.sentToday(at(0, 18))).toBe(2);
+  R.countSent(at(0, 18));
+  expect(R.sentToday(at(0, 19))).toBe(3);
+});

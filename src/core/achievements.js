@@ -37,6 +37,8 @@ export const BADGES = [
   { id: 'cleansweep', name: 'Clean Sweep', desc: 'Fire the whole board on floor 40.', icon: 'cart', test: (s) => buildFloor(E.FLOORS).npcs.every((n) => s.fired?.[n.seed]) },
   { id: 'standup', name: 'Daily Scrum', desc: 'Do a daily stand-up.', icon: 'clock', test: (s) => (s.stats.standups || 0) >= 1 },
   { id: 'streak7', name: 'Agile Evangelist', desc: 'Do the daily stand-up 7 days in a row.', icon: 'clock', test: (s) => (s.daily?.best || 0) >= 7 },
+  { id: 'memo', name: 'Read the Memo', desc: 'Play a Daily Memo.', icon: 'book', test: (s) => (s.stats.memos || 0) >= 1 },
+  { id: 'memo7', name: 'Paper Trail', desc: 'Play the Daily Memo 7 days in a row.', icon: 'book', test: (s) => (s.memo?.best || 0) >= 7 },
   { id: 'drill3', name: 'Safety Officer', desc: 'Reach the fire exit in time in 3 fire drills.', icon: 'up', test: (s) => ev(s, 'drill') >= 3 },
   { id: 'cake3', name: 'Let Them Eat Cake', desc: 'Get to the office cake first 3 times.', icon: 'coffee', test: (s) => ev(s, 'cake') >= 3 },
   { id: 'printer3', name: 'Printer Whisperer', desc: 'Fix 3 printer meltdowns.', icon: 'check', test: (s) => ev(s, 'printer') >= 3 },

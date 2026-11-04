@@ -5,7 +5,7 @@ import { BADGES } from '../core/achievements.js';
 import { dayKey } from '../core/daily.js';
 import { Modal } from './overlays.js';
 
-// 47 badges: 10 columns make five rows (seven in the last), so the wall still fits the 270 px screen.
+// 49 badges: 10 columns make five rows (nine in the last), so the wall still fits the 270 px screen.
 export const COLS = 10;
 export const CW = 32;
 const CH = 28;

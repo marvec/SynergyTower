@@ -14,7 +14,7 @@ const ids = (list) => list.map((b) => b.id);
 
 test('badges have unique ids, names and descriptions that fit the wall', () => {
   expect(new Set(ids(A.BADGES)).size).toBe(A.BADGES.length);
-  expect(A.BADGES.length).toBe(47);
+  expect(A.BADGES.length).toBe(49);
   for (const b of A.BADGES) {
     expect(b.name.length).toBeLessThanOrEqual(24);
     expect(b.desc.length).toBeLessThanOrEqual(56);
@@ -29,6 +29,17 @@ test('a new hire has nothing; check-in and the first task unlock their badges on
   expect(ids(A.checkBadges(s, 5))).toEqual(['first_task', 'checkin']);
   expect(s.badges.first_task).toBe(5);
   expect(A.checkBadges(s, 6)).toEqual([]);
+});
+
+test('Daily Memo badges: the first Memo, then a streak of 7', () => {
+  const s = player();
+  expect(ids(A.checkBadges(s, 1))).not.toContain('memo');
+  s.stats.memos = 1;
+  expect(ids(A.checkBadges(s, 2))).toEqual(['memo']);
+  s.memo.best = 6;
+  expect(A.checkBadges(s, 3)).toEqual([]);
+  s.memo.best = 7;
+  expect(ids(A.checkBadges(s, 4))).toEqual(['memo7']);
 });
 
 test('progress badges follow the state', () => {
