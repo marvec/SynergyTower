@@ -94,7 +94,8 @@ body {
   padding: 0 6px;
   border-radius: 0;
 }
-#feedback {
+#feedback,
+#sharebox {
   position: fixed;
   inset: 0;
   z-index: 10;
@@ -109,7 +110,8 @@ body {
   user-select: text;
   touch-action: auto;
 }
-#feedback form {
+#feedback form,
+#sharebox form {
   box-sizing: border-box;
   width: min(440px, 100%);
   display: flex;
@@ -120,16 +122,19 @@ body {
   border: 3px solid #4a4f6e;
   box-shadow: 0 0 0 3px #0d0f18;
 }
-#feedback h2 {
+#feedback h2,
+#sharebox h2 {
   margin: 0;
   font-size: 18px;
   color: #ffd75e;
 }
-#feedback p {
+#feedback p,
+#sharebox p {
   margin: 0;
   color: #aab0cc;
 }
 #feedback textarea,
+#sharebox textarea,
 #feedback input,
 #feedback select {
   box-sizing: border-box;
@@ -141,12 +146,14 @@ body {
   font: 16px ui-monospace, Menlo, Consolas, monospace;
   resize: vertical;
 }
-#feedback .row {
+#feedback .row,
+#sharebox .row {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
-#feedback button {
+#feedback button,
+#sharebox button {
   border: 0;
   padding: 8px 16px;
   font: bold 14px ui-monospace, Menlo, Consolas, monospace;
