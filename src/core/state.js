@@ -30,8 +30,10 @@ export function newGame({ corpName, colorId, playerName, skin = 0, hair = 0 }, n
     played: {}, // mini-game id → times played with this character (any result)
     cooldowns: {},
     perks: {},
-    stats: { tasksPlayed: 0, perfectTasks: 0, soPurchased: 0, promotions: 0, fired: 0, warps: 0, standups: 0, soSpent: 0, coffeeMachine: 0, events: {} },
+    stats: { tasksPlayed: 0, perfectTasks: 0, soPurchased: 0, promotions: 0, fired: 0, warps: 0, standups: 0, memos: 0, soSpent: 0, coffeeMachine: 0, events: {} },
     daily: { day: null, streak: 0, best: 0 }, // daily stand-up (core/daily.js): last local day played + streak of days in a row
+    // Daily Memo (core/memo.js): open = the attempt under way { n, game }; last = the last Memo number played
+    memo: { open: null, last: 0, streak: 0, best: 0, count: 0, toastDay: null, history: [] },
     events: { nextAt: now + 5 * 60 * 1000 }, // random office events (core/events.js): none before this wall-clock time
     desk: { owned: [], show: {} }, // your desk, moves with you: owned decor ids + one on show per slot (core/desk.js)
     badges: {}, // badge id → unlocked at (core/achievements.js)

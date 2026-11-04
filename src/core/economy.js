@@ -50,6 +50,8 @@ export const TURNSTILE_COFFEE = 1;
 export const STANDUP_COFFEE = 1;
 export const STANDUP_SO_CHANCE = 0.2;
 export const STANDUP_STREAK_SO = 7; // every 7th day in a row pays a Stock Option for sure
+/** Daily Memo (core/memo.js): 1+ star pays this many times a task's paperclips on your highest floor; nothing else. */
+export const MEMO = 1;
 /** Random office events (core/events.js): quiet time on a floor first, then a gap between events. */
 export const EVENT_MIN_ON_FLOOR_S = 40;
 export const EVENT_GAP_MIN_S = 6 * 60;
