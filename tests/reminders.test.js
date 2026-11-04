@@ -55,3 +55,48 @@ test('reminders are sorted soonest first', () => {
 test('no coffee reminder before the lobby check-in: the empty card does not refill on its own', () => {
   expect(upcomingReminders(hire(), 0)).toEqual([]);
 });
+
+// ------------------------------------------------------------ the Daily Memo reminder
+const M = await import('../src/core/memo.js');
+const [EY, EM, ED] = M.MEMO_EPOCH.split('-').map(Number);
+const memoDay = (n, h = 12) => new Date(EY, EM - 1, ED + n - 1, h).getTime();
+const memoOf = (s, now) => upcomingReminders(s, now).find((r) => r.kind === 'memo');
+
+test('the Memo reminder: 10:00 today while today\'s Memo waits, else 10:00 tomorrow', () => {
+  const s = fresh();
+  const r = memoOf(s, memoDay(20, 8));
+  expect(r.at).toBe(memoDay(20, 10));
+  expect(r.title).toContain('#20');
+  // In the afternoon a reminder for today would come after the player is back: tomorrow's instead.
+  expect(memoOf(s, memoDay(20, 15)).at).toBe(memoDay(21, 10));
+  expect(memoOf(s, memoDay(20, 15)).title).toContain('#21');
+  // Today's done: tomorrow's.
+  M.startMemo(s, memoDay(20, 9));
+  M.completeMemo(s, 20, 0.7);
+  expect(memoOf(s, memoDay(20, 9)).at).toBe(memoDay(21, 10));
+});
+
+test('no Memo reminder before the check-in; the list stays soonest first', () => {
+  const s = fresh();
+  s.lobby = 'checkin';
+  expect(memoOf(s, memoDay(20, 8))).toBeUndefined();
+  s.lobby = 'done';
+  s.coffee = { value: 0, updatedAt: memoDay(20, 8) };
+  const list = upcomingReminders(s, memoDay(20, 8));
+  expect(list.map((r) => r.kind).sort()).toEqual(['coffee', 'memo']);
+  for (let i = 1; i < list.length; i++) expect(list[i].at).toBeGreaterThanOrEqual(list[i - 1].at);
+});
+
+test('every reminder kind has a native notification id', async () => {
+  const { NATIVE_IDS } = await import('../src/engine/reminders.js');
+  const s = fresh();
+  s.coffee = { value: 0, updatedAt: memoDay(20, 8) };
+  s.cooldowns[S.reviewKey(1)] = memoDay(20, 9);
+  s.starsByFloor[1] = E.starQuota(1);
+  s.level = E.levelRequiredForFloor(2);
+  s.sp = E.keycardFee(1);
+  const kinds = upcomingReminders(s, memoDay(20, 8)).map((r) => r.kind);
+  expect(kinds.sort()).toEqual(['coffee', 'memo', 'review']);
+  for (const k of kinds) expect(NATIVE_IDS[k]).toBeGreaterThan(0);
+  expect(new Set(Object.values(NATIVE_IDS)).size).toBe(Object.keys(NATIVE_IDS).length);
+});

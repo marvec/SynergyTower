@@ -119,7 +119,8 @@ export function initReminders(game) {
 }
 
 // ---- the app: local notifications, scheduled ahead (the WebView doesn't run in the background)
-const NATIVE_IDS = { coffee: 1, review: 2 };
+/** One id per reminder kind (core/reminders.js): an item without one would fail the whole schedule call. */
+export const NATIVE_IDS = { coffee: 1, review: 2, memo: 3 };
 
 /** The time a reminder may be shown: `at`, or 08:00 when `at` falls in the quiet hours. */
 export function outsideQuiet(at) {
