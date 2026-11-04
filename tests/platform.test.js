@@ -33,10 +33,11 @@ function installApp(platform, plugins) {
     },
   };
 }
-const saved = { window: globalThis.window, localStorage: globalThis.localStorage };
+const saved = { window: globalThis.window, localStorage: globalThis.localStorage, document: globalThis.document };
 afterEach(() => {
   globalThis.window = saved.window;
   globalThis.localStorage = saved.localStorage;
+  globalThis.document = saved.document; // other test files share these globals: the keyboard test swaps in a text field
 });
 
 test('the website shows everything; the store apps hide the tip jar, the demo checkout and the store badges', () => {

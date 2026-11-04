@@ -27,13 +27,15 @@ function pixelCanvas(w = 16, h = 16) {
   return c;
 }
 const made = [];
-globalThis.document ??= {};
-const realCreate = globalThis.document.createElement;
-afterAll(() => (globalThis.document.createElement = realCreate)); // other test files share this global
-globalThis.document.createElement = () => {
-  const c = pixelCanvas();
-  made.push(c);
-  return c;
+const realDocument = globalThis.document;
+afterAll(() => (globalThis.document = realDocument)); // other test files share this global (it may not exist yet)
+globalThis.document = {
+  ...realDocument,
+  createElement: () => {
+    const c = pixelCanvas();
+    made.push(c);
+    return c;
+  },
 };
 const { bakeCharacter, CHAR_W, CHAR_H } = await import('../src/engine/art.js');
 const { npcLook, npcIdentity, suit } = await import('../src/scenes/floorWorld.js');

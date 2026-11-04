@@ -337,7 +337,7 @@ test('the clock runs out on A: a short message, back upstairs, no task, nothing 
   expect(up.floorNo).toBe(23);
   expect({ sp: s.sp, level: s.level, coffee: s.coffee.value, so: s.so }).toEqual(before);
   expect(A.archiveOffer(s, 23)).toBe(false); // gone for this floor
-});
+}, 30000); // 330 lit frames: over 5 s on CI when many test files ran before it
 
 test('giving up at the elevator without the folder ends the task cleanly', async () => {
   const game = career(3);
