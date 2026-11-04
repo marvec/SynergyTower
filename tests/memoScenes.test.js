@@ -295,3 +295,51 @@ test('the stand-up and the Memo on the same day keep their own streaks', async (
   expect(M.memoStatus(s, game.now())).toBe('done');
   expect(D.standupStatus(s, game.now())).toBe('done');
 });
+
+// ------------------------------------------------------------ the stats dialog's Memo tab
+const { StatsDialog, STAT_TABS } = await import('../src/scenes/statsDialog.js');
+
+test('the stats dialog has a Memo tab with today, the streaks and the last results', async () => {
+  const { game, s } = onFloor(9, memoDay(40));
+  const dlg = new StatsDialog(game, 'memo');
+  game.push(dlg);
+  expect(STAT_TABS[dlg.tab].key).toBe('memo');
+  await tick(game, 1);
+  let info = dlg.info();
+  expect(info.title).toBe('Daily Memo #40');
+  expect(info.rows.length).toBe(2); // streak and best, no results yet
+  for (let n = 1; n <= 39; n++) {
+    M.startMemo(s, memoDay(n));
+    M.completeMemo(s, n, (n % 10) / 10);
+  }
+  dlg.render(g);
+  info = dlg.info();
+  expect(info.rows.find((r) => r[0] === 'Streak')[2]).toBe('39 days');
+  expect(info.rows.length).toBeGreaterThan(2);
+  for (const r of info.rows) for (const ch of r.join('')) expect(hasGlyph(ch)).toBe(true);
+  for (const ch of info.text + info.value) expect(hasGlyph(ch)).toBe(true);
+  // A missed Memo: the streak reads 0, the best stays.
+  game.setNow(memoDay(42));
+  info = dlg.info();
+  expect(info.rows.find((r) => r[0] === 'Streak')[2]).toBe('0 days');
+  expect(info.rows.find((r) => r[0] === 'Best streak')[2]).toBe('39 days');
+  dlg.render(g);
+});
+
+test('seven tabs fit the dialog, and a click picks the tab under it', async () => {
+  const { game } = onFloor();
+  const dlg = new StatsDialog(game, 'sp');
+  game.push(dlg);
+  await tick(game, 1);
+  expect(STAT_TABS.length).toBe(7);
+  expect(dlg.tabsX).toBeGreaterThanOrEqual(dlg.x + 2);
+  expect(dlg.tabsX + dlg.tabW * STAT_TABS.length).toBeLessThanOrEqual(dlg.x + dlg.w - 2);
+  for (let i = 0; i < STAT_TABS.length; i++) {
+    const p = game.input.pointer;
+    game.input.beginFrame();
+    Object.assign(p, { x: dlg.tabsX + i * dlg.tabW + dlg.tabW / 2, y: dlg.y + 22, clicked: true });
+    dlg.update(1 / 60);
+    game.input.endFrame();
+    expect(dlg.tab).toBe(i);
+  }
+});
