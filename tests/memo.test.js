@@ -54,6 +54,17 @@ test('memoFor fixes the game, seed, difficulty and department', () => {
   expect(M.memoFor(1).seed).not.toBe(M.memoFor(2).seed);
 });
 
+test('the theme is fixed by the Memo: its department and that department\'s first floor', () => {
+  const m = M.memoFor(212);
+  const t = M.memoTheme(m);
+  expect(t.dept).toBe(m.dept);
+  expect(t.stats.stars).toBe(0);
+  expect((t.stats.floor - 1) % 5).toBe(0);
+  expect(DEPARTMENTS[(t.stats.floor - 1) / 5].id).toBe(m.dept);
+  expect(typeof t.title).toBe('string');
+  expect(M.memoTheme(m)).toEqual(t);
+});
+
 test('every pool game comes once per cycle, never on two days in a row', () => {
   const games = M.MEMO_POOLS[0].games;
   const L = games.length;

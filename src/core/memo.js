@@ -5,7 +5,8 @@ import * as E from './economy.js';
 import { onHold } from './conduct.js';
 import { dayKey } from './daily.js';
 import { createRng, hashString } from './rng.js';
-import { DEPARTMENTS } from '../data/departments.js';
+import { DEPARTMENTS, titleForFloor } from '../data/departments.js';
+import { taskTitle } from '../data/taskTitles.js';
 
 /** Memo #1. Set to the release date in the release PR. */
 export const MEMO_EPOCH = '2026-11-01';
@@ -64,6 +65,15 @@ export function memoFor(n) {
   const difficulty = Math.round((0.3 + rng.next() * 0.5) * 100) / 100;
   const dept = rng.pick(DEPARTMENTS).id;
   return { n, game, seed: hashString(`memo-game:${n}`), difficulty, dept };
+}
+
+/**
+ * The theme the host passes to the game: fixed by the Memo, never by the career (password reads stats.floor), so
+ * every career gets the same content. The floor is the department's first.
+ */
+export function memoTheme(memo) {
+  const floor = 1 + 5 * DEPARTMENTS.findIndex((d) => d.id === memo.dept);
+  return { dept: memo.dept, title: taskTitle(memo.game, memo.dept), stats: { floor, stars: 0, title: titleForFloor(floor) } };
 }
 
 /** 'locked' (no badge yet, compliance hold), 'none' (before the epoch), 'done' (played or under way), else 'pending'. */
