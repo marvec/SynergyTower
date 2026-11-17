@@ -7,3 +7,4 @@ dist/
 .env*.local
 .playwright-mcp/
 .notes
+dist-zip/
