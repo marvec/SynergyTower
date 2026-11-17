@@ -10,6 +10,7 @@
     "build": "bun scripts/build.js",
     "preview": "bun scripts/preview.js",
     "test": "bun test",
-    "build:app": "bun scripts/build-app.js"
+    "build:app": "bun scripts/build-app.js",
+    "build:zip": "bun scripts/build-zip.js"
   }
 }

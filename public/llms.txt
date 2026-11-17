@@ -54,5 +54,6 @@ SynergyTower also runs on a real or emulated Commodore 64: https://synergytower.
 - [How to play](https://synergytower.co.uk/how-to-play/): the complete guide: lobby check-in, coffee, KPI stars, promotions, bonuses, events, badges and all 48 mini-games with screenshots
 - [Commodore 64 version](https://synergytower.co.uk/c64/): download page for the C64 port (D64 disk images)
 - [Source code](https://github.com/marvec/SynergyTower): GitHub repository with README
+- [itch.io page](https://marvec82.itch.io/synergy-tower): the game's itch.io page, with the C64 version as a download
 - [Support the author](https://buymeacoffee.com/marvec): Buy Me a Coffee
 - Feedback, bug reports, new task ideas and sponsorship enquiries: use the "Feedback" link on the title screen or "Send feedback" in the in-game menu. Brands can sponsor the "Your logo here" posters in the tower's hallways.

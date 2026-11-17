@@ -56,11 +56,22 @@ export function plugin(name) {
   return c.Plugins?.[name] || c.registerPlugin(name);
 }
 
+const SITE = 'https://synergytower.co.uk/';
+
+/**
+ * True where the page comes from the website or a local dev/preview server, which also serve the site's other pages
+ * (/how-to-play/, /privacy/, /c64/). Elsewhere (the downloadable ZIP on file://, itch.io) relative links go to the website.
+ */
+function servesSitePages() {
+  if (typeof location === 'undefined' || !/^https?:$/.test(location.protocol)) return false;
+  return ['synergytower.co.uk', 'www.synergytower.co.uk', 'localhost', '127.0.0.1'].includes(location.hostname);
+}
+
 /** Opens an outside web page: a new tab in the browser, the in-app browser sheet in the app. */
 export function openExternal(url) {
   const browser = plugin('Browser');
-  if (browser) return void browser.open({ url: new URL(url, 'https://synergytower.co.uk/').href }).catch(() => {});
-  window.open(url, '_blank', 'noopener');
+  if (browser) return void browser.open({ url: new URL(url, SITE).href }).catch(() => {});
+  window.open(servesSitePages() ? url : new URL(url, SITE).href, '_blank', 'noopener');
 }
 
 // ---- saves: localStorage everywhere; the app also mirrors it to native storage (Capacitor Preferences),

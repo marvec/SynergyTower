@@ -13,6 +13,7 @@ bun run dev      # dev server with hot reload → http://localhost:5317 (service
 bun run build    # static offline-capable build → dist/
 bun run preview  # serve dist/ → http://localhost:4317 (service worker active)
 bun test         # unit + headless smoke tests (MG=inbox,quiz bun test tests/minigames.test.js for a subset)
+bun run build:zip  # locally playable ZIP (one inlined index.html, works from file://, also itch.io HTML5) → dist-zip/
 bun run build:app  # the store apps' bundle → mobile/www (then `cd mobile && npm run sync`, see mobile/README.md)
 ```
 
@@ -144,6 +145,9 @@ where they say more than text. Existing Markdown plans stay as they are.
   `public/og-image.png` (1200×630) is the title screen at 2.5× with the bottom 18 px cropped, captured from the dev server.
   Re-take it when the title changes (e.g. the game count) and bump its `?v=` in the meta tags of `src/index.html` and
   `public/how-to-play/index.html`: link previews (Slack, Discord, Facebook, LinkedIn) cache the image by URL.
+- itch.io page (https://marvec82.itch.io/synergy-tower, links out to the website, the C64 ZIP as its download): the kit is
+  `itch/` (README with the page settings, `description.html` to paste, cover/banner art from `bun itch/build-art.js`,
+  `push.sh` uploads the C64 ZIP with butler). Keep its description in step with `llms.txt`.
 - Player guide: `public/how-to-play/index.html`, a static page (no bundling) linked as "Read more..." from the How to play
   dialog (`howToDialog` in overlays.js). Keep its facts in step with economy.js and the features (numbers, controls, game
   list). Screenshots in `img/` are canvas grabs (`canvas.toDataURL()` at 480×270, scaled 2× nearest-neighbour to 960×540)
